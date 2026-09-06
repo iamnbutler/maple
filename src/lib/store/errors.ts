@@ -26,7 +26,10 @@ export class ValidationError extends Error {
 	}
 
 	/** Build a ValidationError from a zod `ZodError`-shaped object. */
-	static fromZod(error: { issues: readonly { path: PropertyKey[]; message: string; code?: string }[] }, message = 'Validation failed'): ValidationError {
+	static fromZod(
+		error: { issues: readonly { path: PropertyKey[]; message: string; code?: string }[] },
+		message = 'Validation failed'
+	): ValidationError {
 		return new ValidationError(
 			message,
 			error.issues.map((issue) => ({

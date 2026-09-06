@@ -228,8 +228,8 @@ floors) and labels DPM-based verdicts as `uncalibrated`.
    cube/flame prices and crystal values throughout.
 2. **Classes: Ren (priority), Hero, Wind Archer, Battle Mage, Night Walker.** The class table still
    covers everything, but these five are the ones that must be exactly right and explicitly tested.
-   Hero needs its 1H/2H weapon-constant variants. Xenon and Demon Avenger keep their stat-multiplier
-   branches (they're in the formula) but get no bespoke coverage.
+   **Hero is two-handed only** — weapon constant 1.44, no 1H/2H switching. Xenon and Demon Avenger
+   keep their stat-multiplier branches (they're in the formula) but get no bespoke coverage.
 3. **In-app LLM calls are allowed** ("do it if helpful — I have keys"). Still not needed for stage 1:
    the external agent owns screenshot parsing. Revisit for a convenience "paste a screenshot here"
    route once the API is proven.

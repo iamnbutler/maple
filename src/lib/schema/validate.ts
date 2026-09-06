@@ -8,12 +8,7 @@
 // this module free of calc imports so it stays usable from the API layer alone.
 
 import type { Character } from './character';
-import {
-	CATEGORY_BY_SLOT,
-	STAR_FORCEABLE_CATEGORIES,
-	type Item,
-	type Slot
-} from './item';
+import { CATEGORY_BY_SLOT, STAR_FORCEABLE_CATEGORIES, type Item, type Slot } from './item';
 import { ADDITIVE_STAT_KEYS, type StatBlock } from './stats';
 
 /** Component blocks of the tooltip's parenthesised decomposition. */

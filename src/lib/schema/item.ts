@@ -100,10 +100,14 @@ export const STAR_FORCEABLE_CATEGORIES: readonly ItemCategory[] = [
 	'accessory'
 ];
 
-export const GradeSchema = z.enum(['rare', 'epic', 'unique', 'legendary']).describe('potential grade');
+export const GradeSchema = z
+	.enum(['rare', 'epic', 'unique', 'legendary'])
+	.describe('potential grade');
 export type Grade = z.infer<typeof GradeSchema>;
 
-const potentialLine = z.string().min(1, 'potential lines must be non-empty; use "none" for an absent line');
+const potentialLine = z
+	.string()
+	.min(1, 'potential lines must be non-empty; use "none" for an absent line');
 
 /**
  * Raw tooltip lines. Always exactly three whenever a grade is visible — VLMs
