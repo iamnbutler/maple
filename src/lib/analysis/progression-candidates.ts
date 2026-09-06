@@ -219,9 +219,20 @@ export function generateLegionBoard(character: Character): CandidateResult {
 		return { candidates, notes: [`A Legion needs level ${legion.LEGION_MIN_LEVEL} to exist.`] };
 	}
 
-	const board = character.legion?.board ?? {};
-	if (Object.keys(board).length === 0) {
-		notes.push('No board squares captured; every area was treated as empty.');
+	const board = character.legion?.board;
+
+	// ABSENT IS NOT ZERO — same rule as the V Matrix generator. Treating an
+	// uncaptured board as empty proposes filling Boss Damage from 0 to 40 squares
+	// for +40% boss damage, which tops the board and is fiction for anyone whose
+	// Legion is already built.
+	if (!board || Object.keys(board).length === 0) {
+		return {
+			candidates,
+			notes: [
+				'No Legion board squares captured, so no board upgrades were considered. ' +
+					'An uncaptured area is not an empty area.'
+			]
+		};
 	}
 
 	const rank = legion.legionRankAt(legionLevel);
@@ -456,24 +467,45 @@ export function generateVMatrix(character: Character): CandidateResult {
 	const captured = new Map(
 		(character.vMatrix?.boost ?? []).map((node) => [node.id, node.level] as const)
 	);
+
+	// ABSENT IS NOT ZERO.
+	//
+	// Treating uncaptured boost nodes as level 0 proposes a 0 → 60 jump worth
+	// +120% Final Damage, which lands at the very top of the board and is pure
+	// fiction — the real Ren has all six nodes at 60/60 and no upgrade available
+	// at all. A note the user might not read is no defence against a candidate
+	// ranked first, so generate nothing.
 	if (captured.size === 0) {
-		notes.push('No V Matrix boost node levels captured; every node was treated as level 0.');
+		return {
+			candidates,
+			notes: [
+				'No V Matrix boost node levels captured, so no V Matrix upgrades were considered. ' +
+					'Capture them before trusting the board: an uncaptured node is not a level-0 node.'
+			]
+		};
 	}
 
 	for (const node of roster) {
 		if (node.priority !== 'primary') continue;
 
-		// A node covering several skills is worth its BEST coefficient at most —
-		// only one skill fires on a given line of damage.
-		const best = node.skills.reduce((a, b) => (b.fdPerLevel > a.fdPerLevel ? b : a));
-		const level = captured.get(node.skills[0].skill) ?? captured.get(String(node.index)) ?? 0;
+		// A node covering several skills grants each of them Final Damage at ITS
+		// OWN rate, so there is no single number. Take the LOWEST rate in the
+		// node: without a rotation model we cannot know which skill carries the
+		// damage, and understating an upgrade is the safer error.
+		const lowest = node.skills.reduce((a, b) => (b.fdPerLevel < a.fdPerLevel ? b : a));
+		const highest = node.skills.reduce((a, b) => (b.fdPerLevel > a.fdPerLevel ? b : a));
+		const level = captured.get(node.skills[0].skill) ?? captured.get(String(node.index));
+		if (level === undefined) {
+			notes.push(`Boost Node ${node.index} (${node.skills[0].skill}) was not captured; skipped.`);
+			continue;
+		}
 
 		for (const to of [40, 60] as const) {
 			if (level >= to) continue;
 
 			const fdGain =
-				vmatrix.boostNodeFinalDamage(best.fdPerLevel, to) -
-				vmatrix.boostNodeFinalDamage(best.fdPerLevel, level);
+				vmatrix.boostNodeFinalDamage(lowest.fdPerLevel, to) -
+				vmatrix.boostNodeFinalDamage(lowest.fdPerLevel, level);
 
 			const delta: Delta = { fd: fdGain };
 			// The +20% IED milestone at Lv40 is real and is not skill-scoped in
@@ -501,7 +533,12 @@ export function generateVMatrix(character: Character): CandidateResult {
 				confidence: 'estimated',
 				feasibility: 'routine',
 				notes: [
-					'Boost node Final Damage applies only to the skills this node names. Treated here as if that skill carries the rotation, which overstates it for anything but a primary bossing skill.'
+					'Boost node Final Damage applies only to the skills this node names. Treated here as if that skill carries the rotation, which overstates it for anything but a primary bossing skill.',
+					...(highest.fdPerLevel !== lowest.fdPerLevel
+						? [
+								`This node covers skills at ${lowest.fdPerLevel}%-${highest.fdPerLevel}% Final Damage per level; the lower figure is used.`
+							]
+						: [])
 				]
 			});
 		}

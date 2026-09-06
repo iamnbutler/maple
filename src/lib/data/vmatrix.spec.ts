@@ -169,6 +169,64 @@ describe('boost nodes', () => {
 	});
 });
 
+describe('the five priority classes', () => {
+	const PRIORITY = ['ren', 'hero', 'wind-archer', 'battle-mage', 'night-walker'] as const;
+
+	it('has a six-node boost roster for each', () => {
+		for (const classId of PRIORITY) {
+			expect(BOOST_NODES[classId], classId).toHaveLength(6);
+			expect(
+				BOOST_NODES[classId].map((n) => n.index),
+				classId
+			).toEqual([1, 2, 3, 4, 5, 6]);
+		}
+	});
+
+	it('has four job nodes for each', () => {
+		for (const classId of PRIORITY) {
+			expect(JOB_NODES[classId], classId).toHaveLength(4);
+		}
+	});
+
+	it('gives each a bossing set of primary nodes', () => {
+		for (const classId of PRIORITY) {
+			const primary = BOOST_NODES[classId].filter((n) => n.priority === 'primary');
+			expect(primary.length, classId).toBeGreaterThanOrEqual(4);
+		}
+	});
+
+	it('prices every primary bossing skill at 2% or 3%', () => {
+		// The 5% and 7% skills are all levelling/mobility, and they sit on the
+		// non-bossing nodes in every one of the five rosters.
+		for (const classId of PRIORITY) {
+			const primary = BOOST_NODES[classId]
+				.filter((n) => n.priority === 'primary')
+				.flatMap((n) => n.skills);
+			for (const skill of primary) {
+				expect(skill.fdPerLevel, `${classId} ${skill.skill}`).toBeLessThanOrEqual(3);
+			}
+		}
+	});
+
+	it('records the per-skill exceptions to the job-tier pattern', () => {
+		// Battle Mage's Condemnation is a 1st-job skill at 2%, not 7%.
+		const condemnation = BOOST_NODES['battle-mage']
+			.flatMap((n) => n.skills)
+			.find((s) => s.skill === 'Condemnation');
+		expect(condemnation?.fdPerLevel).toBe(2);
+		// Night Walker's Shadow Bat, likewise.
+		const shadowBat = BOOST_NODES['night-walker']
+			.flatMap((n) => n.skills)
+			.find((s) => s.skill === 'Shadow Bat');
+		expect(shadowBat?.fdPerLevel).toBe(2);
+	});
+
+	it('flags the Hero node-2 conflict rather than hiding it', () => {
+		const node2 = BOOST_NODES.hero.find((n) => n.index === 2);
+		expect(node2?.note).toMatch(/CONFLICT/);
+	});
+});
+
 describe("Ren's boost nodes", () => {
 	const ren = BOOST_NODES.ren;
 

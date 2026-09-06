@@ -1,6 +1,6 @@
 # Progression systems: V Matrix, HEXA, Link Skills, Legion board + Artifact
 
-Status: in progress · Started 2026-09-06 · Branch `worktree-progression-systems`
+Status: data + candidates landed · 2026-09-06 · Branch `progression-systems`
 
 Extends `docs/plans/2026-09-06-maple-design.md`. Read that first — this plan
 assumes its §2 (stat window is the source of truth), §3 (units) and §4
@@ -189,27 +189,83 @@ pure table lookups over the character document.
 
 ## 7. Order of work
 
-1. ✅ Research dispatched for V Matrix, HEXA, Legion Artifact.
-2. `legion.ts` + tests (research complete).
-3. `links.ts` + tests (research complete).
-4. Schema extensions + migration of the `links` field.
-5. `legion-artifact.ts`, `vmatrix.ts`, `hexa.ts` as research lands.
-6. Candidate generators + `analysis/types.ts` contract changes.
-7. Attribution pass: subtract what we can now explain from `GearResidual`.
-8. Capture Ren's real values into `data/characters/lutoren.json`.
+1. ✅ Research: `vmatrix.md`, `hexa.md`, `legion-artifact.md` written and cited.
+2. ✅ `legion.ts` + 46 tests.
+3. ✅ `links.ts` + 46 tests.
+4. ✅ Schema: `legion`, `links`, `vMatrix`, `hexa`, with the `links` migration.
+5. ✅ `legion-artifact.ts`, `vmatrix.ts`, `hexa.ts` + tests.
+6. ✅ Candidate generators + `analysis/types.ts` contract changes.
+7. ⬜ Attribution pass: subtract what we can now explain from `GearResidual`.
+8. ⬜ Capture Ren's real values into `data/characters/lutoren.json`.
+
+### What landed
+
+| Module | Tests | Ground truth |
+|---|---|---|
+| `src/lib/data/legion.ts` | 46 | Legion 9083 → Legendary III / 38 members; the whole grid-bonus list |
+| `src/lib/data/links.ts` | 46 | faction caps; the self-vs-mule split |
+| `src/lib/data/legion-artifact.ts` | 40 | all nine artifact lines, summing to the exact Lv39 budget |
+| `src/lib/data/vmatrix.ts` | 47 | cost curves from the wiki's Lua source; five class rosters |
+| `src/lib/data/hexa.ts` | 44 | every stat line, every enhancement rate, both applied totals |
+| `src/lib/analysis/progression-candidates.ts` | 41 | generators run against the real captured Ren |
+
+### The rule that came out of building it
+
+**Absent is not zero, and a note is not a defence.** The first working version
+defaulted uncaptured V Matrix and Legion board data to level 0, then proposed a
+0 → 60 boost node worth +120% Final Damage. It ranked *first on the whole board*
+and was fiction — the real Ren has all six nodes at 60/60 and no upgrade
+available. Both generators now produce nothing at all when the data is missing,
+and say why. A warning the user might not read cannot offset a candidate ranked
+above everything real.
+
+### Corrections made to the research while transcribing it
+
+- `hexa.md` §2.9's whole-character total (1,527 / 35,432) does not follow from
+  its own per-node table, which gives **1,535 / 43,976**. Doc corrected; the
+  module derives the total rather than hardcoding it.
+- `hexa.md` §7.7's unreconciled `06/20` reading is **resolved** from the
+  screenshots: the HEXA Stat panel shows a saved node and the live one side by
+  side with one counter under the left tile. The sum rule holds.
+- `docs/capture/2026-09-06-lutoren.md` had its two HEXA Stat cores labelled the
+  wrong way round, and repeated the `06/20` misread. Both corrected.
+- `formulas.md` line 249's "maxed boost nodes give ×2.2" is right only for
+  4th-job and Hyper skills; the coefficient is per-skill.
+- `formulas.md` §4B §2 §8.2's Artifact "per-stat caps" table is really the
+  level-10 column of a per-level value table, not a cap system.
 
 ---
 
 ## 8. Open questions
 
-- **Grid "Damage +20.00%" vs "Critical Damage +20%"** in the Ren capture. The
-  research says the outer board has no plain Damage area, and Critical Damage
-  at 40 squares is exactly +20%. Reading the screenshot again, the line above it
-  is "Normal Enemy Damage.." truncated — so the list is
-  `… Normal Enemy Damage +40% / Critical Damage +20.00% / Critical Rate +12%`.
-  Treating it as Critical Damage. Flagged here in case it is wrong.
-- **Is the V Matrix "Common Nodes" tab the same thing as the announced v271
-  "HEXA common nodes"?** They may be one feature with two UIs. Research will say.
-- **Uptime model for conditional links and boost nodes.** There is no principled
-  answer without a rotation model, which this project does not have. Defaulting
-  to a stated assumption and marking confidence `estimated`.
+Resolved while building:
+
+- ~~Grid "Damage +20.00%" vs "Critical Damage +20%"~~ — Critical Damage. The
+  outer board has no plain Damage area, and 40 squares × 0.5% is exactly +20%.
+- ~~Is the V Matrix "Common Nodes" tab the v271 "HEXA common nodes"?~~ — **No.**
+  They are unrelated. V Matrix common nodes have existed since GMS v179 (2016)
+  and cost V Points; HEXA common nodes are 6th job and cost Sol Erda.
+
+Still open, in the order they matter:
+
+1. **Nodestone drop rates in GMS Heroic.** Unsourced anywhere — the wiki's drop
+   list is explicitly for non-Heroic worlds. Without it, no V Matrix candidate
+   can be priced in days, only in V Points.
+2. **Sol Hecate's per-level effect.** 208 Sol Erda and 6,268 fragments of
+   bossing damage with no published curve, so it cannot be ranked at all.
+3. **Uptime for conditional links and stacking buffs.** No principled answer
+   without a rotation model. Cooldown-based uptimes are exact arithmetic;
+   stack- and proc-based ones are stated guesses marked `estimated`.
+4. **Whether link flat stat is `% applied` or `% not applied`.** The research
+   settles neither. `links.ts` exports `LINK_FLAT_STAT_CHANNEL = 'unverified'`
+   and the generator takes the pessimistic reading. Only Pirate Blessing is
+   affected.
+5. **Skill-scoped Final Damage against a global FD term.** V Matrix and HEXA
+   boost nodes boost one named skill; `CalcInput` has one FD number. Every
+   candidate built on that is `estimated` and says so, but the real fix is a
+   rotation model.
+6. **`Decent Advanced Blessing`'s active values** appear identical at Lv1 and
+   Lv30 on the wiki. Possibly a template artefact — worth an in-game check.
+7. **Legion Artifact crystal extension cost** — namu says 1,000 points pro-rated
+   over 30 days, digitaltq observed 470 in GMS. The rounding rule is unverified,
+   and crystal upkeep is a real recurring cost the tracker does not yet model.

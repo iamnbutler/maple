@@ -320,11 +320,221 @@ export const BOOST_NODES: Record<string, readonly BoostNodeSpec[]> = {
 			milestone20: 'maxTargets',
 			priority: 'other'
 		}
+	],
+
+	hero: [
+		{
+			index: 1,
+			skills: [{ skill: 'Raging Blow', fdPerLevel: 2 }],
+			milestone20: 'maxTargets',
+			priority: 'primary'
+		},
+		{
+			index: 2,
+			skills: [{ skill: 'Rising Rage', fdPerLevel: 2 }],
+			milestone20: 'maxTargets',
+			priority: 'primary',
+			note: '⚠️ CONFLICT — maplestorywiki and Grandis Library disagree on whether Rising Rage or Cry Valhalla sits alone in this node. Damage-neutral, but it matters for the HEXA Mastery gate. The wiki ordering is used.'
+		},
+		{
+			index: 3,
+			skills: [{ skill: 'Beam Blade', fdPerLevel: 2 }],
+			milestone20: 'maxTargets',
+			priority: 'primary'
+		},
+		{
+			index: 4,
+			skills: [
+				{ skill: 'Cry Valhalla', fdPerLevel: 2 },
+				{ skill: 'Puncture', fdPerLevel: 2 },
+				{ skill: 'Final Attack', fdPerLevel: 2 }
+			],
+			milestone20: 'criticalRate',
+			priority: 'primary'
+		},
+		{
+			index: 5,
+			skills: [
+				{ skill: 'Leap Attack', fdPerLevel: 3 },
+				{ skill: 'Rush', fdPerLevel: 3 },
+				{ skill: 'Flash Blade', fdPerLevel: 5 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'other',
+			note: "Hero's table has no 7% row at all — Flash Blade at 5% is its lowest-tier boosted skill. Either Hero's 1st-job attack has no boost node or Hero breaks the tier pattern. UNVERIFIED."
+		},
+		{
+			index: 6,
+			skills: [
+				{ skill: 'Brandish', fdPerLevel: 2 },
+				{ skill: 'Intrepid Slash', fdPerLevel: 3 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'other'
+		}
+	],
+
+	'wind-archer': [
+		{
+			index: 1,
+			skills: [{ skill: 'Song of Heaven', fdPerLevel: 2 }],
+			milestone20: 'maxTargets',
+			priority: 'primary'
+		},
+		{
+			index: 2,
+			skills: [{ skill: 'Trifling Wind', fdPerLevel: 2 }],
+			milestone20: 'criticalRate',
+			priority: 'primary',
+			note: 'a 2nd-job skill priced at 2%, not the 5% the tier pattern would predict'
+		},
+		{
+			index: 3,
+			skills: [
+				{ skill: 'Fairy Spiral', fdPerLevel: 2 },
+				{ skill: 'Storm Bringer', fdPerLevel: 2 },
+				{ skill: 'Monsoon', fdPerLevel: 2 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'primary'
+		},
+		{
+			index: 4,
+			skills: [{ skill: 'Storm Whim', fdPerLevel: 2 }],
+			milestone20: 'criticalRate',
+			priority: 'primary'
+		},
+		{
+			index: 5,
+			skills: [
+				{ skill: 'Pinpoint Pierce', fdPerLevel: 3 },
+				{ skill: 'Sentient Arrow', fdPerLevel: 2 }
+			],
+			milestone20: 'criticalRate',
+			priority: 'other'
+		},
+		{
+			index: 6,
+			skills: [
+				{ skill: 'Gust Shot', fdPerLevel: 5 },
+				{ skill: 'Spiraling Vortex', fdPerLevel: 5 },
+				{ skill: 'Breeze Arrow', fdPerLevel: 7 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'other'
+		}
+	],
+
+	'battle-mage': [
+		{
+			index: 1,
+			skills: [{ skill: 'Condemnation', fdPerLevel: 2 }],
+			milestone20: 'criticalRate',
+			priority: 'primary',
+			note: 'a 1st-job skill priced at 2%, not 7% — the clearest counter-example to the tier pattern'
+		},
+		{
+			index: 2,
+			skills: [
+				{ skill: 'Finishing Blow', fdPerLevel: 2 },
+				{ skill: 'Sweeping Staff', fdPerLevel: 2 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'primary'
+		},
+		{
+			index: 3,
+			skills: [{ skill: 'Dark Shock', fdPerLevel: 2 }],
+			milestone20: 'maxTargets',
+			priority: 'primary'
+		},
+		{
+			index: 4,
+			skills: [{ skill: 'Dark Genesis', fdPerLevel: 2 }],
+			milestone20: 'criticalRate',
+			priority: 'primary'
+		},
+		{
+			index: 5,
+			skills: [
+				{ skill: 'Dark Chain', fdPerLevel: 2 },
+				{ skill: 'Battle Burst', fdPerLevel: 2 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'other'
+		},
+		{
+			index: 6,
+			skills: [
+				{ skill: 'Triple Blow', fdPerLevel: 7 },
+				{ skill: 'Quad Blow', fdPerLevel: 5 },
+				{ skill: 'Quintuple Blow', fdPerLevel: 3 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'other'
+		}
+	],
+
+	'night-walker': [
+		{
+			index: 1,
+			skills: [{ skill: 'Quintuple Star', fdPerLevel: 2 }],
+			milestone20: 'criticalRate',
+			priority: 'primary'
+		},
+		{
+			index: 2,
+			skills: [
+				{ skill: 'Shadow Bat', fdPerLevel: 2 },
+				{ skill: 'Ravenous Bat', fdPerLevel: 2 }
+			],
+			milestone20: 'criticalRate',
+			priority: 'primary',
+			note: 'Shadow Bat is a 1st-job skill priced at 2%'
+		},
+		{
+			index: 3,
+			skills: [
+				{ skill: 'Dark Omen', fdPerLevel: 2 },
+				{ skill: 'Shadow Stitch', fdPerLevel: 2 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'primary'
+		},
+		{
+			index: 4,
+			skills: [{ skill: 'Dominion', fdPerLevel: 2 }],
+			milestone20: 'criticalRate',
+			priority: 'primary'
+		},
+		{
+			index: 5,
+			skills: [
+				{ skill: 'Lucky Seven', fdPerLevel: 7 },
+				{ skill: 'Soundless Rush', fdPerLevel: 7 }
+			],
+			milestone20: 'criticalRate',
+			priority: 'other'
+		},
+		{
+			index: 6,
+			skills: [
+				{ skill: 'Triple Throw', fdPerLevel: 5 },
+				{ skill: 'Shadow Spark', fdPerLevel: 3 },
+				{ skill: 'Quad Star', fdPerLevel: 3 }
+			],
+			milestone20: 'maxTargets',
+			priority: 'other'
+		}
 	]
 };
 
 /** Job nodes a class holds. All max level 30. */
 export const JOB_NODES: Record<string, readonly string[]> = {
+	hero: ['Burning Soul Blade', 'Worldreaver', 'Instinctual Combo', 'Sword Illusion'],
+	'wind-archer': ['Howling Gale', 'Merciless Winds', 'Gale Barrier', 'Vortex Sphere'],
+	'battle-mage': ['Aura Scythe', 'Altar of Annihilation', 'Grim Harvest', 'Abyssal Lightning'],
+	'night-walker': ['Shadow Spear', 'Greater Dark Servant', 'Shadow Bite', 'Rapid Throw'],
 	ren: [
 		'Final Plum Blossom Sword: Thousand Blossom Flurry',
 		'Soul Immeasurable',

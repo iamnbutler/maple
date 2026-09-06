@@ -56,6 +56,18 @@ function ren(mutate: (character: Character) => void = () => {}): Character {
 				}
 			}
 		},
+		vMatrix: {
+			points: 55,
+			// The screenshot reads six boost nodes at 60/60 — all maxed.
+			boost: [
+				{ id: 'Plum Blossom Sword: Storm', level: 60 },
+				{ id: 'Imugi Spirit Sword: Spirit Strike', level: 60 },
+				{ id: 'Final Imugi Spirit Sword: Burrowing Earth', level: 60 },
+				{ id: 'Second Plum Blossom Sword: Raining Blossoms', level: 60 },
+				{ id: 'Plum Blossom Sword: Slash', level: 60 },
+				{ id: 'Plum Blossom Sword: Slice', level: 60 }
+			]
+		},
 		hexa: {
 			solErda: 1,
 			solErdaFragments: 1129,
@@ -229,12 +241,24 @@ describe('generateLegionBoard', () => {
 	it('caps an area at what the Legion rank actually offers', () => {
 		const { candidates } = generateLegionBoard(
 			ren((c) => {
-				c.legion = { level: 3_000, board: {} }; // Renowned I: 13 outer squares
+				// Renowned I: 13 outer squares per area. A captured-but-empty area is
+				// different from an uncaptured one, so name it explicitly.
+				c.legion = { level: 3_000, board: { bossDamage: 0 } };
 			})
 		);
 		const boss = candidates.find((c) => c.id.startsWith('legion-board:bossDamage'));
 		expect(boss?.label).toBe('Legion Boss Damage: 0 → 13 squares');
 		expect(boss?.delta.boss).toBe(13);
+	});
+
+	it('generates nothing at all when board squares were never captured', () => {
+		const { candidates, notes } = generateLegionBoard(
+			ren((c) => {
+				c.legion = { level: 9083 };
+			})
+		);
+		expect(candidates).toEqual([]);
+		expect(notes[0]).toMatch(/An uncaptured area is not an empty area/);
 	});
 
 	it('says so when there is no Legion at all', () => {
@@ -320,8 +344,37 @@ describe('generateLegionArtifact', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('generateVMatrix', () => {
+	/** Ren with the four bossing boost nodes dropped to `level`. */
+	const atLevel = (level: number) =>
+		ren((c) => {
+			c.vMatrix = {
+				points: 55,
+				boost: [
+					{ id: 'Plum Blossom Sword: Storm', level },
+					{ id: 'Imugi Spirit Sword: Spirit Strike', level },
+					{ id: 'Final Imugi Spirit Sword: Burrowing Earth', level },
+					{ id: 'Second Plum Blossom Sword: Raining Blossoms', level },
+					{ id: 'Plum Blossom Sword: Slash', level },
+					{ id: 'Plum Blossom Sword: Slice', level }
+				]
+			};
+		});
+
+	// The bug this guards against: defaulting uncaptured nodes to 0 proposed a
+	// 0 → 60 jump worth +120% Final Damage, which ranked FIRST on the whole
+	// board and was pure fiction — the real Ren has every node at 60/60.
+	it('generates nothing at all when boost levels were never captured', () => {
+		const { candidates, notes } = generateVMatrix(ren((c) => (c.vMatrix = undefined)));
+		expect(candidates).toEqual([]);
+		expect(notes[0]).toMatch(/an uncaptured node is not a level-0 node/);
+	});
+
+	it('offers nothing for the real Ren, whose nodes are all maxed', () => {
+		expect(generateVMatrix(ren()).candidates).toEqual([]);
+	});
+
 	it('proposes Lv40 and Lv60 on every bossing boost node', () => {
-		const { candidates } = generateVMatrix(ren());
+		const { candidates } = generateVMatrix(atLevel(0));
 		// Ren has four primary boost nodes, each offering 40 and 60.
 		expect(candidates).toHaveLength(8);
 		expect(candidates.filter((c) => c.id.endsWith(':0-40'))).toHaveLength(4);
@@ -329,26 +382,41 @@ describe('generateVMatrix', () => {
 	});
 
 	it('leaves the non-bossing nodes alone', () => {
-		const { candidates } = generateVMatrix(ren());
+		const { candidates } = generateVMatrix(atLevel(0));
 		// Nodes 5 and 6 are the levelling/mobility ones.
 		expect(candidates.some((c) => c.id.includes('boost-5'))).toBe(false);
 		expect(candidates.some((c) => c.id.includes('boost-6'))).toBe(false);
 	});
 
+	// A node covering skills at different rates has no single number, and taking
+	// the highest inflated node 4 to +180% FD against its neighbours' +120%.
+	it('uses the LOWEST rate in a node that covers several skills', () => {
+		const { candidates } = generateVMatrix(atLevel(0));
+		const node4 = candidates.find((c) => c.id.startsWith('v-matrix:boost-4') && c.id.endsWith(':0-60'));
+		// Raining Blossoms is 3%/level but Riotous Heart and Unbowed Blade are 2%.
+		expect(node4?.delta.fd).toBe(120);
+		expect(node4?.notes?.join(' ')).toMatch(/covers skills at 2%-3%/);
+		// And a single-skill node says nothing about a range.
+		const node1 = candidates.find((c) => c.id.startsWith('v-matrix:boost-1') && c.id.endsWith(':0-60'));
+		expect(node1?.delta.fd).toBe(120);
+		expect(node1?.notes?.join(' ')).not.toMatch(/covers skills at/);
+	});
+
 	it('carries the Lv40 IED milestone but not on the 40 to 60 step', () => {
-		const { candidates } = generateVMatrix(
-			ren((c) => {
-				c.vMatrix = { boost: [{ id: 'Plum Blossom Sword: Storm', level: 40 }] };
-			})
-		);
+		const { candidates } = generateVMatrix(atLevel(40));
 		const storm = candidates.find((c) => c.id.startsWith('v-matrix:boost-1'));
 		expect(storm?.label).toMatch(/Lv40 → Lv60/);
 		expect(storm?.delta.iedAdd).toBeUndefined();
 		expect(storm?.delta.fd).toBe(40); // 2% x 20 levels
+
+		const fromZero = generateVMatrix(atLevel(0)).candidates.find((c) =>
+			c.id.startsWith('v-matrix:boost-1')
+		);
+		expect(fromZero?.delta.iedAdd).toEqual([20]);
 	});
 
 	it('prices Lv0 to Lv40 at 40 V Points and the rest at 2 a level', () => {
-		const { candidates } = generateVMatrix(ren());
+		const { candidates } = generateVMatrix(atLevel(0));
 		const toForty = candidates.find((c) => c.id.endsWith(':0-40'));
 		const toSixty = candidates.find((c) => c.id.endsWith(':0-60'));
 		expect(toForty?.cost.vPoints).toBe(40);
@@ -357,7 +425,9 @@ describe('generateVMatrix', () => {
 	});
 
 	it('marks skill-scoped final damage as estimated and says why', () => {
-		for (const candidate of generateVMatrix(ren()).candidates) {
+		const { candidates } = generateVMatrix(atLevel(0));
+		expect(candidates.length).toBeGreaterThan(0);
+		for (const candidate of candidates) {
 			expect(candidate.confidence).toBe('estimated');
 			expect(candidate.notes?.join(' ')).toMatch(/applies only to the skills this node names/);
 		}
