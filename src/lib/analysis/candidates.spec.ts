@@ -625,3 +625,38 @@ describe('class weapon table', () => {
 		expect(warnings.join('\n')).not.toContain('uses a Sword');
 	});
 });
+
+describe('cube goals price and value the SAME outcome', () => {
+	// The bug this pins: the target asked for "3 stat lines of ANY value" — which
+	// a 3% line satisfies, ~14 cubes — while the contribution was valued at the
+	// PRIME value as though all three rolled 12%. That reported +28.84% for 159M
+	// mesos, which is off by orders of magnitude. One value now feeds both sides.
+	it('names the per-line value it priced, in the label', () => {
+		const { candidates } = generate(() => {}, { kinds: ['potential'] });
+		const statGoals = candidates.filter((c) => c.id.includes(':goal:stat'));
+		expect(statGoals.length).toBeGreaterThan(0);
+		for (const goal of statGoals) {
+			// e.g. "... -> 2 lines of 12% main stat" — never a bare "%main stat".
+			expect(goal.label).toMatch(/\d+% main stat/);
+		}
+	});
+
+	it('costs more for a prime-value goal than the old any-value basis did', () => {
+		const { candidates } = generate(() => {}, { kinds: ['potential'] });
+		const statGoals = candidates.filter((c) => c.id.includes(':goal:stat'));
+		for (const goal of statGoals) {
+			// The old model produced ~159M for a three-line stat goal. Anything at
+			// that scale means the value stopped feeding the probability model.
+			expect(goal.cost.mesos!).toBeGreaterThan(200_000_000);
+		}
+	});
+
+	// IED composes multiplicatively, so three IED lines are worth much less than
+	// two boss plus one IED. A mixed goal must be valued as the mix.
+	it('values a boss-or-IED goal as boss/boss/IED, not three of one', () => {
+		const { candidates } = generate(() => {}, { kinds: ['potential'] });
+		const weapon = candidates.find((c) => c.id === 'potential:weapon:goal:bossied3')!;
+		expect(weapon.delta.boss).toBeGreaterThan(0);
+		expect(weapon.delta.iedAdd!.length).toBe(1);
+	});
+});

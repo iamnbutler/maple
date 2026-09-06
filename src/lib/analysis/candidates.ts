@@ -600,60 +600,103 @@ const RANK_UP_KEY = {
  */
 interface SlotGoal {
 	id: string;
+	/** `{value}` is substituted with the per-line value once it is known. */
 	label: string;
-	target: potentialLines.PotentialTarget;
-	/** Line kinds to value, in order, one per line the target requires. */
-	kinds: potential.PotentialLineKind[];
+	/** How many lines of `kind` the goal asks for. */
+	lines: number;
+	/** Our valuation vocabulary. */
+	kind: potential.PotentialLineKind;
+	/** The pool's vocabulary for the same line, for the probability model. */
+	poolKind: potentialLines.PoolLineKind | readonly potentialLines.PoolLineKind[];
+	/**
+	 * When set, the goal accepts any value and is valued at the WEAKEST rollable
+	 * value rather than the prime. Used for goals like "3 boss-or-IED lines"
+	 * where any of them is worth having.
+	 */
+	anyValue?: boolean;
+	/**
+	 * For a mixed goal, the kinds to value the lines as, in order. "3 boss-or-IED
+	 * lines" is priced as three lines from {boss, ied} but valued as boss/boss/IED,
+	 * because IED composes multiplicatively and stacking three of it is worth far
+	 * less than two boss plus one IED.
+	 */
+	valueKinds?: potential.PotentialLineKind[];
+}
+
+/**
+ * COST AND GAIN MUST DESCRIBE THE SAME OUTCOME.
+ *
+ * The first version of this asked the probability model for "3 stat lines of
+ * ANY value" — which a 3% line satisfies, ~14 cubes — while valuing the result
+ * at the PRIME value as though all three had rolled 12%. It then reported a
+ * +28.84% gain for 159M mesos, which a user immediately (and correctly) called
+ * impossible; the real cost of three prime stat lines is tens of billions.
+ *
+ * So a goal now carries one value that feeds BOTH sides: `minValue` on the
+ * requirement the probability model prices, and the same number through
+ * `addLine` when the contribution is valued. They cannot drift apart.
+ */
+function goalLineValue(
+	goal: SlotGoal,
+	grade: potential.PotentialGrade,
+	itemLevel: number,
+	category: potential.PotentialCategory,
+	slot: string
+): number | null {
+	const value = potential.lineValue(grade, itemLevel, category, goal.kind, {
+		slot: slot as potential.PotentialSlot
+	});
+	if (value === null || value === 0) return null;
+	return value;
 }
 
 function slotGoals(group: potentialLines.PotentialPoolGroup, cls: ClassDef): SlotGoal[] {
 	const attKind: potential.PotentialLineKind = cls.usesMagicAttack ? 'matt_pct' : 'att_pct';
 	const attPool: potentialLines.PoolLineKind = cls.usesMagicAttack ? 'matt_pct' : 'att_pct';
-	const statTriple: SlotGoal = {
-		id: 'stat3',
-		label: '3 lines of %main stat',
-		target: [potentialLines.requireLines('stat_pct', 3)],
-		kinds: ['stat_pct', 'stat_pct', 'stat_pct']
-	};
-	const statDouble: SlotGoal = {
-		id: 'stat2',
-		label: '2 lines of %main stat',
-		target: [potentialLines.requireLines('stat_pct', 2)],
-		kinds: ['stat_pct', 'stat_pct']
-	};
+	const attWord = cls.usesMagicAttack ? '%magic attack' : '%attack';
+
+	const stat = (lines: number): SlotGoal => ({
+		id: `stat${lines}`,
+		label: `${lines} lines of {value}% main stat`,
+		lines,
+		kind: 'stat_pct',
+		poolKind: 'stat_pct'
+	});
 
 	switch (group) {
 		case 'weapon':
 		case 'secondary':
 		case 'shieldSoulRing':
 			return [
+				// Any boss or IED line is worth having here, so this one is valued at
+				// what it asks for rather than at the prime.
 				{
 					id: 'bossied3',
 					label: '3 lines of boss damage or IED',
-					target: [potentialLines.requireLines(['boss', 'ied'], 3)],
-					kinds: ['boss', 'boss', 'ied']
+					lines: 3,
+					kind: 'boss',
+					poolKind: ['boss', 'ied'],
+					anyValue: true,
+					valueKinds: ['boss', 'boss', 'ied']
 				},
 				{
 					id: 'att3',
-					label: `3 lines of %${cls.usesMagicAttack ? 'magic ' : ''}attack`,
-					target: [potentialLines.requireLines(attPool, 3)],
-					kinds: [attKind, attKind, attKind]
+					label: `3 lines of {value}% ${attWord}`,
+					lines: 3,
+					kind: attKind,
+					poolKind: attPool
 				}
 			];
-		// An emblem has NO boss damage line in its pool, at any rank.
+		// An emblem's pool has NO boss-damage line at any rank.
 		case 'emblem':
 			return [
-				{
-					id: 'ied3',
-					label: '3 lines of IED',
-					target: [potentialLines.requireLines('ied', 3)],
-					kinds: ['ied', 'ied', 'ied']
-				},
+				{ id: 'ied3', label: '3 lines of {value}% IED', lines: 3, kind: 'ied', poolKind: 'ied' },
 				{
 					id: 'att3',
-					label: `3 lines of %${cls.usesMagicAttack ? 'magic ' : ''}attack`,
-					target: [potentialLines.requireLines(attPool, 3)],
-					kinds: [attKind, attKind, attKind]
+					label: `3 lines of {value}% ${attWord}`,
+					lines: 3,
+					kind: attKind,
+					poolKind: attPool
 				}
 			];
 		// Gloves are the only armour slot whose pool contains Critical Damage.
@@ -661,39 +704,41 @@ function slotGoals(group: potentialLines.PotentialPoolGroup, cls: ClassDef): Slo
 			return [
 				{
 					id: 'critdmg2',
-					label: '2 lines of critical damage',
-					target: [potentialLines.requireLines('crit_dmg', 2)],
-					kinds: ['crit_dmg', 'crit_dmg']
+					label: '2 lines of {value}% critical damage',
+					lines: 2,
+					kind: 'crit_dmg',
+					poolKind: 'crit_dmg'
 				},
 				{
 					id: 'critdmg3',
-					label: '3 lines of critical damage',
-					target: [potentialLines.requireLines('crit_dmg', 3)],
-					kinds: ['crit_dmg', 'crit_dmg', 'crit_dmg']
+					label: '3 lines of {value}% critical damage',
+					lines: 3,
+					kind: 'crit_dmg',
+					poolKind: 'crit_dmg'
 				},
-				statDouble
+				stat(2)
 			];
 		// Hats are the only slot whose pool contains Skill Cooldown.
 		//
-		// ⚠️ This goal is generated and priced, but it will SCORE ZERO and be
-		// dropped by the ranker, because cooldown reduction buys rotation uptime
-		// and the damage index models a single hit against a target — it has no
-		// notion of a rotation. For a class whose burst is cooldown-gated (Ren
-		// notably) that understates the line badly. Modelling it needs a skill
-		// rotation, which the tracker does not have; until then a hat cooldown
-		// roll is a decision the user has to make outside this tool.
+		// ⚠️ Generated and priced, but it SCORES ZERO and the ranker drops it,
+		// because cooldown buys rotation uptime and the damage index models a
+		// single hit with no notion of a rotation. For a cooldown-gated class
+		// (Ren notably) that understates the line badly. Modelling it needs a
+		// skill rotation, which this tracker does not have.
 		case 'hat':
 			return [
 				{
 					id: 'cd2',
 					label: '2 cooldown-reduction lines',
-					target: [potentialLines.requireLines('cooldown', 2)],
-					kinds: ['cooldown', 'cooldown']
+					lines: 2,
+					kind: 'cooldown',
+					poolKind: 'cooldown',
+					anyValue: true
 				},
-				statTriple
+				stat(3)
 			];
 		default:
-			return [statTriple, statDouble];
+			return [stat(3), stat(2)];
 	}
 }
 
@@ -702,32 +747,27 @@ function slotGoals(group: potentialLines.PotentialPoolGroup, cls: ClassDef): Slo
  *
  * A reroll replaces all three lines, so valuing only the two or three the goal
  * names credits the item for lines it would have lost. The model here is: the
- * goal's lines, then the item's OWN best surviving lines of other kinds fill the
- * remaining slots. That is optimistic — the untargeted slots are random in
- * reality — so the gain is an upper estimate and is labelled as such.
+ * goal's lines at the SAME value the cost was priced at, then the item's own
+ * best surviving lines of other kinds fill the remaining slots. That last part
+ * is optimistic — the untargeted slots are random in reality — so the gain is
+ * an upper estimate and is labelled as such.
  */
 function goalContribution(
 	goal: SlotGoal,
+	lineValueForGoal: number,
 	source: { grade: potential.PotentialGrade; lines: readonly string[] },
-	grade: potential.PotentialGrade,
-	itemLevel: number,
-	slot: string,
-	cls: ClassDef
+	cls: ClassDef,
+	perKindValue?: (kind: potential.PotentialLineKind) => number | null
 ): Contribution | null {
-	const category = POTENTIAL_CATEGORIES[
-		(CATEGORY_BY_SLOT as Record<string, string>)[slot] ?? 'armor'
-	] as potential.PotentialCategory | undefined;
-	if (!category) return null;
-
 	const out = emptyContribution();
 	const main = mainStatOf(cls);
-	const slotOpt = { slot: slot as potential.PotentialSlot };
 	let placed = 0;
 
-	for (const kind of goal.kinds) {
-		if (placed >= 3) break;
-		const value = potential.lineValue(grade, itemLevel, category, kind, slotOpt);
-		if (value === null || value === 0) continue;
+	for (let i = 0; i < goal.lines && placed < 3; i++) {
+		const kind = goal.valueKinds?.[i] ?? goal.kind;
+		const value =
+			kind === goal.kind ? lineValueForGoal : (perKindValue?.(kind) ?? lineValueForGoal);
+		if (value === 0) continue;
 		addLine(out, kind, value, main, cls);
 		placed += 1;
 	}
@@ -736,11 +776,13 @@ function goalContribution(
 	// Fill the untargeted slots with the item's own best current lines that the
 	// goal did not already ask for, so a reroll is never credited with keeping
 	// everything AND gaining the target.
-	const goalKinds = new Set(goal.kinds);
 	const survivors = calc
 		.parsePotentialLines(source.lines)
 		.map((line) => ({ line, dataKind: PARSED_TO_DATA[line.kind] }))
-		.filter((entry) => entry.dataKind && !goalKinds.has(entry.dataKind))
+		.filter(
+			(entry) =>
+				entry.dataKind && entry.dataKind !== goal.kind && !goal.valueKinds?.includes(entry.dataKind)
+		)
 		.sort((a, b) => b.line.value - a.line.value);
 
 	for (const { line, dataKind } of survivors) {
@@ -920,12 +962,24 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 		const group = potentialLines.poolGroupForSlot(slot);
 		if (group && item.itemLevel !== undefined && source.grade !== 'rare') {
 			for (const goal of slotGoals(group, cls)) {
+				// ONE value drives both sides. `minValue` is what the probability
+				// model prices, and the same number is what `goalContribution` credits
+				// — so the cost can never describe a cheaper outcome than the gain.
+				const value = goal.anyValue
+					? undefined
+					: goalLineValue(goal, source.grade, item.itemLevel, category, slot);
+				if (!goal.anyValue && value === null) continue;
+
+				const target: potentialLines.PotentialTarget = [
+					value === undefined || value === null
+						? { kind: goal.poolKind, lines: goal.lines }
+						: { kind: goal.poolKind, lines: goal.lines, minValue: Math.abs(value) }
+				];
+
 				const contribution = goalContribution(
 					goal,
+					value ?? goalLineValue(goal, source.grade, item.itemLevel, category, slot) ?? 0,
 					source,
-					source.grade,
-					item.itemLevel,
-					slot,
 					cls
 				);
 				if (!contribution) continue;
@@ -934,7 +988,7 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 				try {
 					cost = potentialLines.cheapestCubeFor(
 						{ group, itemLevel: item.itemLevel, grade: source.grade as potentialLines.PoolGrade },
-						goal.target
+						target
 					);
 				} catch {
 					// The pools are only published above a per-group item level; the
@@ -943,21 +997,22 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 				}
 				if (!Number.isFinite(cost.expectedCubes)) continue;
 
+				const label = `${item.name} → ${goal.label.replace('{value}', String(Math.abs(value ?? 0)))}`;
+
 				candidates.push({
 					id: `${kind}:${slot}:goal:${goal.id}`,
 					kind,
-					label: `${item.name} → ${goal.label}`,
-					detail:
-						`Cube ${slot} for ${goal.label} at ${source.grade}. ` +
-						`~${Math.round(cost.expectedCubes).toLocaleString()} ${cost.cube} cubes expected ` +
-						`(median ${cost.medianCubes.toLocaleString()}).`,
+					label,
+					detail: `Cube ${slot} at ${source.grade}. ~${Math.round(
+						cost.expectedCubes
+					).toLocaleString()} ${cost.cube} cubes expected, median ${cost.medianCubes.toLocaleString()}.`,
 					slot,
 					itemName: item.name,
 					delta: deltaBetween(current, contribution),
 					cost: {
 						mesos: cost.expectedMesos ?? undefined,
 						note:
-							`Expected cost from the real ${group} line pool: 1 in ` +
+							`Expected cost from the ${group} line pool: 1 in ` +
 							`${Math.round(1 / cost.probability).toLocaleString()} cubes. ` +
 							`Median ${cost.medianCubes.toLocaleString()}, 95th percentile ` +
 							`${cost.p95Cubes.toLocaleString()}.`
