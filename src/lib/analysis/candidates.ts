@@ -723,6 +723,14 @@ interface GoalPart {
 	 * See `SlotGoal.totalPercent`.
 	 */
 	totalPercent?: number;
+	/**
+	 * Accept any rollable line of this kind, priced and valued at the WEAKEST one
+	 * the pool can produce. Without this a part demands the PRIME value, which is
+	 * the double-prime trap: "2 ATT + 1 boss" then means two 13% ATT lines and a
+	 * 40% boss line, and prices at 6.3 TRILLION for a rung the community treats
+	 * as an ordinary next step.
+	 */
+	anyValue?: boolean;
 }
 
 /**
@@ -863,8 +871,8 @@ function slotGoals(
 					kind: attKind,
 					poolKind: attPool,
 					parts: [
-						{ poolKind: attPool, lines: 2, valueKind: attKind },
-						{ poolKind: 'boss', lines: 1, valueKind: 'boss' }
+						{ poolKind: attPool, lines: 2, valueKind: attKind, totalPercent: rung(23) },
+						{ poolKind: 'boss', lines: 1, valueKind: 'boss', anyValue: true }
 					]
 				},
 				att('att3', 33, 3, '3L ATT'),
@@ -893,8 +901,8 @@ function slotGoals(
 					kind: attKind,
 					poolKind: attPool,
 					parts: [
-						{ poolKind: attPool, lines: 2, valueKind: attKind },
-						{ poolKind: 'ied', lines: 1, valueKind: 'ied' }
+						{ poolKind: attPool, lines: 2, valueKind: attKind, totalPercent: rung(23) },
+						{ poolKind: 'ied', lines: 1, valueKind: 'ied', anyValue: true }
 					]
 				},
 				att('att3', 33, 3, '3L ATT — cheapest 3L-ATT slot'),
@@ -995,7 +1003,9 @@ function goalContribution(
 	lineValueForGoal: number,
 	source: { grade: potential.PotentialGrade; lines: readonly string[] },
 	cls: ClassDef,
-	perKindValue?: (kind: potential.PotentialLineKind) => number | null
+	perKindValue?: (kind: potential.PotentialLineKind) => number | null,
+	/** Weakest rollable value for one part, when that part accepts any line. */
+	weakestForPart?: (part: GoalPart) => number | null
 ): Contribution | null {
 	const out = emptyContribution();
 	const main = mainStatOf(cls);
@@ -1010,7 +1020,7 @@ function goalContribution(
 				placed = Math.min(placed + lines, 3);
 				continue;
 			}
-			const per = perKindValue?.(part.valueKind) ?? 0;
+			const per = (part.anyValue ? weakestForPart?.(part) : perKindValue?.(part.valueKind)) ?? 0;
 			if (per === 0) continue;
 			for (let i = 0; i < lines && placed < 3; i++) {
 				addLine(out, part.valueKind, per, main, cls);
@@ -1233,6 +1243,7 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 		// The stage carries the prescribed grade and main-stat % for the slot, so a
 		// stepping stone gets its cheap Epic roll and nothing more.
 		const overInvestedGoals: string[] = [];
+		const alreadyHeld: string[] = [];
 		const stop = gearProgression.stopPointForItem(item.name);
 		const planGrade = stop?.potential;
 		if (
@@ -1254,6 +1265,23 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 			// passed to goalContribution below.
 			const itemLevel = item.itemLevel;
 			for (const goal of slotGoals(group, cls, item.itemLevel)) {
+				// A rung you are already standing on is not an upgrade. Fafnir carries
+				// ATT 12% + 9% = 21% against a "20%+ 2L ATT" rung, so this generated
+				// a 1.8B candidate whose only saving grace was that ranking dropped
+				// it for gaining nothing.
+				if (goal.totalPercent !== undefined) {
+					const held =
+						goal.kind === 'stat_pct'
+							? current.mainPct + current.allStatPct
+							: goal.kind === 'att_pct' || goal.kind === 'matt_pct'
+								? current.attPct
+								: undefined;
+					if (held !== undefined && held >= goal.totalPercent) {
+						alreadyHeld.push(`${goal.totalPercent}%`);
+						continue;
+					}
+				}
+
 				// A rung past the prescribed main-stat % is over-investment in gear
 				// this stage is going to hand off. Reported, not silently dropped.
 				if (
@@ -1302,24 +1330,26 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 					conjunction = [];
 					let ok = true;
 					for (const part of goal.parts) {
+						const partKinds = (
+							Array.isArray(part.poolKind) ? part.poolKind : [part.poolKind]
+						) as readonly potentialLines.PoolLineKind[];
 						if (part.totalPercent !== undefined) {
+							const statBearing = partKinds.some((k) => STAT_BEARING_GOAL_KINDS.has(k));
 							conjunction.push(
 								part.valueKind === 'stat_pct' && main && !cls.flags?.xenon
 									? potentialLines.mainStatPercent(
 											main as potentialLines.PoolStat,
 											part.totalPercent
 										)
-									: { kind: part.poolKind, totalValue: part.totalPercent, anyStat: true }
+									: statBearing
+										? { kind: part.poolKind, totalValue: part.totalPercent, anyStat: true }
+										: { kind: part.poolKind, totalValue: part.totalPercent }
 							);
 							continue;
 						}
-						const per = lineValueForKind(
-							part.valueKind,
-							source.grade,
-							item.itemLevel,
-							category,
-							slot
-						);
+						const per = part.anyValue
+							? weakestRollableValue(group, source.grade, partKinds, itemLevel)
+							: lineValueForKind(part.valueKind, source.grade, itemLevel, category, slot);
 						if (per === null) {
 							ok = false;
 							break;
@@ -1397,7 +1427,16 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 									[k as potentialLines.PoolLineKind],
 									itemLevel
 								)
-							: lineValueForKind(k, source.grade, itemLevel, category, slot)
+							: lineValueForKind(k, source.grade, itemLevel, category, slot),
+					(part) =>
+						weakestRollableValue(
+							group,
+							source.grade,
+							(Array.isArray(part.poolKind)
+								? part.poolKind
+								: [part.poolKind]) as readonly potentialLines.PoolLineKind[],
+							itemLevel
+						)
 				);
 				if (!contribution) continue;
 
@@ -1451,6 +1490,12 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 			}
 		}
 
+		if (alreadyHeld.length > 0) {
+			notes.push(
+				`${slot} (${item.name}): already at or above ${alreadyHeld.join(', ')}, so those rungs ` +
+					'were not offered.'
+			);
+		}
 		if (overInvestedGoals.length > 0) {
 			notes.push(
 				`${slot} (${item.name}): did not offer ${overInvestedGoals.join(', ')} main stat — ` +
