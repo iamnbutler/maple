@@ -75,8 +75,9 @@ HEXA is a moving target. Everything below is pinned to **GMS 2026-09-06**. KMS i
 | NEXT: 3rd & 4th Mastery cores | 2024-12-19 (ver. 1.2.398) | — | Mastery cores 3 and 4; **Sol Erda conversion** (Sol Erda → Faint Sol Erda Energy / HEXA Booster) |
 | NEXT: Destiny Weapon & Star Force | 2025-03-20 (ver. 1.2.401) | — | **HEXA Stat III** (Lv270, needs Stat II at 20; 15 Sol Erda + 350 frags; 35M meso reset) |
 | Assemble: Ascent Skills | 2025-07-17 (ver. 1.2.405) | **v269** | **Ascent skill** (2nd skill node) for every class |
-| CROWN: Sol Hecate | 2026-01-17 (ver. 1.2.411) | **v270** (2026-08-05) | **Sol Hecate** (2nd common core), bossing-oriented |
-| Maple Attack: 3rd Common Core | 2026-04-16 (ver. 1.2.414) | **v271** (late 2026-09) | **3rd common core** — "…VI" upgrades to 5th-job *common-branch* skills |
+| CROWN: Sol Hecate | 2026-01-17 (ver. 1.2.411) | **v270 "Ride the Lightning"** (2026-07/08) | **Sol Hecate** (2nd common core), bossing-oriented |
+| Maple Attack: 3rd Common Core | 2026-04-16 (ver. 1.2.414) | **v271 (2026-09-09)** — 3 days *after* the capture | **3rd common core** — "…VI" upgrades to 5th-job *common-branch* skills |
+| Overdrive: Sol Erda cap raise, Epic Dungeon revamp | 2026-06-18 | **not in GMS** | Sol Erda cap 20 → 25 / 30 by level; Epic Dungeons → 5 stages; Monster Park Hands |
 | Overdrive: 3rd HEXA Skill Core | 2026-07-31 (ver. 1.2.417) | **not in GMS** | **Skill node 3** (class-specific, cheaper than Origin/Ascent) |
 
 Sources:
@@ -1567,6 +1568,12 @@ Ordered by how much they matter to the calculator.
 | 10 | **"Save node" cost** (§4.8) | Affects reroll economics | Try it in-game |
 | 11 | **Origin skill's share of total DPM per class** | The biggest single input to "Origin or an enhancement core?" | Not published anywhere reachable. Derive from the §6 damage lines + 360 s CD, cross-checked against `docs/research/dpm-anchors.md` |
 | 12 | **Optimal HEXA Stat reroll policy** | Real fragment spend can be 2-4× the naive 323 | Simulate against the §4.6 model once #1 and #7 are settled |
+| 13 | **Does GMS have the 2026-04-09 modulo fix + permanent +24% base drop rate?** (§5.9) | +12% to all grinding fragment/energy income | Read the GMS v271 patch notes when published |
+| 14 | **Sol Erda *Energy* per hour while grinding** (§5.6) | Turns "hours grinded" into Sol Erda; currently only the fragment rate is measured | Measure it, or find a KMS dataset. The one circulating figure is contradicted by the official drop-rate table |
+| 15 | **MVP tier → weekly Sol Erda Energy amounts** (KMS CROWN) | Only matters for paying accounts | KMS patch note / in-game |
+| 16 | **Any daily cap on Erda Conversion** (§5.2) | Bounds the mule-transfer escape valve | Try converting repeatedly |
+| 17 | **GMS 5,000-kill weekly requirement** (§5.3) | Single-sourced (maplestorywiki only) | Read the quest in-game |
+| 18 | **Sol Erda Booster cash item — still in GMS 2026? price?** (§5.7) | 4 fragments/day is small but free-standing | Cash Shop |
 
 Sources that were **unreachable** during this research and should be retried:
 - `namu.wiki` / `en.namu.wiki` — HTTP 403 to both WebFetch and curl. Namu's
@@ -1575,6 +1582,11 @@ Sources that were **unreachable** during this research and should be retried:
 - `grandislibrary.com` — class skill pages returned 404.
 - `maplestorywiki.net/w/Sol_Janus` — 403 to direct fetch (the data above came from the search
   index, so its intermediate levels are unverified).
+- `nexon.com/maplestory/news/update/...` — GMS patch-note pages are JavaScript-rendered and
+  return title-only text to every fetch tool tried (patchbot.io mirrors likewise). This is why
+  gap #13 is open.
+- `reddit.com` — not fetchable from this environment, so no community measurement of GMS
+  Heroic grinding income could be checked.
 
 ---
 
@@ -1710,7 +1722,42 @@ export function hexaStatExpectedFragments(main: number, add1: number, add2: numb
 // hexaStatExpectedFragments(0, 0, 0) ≈ 323
 ```
 
-**Constraint validator** the UI will need:
+### Income model
+
+```ts
+export const SOL_ERDA_ENERGY_PER_SOL_ERDA = 1000;
+export const SOL_ERDA_CAP_GMS = 20;               // KMS Overdrive raises this; GMS has not
+export const SOL_ERDA_FRAGMENT_CAP = null;        // uncapped
+
+/** Erda Conversion: 1 Sol Erda → 30 Faint Sol Erda Energy (10 each) = 300 energy. */
+export const ERDA_CONVERSION_ENERGY_RETURNED = 300;   // a 70% loss
+export const ERDA_CONVERSION_LOSS_RATIO = 0.7;
+
+export const WEEKLY_ERDA_REQUEST = { solErda: 9, fragments: 90, killsRequired: 5000 } as const;
+
+export const EPIC_DUNGEONS = [
+  { key: 'highMountain',      minLevel: 260, solErdaBase: 1, fragments: 40, mp5x: 7_500,  mp9x: 30_000 },
+  { key: 'anglerCompany',     minLevel: 270, solErdaBase: 1, fragments: 55, mp5x: 10_000, mp9x: 40_000 },
+  { key: 'nightmareParadise', minLevel: 280, solErdaBase: 2, fragments: 70, mp5x: 12_500, mp9x: 50_000 },
+] as const;
+export const EPIC_DUNGEON_CLEARS_PER_WEEK_PER_ACCOUNT = 3;
+
+/** Per-player Sol Erda ENERGY per boss clear — see §5.5. Feeds off bosses.ts keys. */
+export const BOSS_SOL_ERDA_ENERGY: Record<BossKey, number>;
+
+/** Grinding: effective = 0.000425 * (1 + 0.5 * dropRateStat). See §5.6. */
+export const FRAGMENT_BASE_DROP_RATE = 0.000425;
+export const SOL_ERDA_DROP_RATE_APPLICATION = 0.5;
+export function fragmentsPerHour(mobsPerHour: number, dropRatePercent: number): number;
+```
+
+**The income model must clamp at the cap.** A "days to afford" projection that integrates
+boss + grinding energy without clamping to `SOL_ERDA_CAP_GMS` will overstate income for any
+character not actively spending. Energy earned at the cap is destroyed, not banked.
+
+### Constraint validator
+
+The UI will need:
 
 ```ts
 /**

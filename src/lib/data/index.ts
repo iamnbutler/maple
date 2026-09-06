@@ -28,6 +28,7 @@ export * as classSkills from './class-skills';
 export * as legion from './legion';
 export * as legionArtifact from './legion-artifact';
 export * as links from './links';
+export * as vmatrix from './vmatrix';
 
 // Flat re-exports of the gear-system tables.
 export * from './starforce';
