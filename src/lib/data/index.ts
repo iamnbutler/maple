@@ -22,6 +22,11 @@ export * as bosses from './bosses';
 export * as items from './items';
 export * as potentialLines from './potential-lines';
 export * as classSkills from './class-skills';
+// Progression systems whose output the stat window already contains; these exist
+// to generate upgrade CANDIDATES and to attribute the residual, never to be
+// summed into a CalcInput. See docs/plans/2026-09-06-progression-systems.md §1.
+export * as legion from './legion';
+export * as links from './links';
 
 // Flat re-exports of the gear-system tables.
 export * from './starforce';
