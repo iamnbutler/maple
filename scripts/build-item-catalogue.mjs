@@ -25,6 +25,13 @@
 //  3. Item icons are referenced by URL, never downloaded:
 //     https://maplestory.io/api/GMS/270/item/{id}/icon
 //
+// BASE STATS. mapledoro's _meta says "Values are clean base stats" — i.e. the
+// item as it drops, before scrolls, star force, flames and potential. That is
+// exactly what an ACQUISITION candidate needs and what a captured tooltip can
+// never supply, because a tooltip only exists for gear you already own. Stored
+// under `base` in the same shape as `schema.StatBlock` so it can be summed with
+// captured blocks without a translation layer.
+//
 // The capability RULES themselves are documented in
 // `src/lib/data/items/rules.ts` with their citations; this script only applies
 // them so the flags can be shipped inside the JSON.
@@ -208,6 +215,46 @@ function resolveWeaponType(item, slot) {
 /** True for the two-handed weapons that occupy the secondary slot as well. */
 function isTwoHanded(item, stat) {
 	return stat.islot === 'WpSi' || item.typeInfo?.category === 'Two-Handed Weapon';
+}
+
+/* -------------------------------------------------------------------------- */
+/* Base stats                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * mapledoro key -> `schema.StatBlock` key.
+ *
+ * Only the keys that reach the damage formula, plus `def`, which is free and
+ * lets a tooltip be reconstructed. Deliberately absent: incACC / incEVA /
+ * incSpeed / incJump / incMMP (no damage term reads them), and `charmEXP`.
+ *
+ * `bdR` and `imdR` are the WZ names for Boss Damage % and Ignore Enemy DEF % —
+ * a handful of base items (Arcane/Genesis weapons, Dawn accessories) carry
+ * these on the item itself, not only on potential, and dropping them would
+ * understate every weapon acquisition by 30 percentage points of boss damage.
+ */
+const BASE_STAT_KEYS = {
+	incSTR: 'str',
+	incDEX: 'dex',
+	incINT: 'int',
+	incLUK: 'luk',
+	incMHP: 'maxHp',
+	incMHPr: 'maxHpPct',
+	incPAD: 'att',
+	incMAD: 'matt',
+	incPDD: 'def',
+	bdR: 'bossDmgPct',
+	imdR: 'iedPct'
+};
+
+/** The item as it drops: no scrolls, no stars, no flames, no potential. */
+function baseStats(stat) {
+	const out = {};
+	for (const [from, to] of Object.entries(BASE_STAT_KEYS)) {
+		const value = stat[from];
+		if (typeof value === 'number' && value !== 0) out[to] = value;
+	}
+	return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -522,6 +569,11 @@ export async function build(options = {}) {
 			itemLevel,
 			...(resolveWeaponType(item, slot) ? { weaponType: resolveWeaponType(item, slot) } : {}),
 			...(isTwoHanded(item, stat) && slot === 'weapon' ? { twoHanded: true } : {}),
+			// WZ job bitmask: 1 warrior, 2 magician, 4 bowman, 8 thief, 16 pirate.
+			// Absent means "any job". This is what picks the right branch out of a
+			// per-branch armour family ("AbsoLab Set (Warrior)" vs "(Magician)").
+			...(typeof stat.reqJob === 'number' && stat.reqJob > 0 ? { reqJob: stat.reqJob } : {}),
+			...(baseStats(stat) ? { base: baseStats(stat) } : {}),
 			...(setItemId ? { setItemId } : {}),
 			...(setItemId && setNameById.has(setItemId) ? { setName: setNameById.get(setItemId) } : {}),
 			// RAW WZ tuc. mapledoro's _meta: "in-game upgrade slots equal tuc plus 1."

@@ -105,6 +105,38 @@ export interface CatalogueEntry {
 	weaponType?: string;
 	/** Occupies the secondary slot as well as the weapon slot. */
 	twoHanded?: boolean;
+	/**
+	 * WZ job bitmask: 1 warrior, 2 magician, 4 bowman, 8 thief, 16 pirate.
+	 * Absent means the item has no job requirement. This is what picks the right
+	 * branch out of a per-branch armour family — "AbsoLab Set (Warrior)" and
+	 * "AbsoLab Set (Magician)" are different items with the same tier.
+	 */
+	reqJob?: number;
+	/**
+	 * The item AS IT DROPS: no scrolls, no star force, no flames, no potential.
+	 * mapledoro's `_meta` calls these "clean base stats".
+	 *
+	 * This is the one field a captured tooltip can never supply, because a
+	 * tooltip only exists for gear you already own — and it is exactly what an
+	 * acquisition candidate needs in order to say what a piece you do NOT own
+	 * would be worth. Same shape as `schema.StatBlock`, so it sums with captured
+	 * blocks without a translation layer.
+	 *
+	 * Absent for the ~1,000 entries whose manifest row carries no stat at all.
+	 */
+	base?: {
+		str?: number;
+		dex?: number;
+		int?: number;
+		luk?: number;
+		maxHp?: number;
+		maxHpPct?: number;
+		att?: number;
+		matt?: number;
+		def?: number;
+		bossDmgPct?: number;
+		iedPct?: number;
+	};
 	setItemId?: number;
 	setName?: string;
 	/**

@@ -7,3 +7,9 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Generated data written by scripts/. `build-item-catalogue.mjs` writes the
+# catalogue COMPACT on purpose (1.43 MB on one line); prettier expanding it to
+# 80,000 lines means every `npm run format` fights the generator and every
+# regeneration produces a spurious whole-file diff.
+src/lib/data/items/catalogue.json

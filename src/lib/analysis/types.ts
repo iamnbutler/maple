@@ -158,6 +158,13 @@ export interface Calibration {
 /* -------------------------------------------------------------------------- */
 
 export type UpgradeKind =
+	/**
+	 * Obtaining the next item on a slot's progression path, brought to that
+	 * stage's prescribed stopping point. Always obtain PLUS invest — a bare drop
+	 * is a downgrade against an invested predecessor, and the set effects the
+	 * swap gains AND loses are part of the delta.
+	 */
+	| 'acquisition'
 	| 'starforce'
 	| 'flame'
 	| 'potential'

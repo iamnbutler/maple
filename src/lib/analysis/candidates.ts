@@ -38,6 +38,19 @@ import {
 	generateLinks,
 	generateVMatrix
 } from './progression-candidates';
+import {
+	addLine,
+	contributionOf,
+	usefulContribution,
+	deltaBetween,
+	emptyContribution,
+	mainStatOf,
+	subStatOf,
+	PARSED_TO_DATA,
+	type Contribution,
+	type FourStat
+} from './contribution';
+import { generateAcquisitions } from './acquisition';
 import { setEffectToDelta, setProgress } from './sets';
 import type { Confidence, Feasibility, NamedTarget, UpgradeCost, UpgradeKind } from './types';
 
@@ -85,8 +98,6 @@ export function weakest(...values: Confidence[]): Confidence {
 	return CONFIDENCE_ORDER[worst];
 }
 
-type FourStat = 'str' | 'dex' | 'int' | 'luk';
-
 /** Grade ordering, for comparing where an item IS against where the plan stops. */
 const POTENTIAL_GRADE_RANK: Record<string, number> = {
 	none: 0,
@@ -101,16 +112,6 @@ const POTENTIAL_GRADE_RANK: Record<string, number> = {
  * must name one. Non-stat goals (boss, IED, %ATT, crit damage) are unambiguous.
  */
 const STAT_BEARING_GOAL_KINDS = new Set<potentialLines.PoolLineKind>(['stat_pct', 'stat_flat']);
-
-function mainStatOf(cls: ClassDef): FourStat | undefined {
-	const key = cls.primary[0];
-	return key && key !== 'hp' ? key : undefined;
-}
-
-function subStatOf(cls: ClassDef): FourStat | undefined {
-	const key = cls.secondary[0];
-	return key && key !== 'hp' ? key : undefined;
-}
 
 /** Categories that can carry regular potential (formulas.md §4A §3.1). */
 const POTENTIAL_CATEGORIES: Record<string, potential.PotentialCategory | undefined> = {
@@ -509,137 +510,6 @@ function generateFlame(character: Character): CandidateResult {
 /* -------------------------------------------------------------------------- */
 /* Potential                                                                   */
 /* -------------------------------------------------------------------------- */
-
-interface Contribution {
-	mainPct: number;
-	subPct: number;
-	allStatPct: number;
-	attPct: number;
-	dmg: number;
-	boss: number;
-	critDmg: number;
-	critRate: number;
-	att: number;
-	mainFlat: number;
-	ied: number[];
-}
-
-function emptyContribution(): Contribution {
-	return {
-		mainPct: 0,
-		subPct: 0,
-		allStatPct: 0,
-		attPct: 0,
-		dmg: 0,
-		boss: 0,
-		critDmg: 0,
-		critRate: 0,
-		att: 0,
-		mainFlat: 0,
-		ied: []
-	};
-}
-
-/** Fold one parsed line kind + value into a contribution bag. */
-function addLine(
-	into: Contribution,
-	kind: potential.PotentialLineKind,
-	value: number,
-	stat: FourStat | undefined,
-	cls: ClassDef
-): void {
-	const main = mainStatOf(cls);
-	const sub = subStatOf(cls);
-	switch (kind) {
-		case 'stat_pct':
-			if (stat && stat === main) into.mainPct += value;
-			else if (stat && stat === sub) into.subPct += value;
-			break;
-		case 'stat_flat':
-			if (stat && stat === main) into.mainFlat += value;
-			break;
-		case 'all_stat_pct':
-			into.allStatPct += value;
-			break;
-		case 'att_pct':
-		case 'matt_pct':
-			into.attPct += value;
-			break;
-		case 'att_flat':
-		case 'matt_flat':
-			into.att += value;
-			break;
-		case 'boss':
-			into.boss += value;
-			break;
-		case 'ied':
-			into.ied.push(value);
-			break;
-		case 'damage_pct':
-			into.dmg += value;
-			break;
-		case 'crit_rate':
-			into.critRate += value;
-			break;
-		case 'crit_dmg':
-			into.critDmg += value;
-			break;
-		default:
-			break;
-	}
-}
-
-/** `calc.parsePotentialLine` kinds -> the data module's line kinds. */
-const PARSED_TO_DATA: Record<calc.PotentialKind, potential.PotentialLineKind | null> = {
-	stat_pct: 'stat_pct',
-	stat_flat: 'stat_flat',
-	all_stat_pct: 'all_stat_pct',
-	att: 'att_flat',
-	att_pct: 'att_pct',
-	matt: 'matt_flat',
-	matt_pct: 'matt_pct',
-	boss: 'boss',
-	ied: 'ied',
-	dmg: 'damage_pct',
-	crit_rate: 'crit_rate',
-	crit_dmg: 'crit_dmg',
-	hp_pct: 'hp_pct',
-	cooldown: 'cooldown',
-	drop: 'drop',
-	meso: 'meso',
-	other: null
-};
-
-function contributionOf(lines: readonly string[], cls: ClassDef): Contribution {
-	const out = emptyContribution();
-	for (const line of calc.parsePotentialLines(lines)) {
-		const kind = PARSED_TO_DATA[line.kind];
-		if (!kind) continue;
-		const stat = line.stat && line.stat !== 'hp' ? line.stat : undefined;
-		addLine(out, kind, line.value, stat, cls);
-	}
-	return out;
-}
-
-function deltaBetween(current: Contribution, next: Contribution): Delta {
-	const delta: Delta = {};
-	const set = (key: keyof Delta, value: number): void => {
-		if (Math.abs(value) > 1e-9) (delta as Record<string, unknown>)[key] = value;
-	};
-	set('mainPct', next.mainPct - current.mainPct);
-	set('subPct', next.subPct - current.subPct);
-	set('allStatPct', next.allStatPct - current.allStatPct);
-	set('attPct', next.attPct - current.attPct);
-	set('dmg', next.dmg - current.dmg);
-	set('boss', next.boss - current.boss);
-	set('critDmg', next.critDmg - current.critDmg);
-	set('critRate', next.critRate - current.critRate);
-	set('att', next.att - current.att);
-	set('mainFlat', next.mainFlat - current.mainFlat);
-	if (current.ied.length) delta.iedRemove = [...current.ied];
-	if (next.ied.length) delta.iedAdd = [...next.ied];
-	return delta;
-}
 
 function rankAbove(grade: potential.PotentialGrade): potential.PotentialGrade | null {
 	switch (grade) {
@@ -1080,31 +950,6 @@ function goalContribution(
 	}
 
 	return out;
-}
-
-/** Three "useful" lines for a category at a grade (potential.USEFUL_LINES). */
-function usefulContribution(
-	category: potential.PotentialCategory,
-	grade: potential.PotentialGrade,
-	itemLevel: number,
-	slot: string,
-	cls: ClassDef
-): { contribution: Contribution; kinds: potential.PotentialLineKind[] } {
-	const out = emptyContribution();
-	const kinds: potential.PotentialLineKind[] = [];
-	const main = mainStatOf(cls);
-	const slotOpt = { slot: slot as potential.PotentialSlot };
-
-	for (const kind of potential.USEFUL_LINES[category]) {
-		if (kinds.length >= 3) break;
-		if (kind === 'matt_pct' && !cls.usesMagicAttack) continue;
-		if (kind === 'att_pct' && cls.usesMagicAttack) continue;
-		const value = potential.lineValue(grade, itemLevel, category, kind, slotOpt);
-		if (value === null || value === 0) continue;
-		kinds.push(kind);
-		addLine(out, kind, value, main, cls);
-	}
-	return { contribution: out, kinds };
 }
 
 /**
@@ -1729,6 +1574,7 @@ function generateHyperStats(character: Character, target: NamedTarget): Candidat
 /* -------------------------------------------------------------------------- */
 
 const ALL_KINDS: UpgradeKind[] = [
+	'acquisition',
 	'starforce',
 	'flame',
 	'potential',
@@ -1768,6 +1614,7 @@ export function generateCandidates(
 		notes.push(...result.notes);
 	};
 
+	run('acquisition', () => generateAcquisitions(character));
 	run('starforce', () => generateStarforce(character, options));
 	run('flame', () => generateFlame(character));
 	run('potential', () => generatePotential(character, 'main'));

@@ -8,14 +8,31 @@ import { ValidationError } from '$lib/store';
 
 import type { AnalysisOptions, UpgradeKind } from './types';
 
+/**
+ * Every `UpgradeKind` the `?kinds=` filter accepts.
+ *
+ * MUST stay in step with `UpgradeKind` in `./types` and `ALL_KINDS` in
+ * `./candidates`. It had drifted: eight kinds the engine generates — `set`, the
+ * four Legion/link ones and the three V-Matrix/HEXA ones — were missing, so
+ * `?kinds=set` was rejected as unknown rather than filtered.
+ */
 export const UPGRADE_KINDS: readonly UpgradeKind[] = [
+	'acquisition',
 	'starforce',
 	'flame',
 	'potential',
 	'bonus-potential',
 	'symbol',
 	'hyper-stat',
-	'stat-line'
+	'stat-line',
+	'set',
+	'link',
+	'legion-board',
+	'legion-member',
+	'legion-artifact',
+	'v-matrix',
+	'hexa-skill',
+	'hexa-stat'
 ];
 
 function isTruthy(value: string): boolean {
