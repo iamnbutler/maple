@@ -30,6 +30,14 @@ import {
 } from '$lib/schema';
 
 import { CATEGORY_BY_SLOT } from '$lib/schema/item';
+import {
+	generateHexaSkills,
+	generateHexaStat,
+	generateLegionArtifact,
+	generateLegionBoard,
+	generateLinks,
+	generateVMatrix
+} from './progression-candidates';
 import { setEffectToDelta, setProgress } from './sets';
 import type { Confidence, Feasibility, NamedTarget, UpgradeCost, UpgradeKind } from './types';
 
@@ -1682,7 +1690,13 @@ const ALL_KINDS: UpgradeKind[] = [
 	'bonus-potential',
 	'symbol',
 	'hyper-stat',
-	'set'
+	'set',
+	'link',
+	'legion-board',
+	'legion-artifact',
+	'v-matrix',
+	'hexa-skill',
+	'hexa-stat'
 ];
 
 /**
@@ -1716,6 +1730,12 @@ export function generateCandidates(
 	run('symbol', () => generateSymbols(character));
 	run('hyper-stat', () => generateHyperStats(character, target));
 	run('set', () => generateSetCompletion(character));
+	run('link', () => generateLinks(character));
+	run('legion-board', () => generateLegionBoard(character));
+	run('legion-artifact', () => generateLegionArtifact(character));
+	run('v-matrix', () => generateVMatrix(character));
+	run('hexa-skill', () => generateHexaSkills(character));
+	run('hexa-stat', () => generateHexaStat(character));
 
 	return { candidates, notes };
 }
