@@ -1,0 +1,159 @@
+/* Maple — dark, dense, one user, lots of numbers. */
+
+:root {
+	color-scheme: dark;
+
+	--bg: #0d0f13;
+	--panel: #14171d;
+	--panel-2: #191d24;
+	--panel-3: #1f242c;
+	--line: #262c36;
+	--line-soft: #1d222a;
+
+	--text: #e7ebf2;
+	--text-dim: #97a1b0;
+	--text-faint: #6a7383;
+
+	--accent: #58c8e8;
+	--accent-dim: #2a6f85;
+
+	--good: #58d38a;
+	--warn: #f0b24a;
+	--bad: #ff6b6b;
+	--info: #7aa7ff;
+	--muted: #6a7383;
+
+	/* GMS potential grade colours. */
+	--grade-rare: #66ffff;
+	--grade-epic: #9966ff;
+	--grade-unique: #ffcc00;
+	--grade-legendary: #ccff00;
+
+	--mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+	--sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+	--radius: 4px;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--sans);
+	font-size: 13px;
+	line-height: 1.45;
+	-webkit-font-smoothing: antialiased;
+}
+
+a {
+	color: var(--accent);
+	text-decoration: none;
+}
+a:hover {
+	text-decoration: underline;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	margin: 0;
+	font-weight: 600;
+	line-height: 1.2;
+}
+h1 {
+	font-size: 18px;
+}
+h2 {
+	font-size: 13px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--text-dim);
+}
+h3 {
+	font-size: 12px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-dim);
+}
+
+.num {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+}
+
+button,
+select,
+input,
+textarea {
+	font-family: inherit;
+	font-size: inherit;
+	color: var(--text);
+	background: var(--panel-2);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	padding: 4px 7px;
+}
+button {
+	cursor: pointer;
+	background: var(--panel-3);
+}
+button:hover:not(:disabled) {
+	border-color: var(--accent-dim);
+}
+button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+}
+textarea {
+	font-family: var(--mono);
+	line-height: 1.4;
+}
+
+table {
+	border-collapse: collapse;
+	width: 100%;
+}
+th {
+	text-align: left;
+	font-weight: 600;
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-faint);
+	border-bottom: 1px solid var(--line);
+	padding: 4px 8px;
+	white-space: nowrap;
+}
+td {
+	padding: 3px 8px;
+	border-bottom: 1px solid var(--line-soft);
+	vertical-align: baseline;
+}
+tbody tr:hover {
+	background: #ffffff08;
+}
+.right {
+	text-align: right;
+}
+
+code {
+	font-family: var(--mono);
+	background: var(--panel-2);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	padding: 1px 4px;
+}

@@ -123,10 +123,28 @@ describe('GET /api/ref/*', () => {
 		expect(json.slots.find((s: any) => s.id === 'badge').starForceable).toBe(false);
 	});
 
-	it('stubs classes as an empty list', async () => {
+	it('returns the real class table', async () => {
 		const { status, json } = await call(getClasses);
 		expect(status).toBe(200);
-		expect(json).toEqual([]);
+		expect(Array.isArray(json)).toBe(true);
+		expect(json.length).toBeGreaterThan(40);
+
+		const windArcher = json.find((c: any) => c.id === 'wind-archer');
+		expect(windArcher).toEqual({
+			id: 'wind-archer',
+			name: 'Wind Archer',
+			jobType: 'bowman',
+			primary: ['dex'],
+			secondary: ['str'],
+			usesMagicAttack: false,
+			weaponConstant: 1.3,
+			masteryPercent: 85
+		});
+
+		// Design §11: Hero is modelled as two-handed only, so it has no variants.
+		expect(json.find((c: any) => c.id === 'hero').weaponVariants).toBeUndefined();
+		// Xenon's three-way primary split survives the projection.
+		expect(json.find((c: any) => c.id === 'xenon').primary).toEqual(['str', 'dex', 'luk']);
 	});
 });
 
