@@ -130,31 +130,50 @@ describe('flame candidates', () => {
 });
 
 describe('potential candidates', () => {
-	it('emits a rank-up and a useful-lines candidate per item', () => {
+	it('emits a rank-up and per-slot cube goals for an item', () => {
 		const { candidates } = generate(() => {}, { kinds: ['potential'] });
 		const bottom = candidates.filter((c) => c.slot === 'bottom');
 
-		expect(bottom.map((c) => c.id).sort()).toEqual([
-			'potential:bottom:rank-up',
-			'potential:bottom:useful-lines'
-		]);
+		expect(bottom.map((c) => c.id)).toContain('potential:bottom:rank-up');
+		// Goals are keyed by the real per-slot line pool now, not one blanket
+		// "useful lines" candidate.
+		expect(bottom.some((c) => c.id.startsWith('potential:bottom:goal:'))).toBe(true);
+
 		const rankUp = bottom.find((c) => c.id.endsWith('rank-up'))!;
 		expect(rankUp.confidence).toBe('speculative');
 		expect(rankUp.cost.mesos! % potentialData.HEROIC_CUBE_PRICES.bright).toBe(0);
 	});
 
-	it('has no rank-up for a legendary item', () => {
+	it('has no rank-up for a legendary item, but still offers cube goals', () => {
 		const { candidates } = generate(() => {}, { kinds: ['potential'] });
 		expect(candidates.some((c) => c.id === 'potential:hat:rank-up')).toBe(false);
-		expect(candidates.some((c) => c.id === 'potential:hat:useful-lines')).toBe(true);
+		expect(candidates.some((c) => c.id.startsWith('potential:hat:goal:'))).toBe(true);
 	});
 
 	it('removes the current IED lines before adding the new ones', () => {
 		const { candidates } = generate(() => {}, { kinds: ['potential'] });
-		const weapon = candidates.find((c) => c.id === 'potential:weapon:useful-lines')!;
+		const weapon = candidates.find((c) => c.id === 'potential:weapon:goal:bossied3')!;
 
 		expect(weapon.delta.iedRemove).toEqual([40]);
 		expect(weapon.delta.iedAdd!.length).toBeGreaterThan(0);
+	});
+
+	// Pools are per SLOT, and an emblem's pool contains no Boss Damage line at
+	// any rank — so no boss goal may be offered for one, however tempting.
+	it('never offers a boss-damage goal for an emblem', () => {
+		const { candidates } = generate(() => {}, { kinds: ['potential'] });
+		const emblem = candidates.filter((c) => c.slot === 'emblem');
+		expect(emblem.some((c) => c.id.includes('boss'))).toBe(false);
+	});
+
+	// The old model priced this at 1/triplePrime = 2.2B. The real pools put it
+	// in the trillions, which is the entire point of the rewrite.
+	it('prices three critical-damage glove lines in the trillions, not billions', () => {
+		const { candidates } = generate(() => {}, { kinds: ['potential'] });
+		const triple = candidates.find((c) => c.id === 'potential:gloves:goal:critdmg3');
+		if (!triple) return; // gloves may be below the published pool level
+		expect(triple.cost.mesos!).toBeGreaterThan(1e12);
+		expect(triple.feasibility).toBe('ceiling');
 	});
 
 	it('skips bonus potential entirely in Heroic', () => {

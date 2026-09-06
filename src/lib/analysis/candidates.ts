@@ -15,6 +15,7 @@ import * as flames from '$lib/data/flames';
 import { capabilities, type ItemCapabilities } from '$lib/data/items';
 import * as hyperstats from '$lib/data/hyperstats';
 import * as potential from '$lib/data/potential';
+import * as potentialLines from '$lib/data/potential-lines';
 import * as starforce from '$lib/data/starforce';
 import * as symbols from '$lib/data/symbols';
 import {
@@ -27,6 +28,7 @@ import {
 	type SacredRegion
 } from '$lib/schema';
 
+import { CATEGORY_BY_SLOT } from '$lib/schema/item';
 import { setEffectToDelta, setProgress } from './sets';
 import type { Confidence, Feasibility, NamedTarget, UpgradeCost, UpgradeKind } from './types';
 
@@ -583,6 +585,174 @@ const RANK_UP_KEY = {
 	unique: 'uniqueToLegendary'
 } as const;
 
+/**
+ * What is worth cubing for IN THIS SLOT.
+ *
+ * Keyed by the real per-slot line pool, because the pools genuinely differ:
+ * gloves are the only armour that rolls Critical Damage, hats are the only slot
+ * that rolls Skill Cooldown, and an emblem cannot roll Boss Damage at all. The
+ * old category-keyed `potential.USEFUL_LINES` could not express any of that.
+ *
+ * Each goal is a target the probability model can price, plus the line kinds to
+ * value it with. Two per slot where it makes sense: the result people actually
+ * settle for, and the perfect one, so the ranker can show both and let the cost
+ * model sort them out.
+ */
+interface SlotGoal {
+	id: string;
+	label: string;
+	target: potentialLines.PotentialTarget;
+	/** Line kinds to value, in order, one per line the target requires. */
+	kinds: potential.PotentialLineKind[];
+}
+
+function slotGoals(group: potentialLines.PotentialPoolGroup, cls: ClassDef): SlotGoal[] {
+	const attKind: potential.PotentialLineKind = cls.usesMagicAttack ? 'matt_pct' : 'att_pct';
+	const attPool: potentialLines.PoolLineKind = cls.usesMagicAttack ? 'matt_pct' : 'att_pct';
+	const statTriple: SlotGoal = {
+		id: 'stat3',
+		label: '3 lines of %main stat',
+		target: [potentialLines.requireLines('stat_pct', 3)],
+		kinds: ['stat_pct', 'stat_pct', 'stat_pct']
+	};
+	const statDouble: SlotGoal = {
+		id: 'stat2',
+		label: '2 lines of %main stat',
+		target: [potentialLines.requireLines('stat_pct', 2)],
+		kinds: ['stat_pct', 'stat_pct']
+	};
+
+	switch (group) {
+		case 'weapon':
+		case 'secondary':
+		case 'shieldSoulRing':
+			return [
+				{
+					id: 'bossied3',
+					label: '3 lines of boss damage or IED',
+					target: [potentialLines.requireLines(['boss', 'ied'], 3)],
+					kinds: ['boss', 'boss', 'ied']
+				},
+				{
+					id: 'att3',
+					label: `3 lines of %${cls.usesMagicAttack ? 'magic ' : ''}attack`,
+					target: [potentialLines.requireLines(attPool, 3)],
+					kinds: [attKind, attKind, attKind]
+				}
+			];
+		// An emblem has NO boss damage line in its pool, at any rank.
+		case 'emblem':
+			return [
+				{
+					id: 'ied3',
+					label: '3 lines of IED',
+					target: [potentialLines.requireLines('ied', 3)],
+					kinds: ['ied', 'ied', 'ied']
+				},
+				{
+					id: 'att3',
+					label: `3 lines of %${cls.usesMagicAttack ? 'magic ' : ''}attack`,
+					target: [potentialLines.requireLines(attPool, 3)],
+					kinds: [attKind, attKind, attKind]
+				}
+			];
+		// Gloves are the only armour slot whose pool contains Critical Damage.
+		case 'gloves':
+			return [
+				{
+					id: 'critdmg2',
+					label: '2 lines of critical damage',
+					target: [potentialLines.requireLines('crit_dmg', 2)],
+					kinds: ['crit_dmg', 'crit_dmg']
+				},
+				{
+					id: 'critdmg3',
+					label: '3 lines of critical damage',
+					target: [potentialLines.requireLines('crit_dmg', 3)],
+					kinds: ['crit_dmg', 'crit_dmg', 'crit_dmg']
+				},
+				statDouble
+			];
+		// Hats are the only slot whose pool contains Skill Cooldown.
+		//
+		// ⚠️ This goal is generated and priced, but it will SCORE ZERO and be
+		// dropped by the ranker, because cooldown reduction buys rotation uptime
+		// and the damage index models a single hit against a target — it has no
+		// notion of a rotation. For a class whose burst is cooldown-gated (Ren
+		// notably) that understates the line badly. Modelling it needs a skill
+		// rotation, which the tracker does not have; until then a hat cooldown
+		// roll is a decision the user has to make outside this tool.
+		case 'hat':
+			return [
+				{
+					id: 'cd2',
+					label: '2 cooldown-reduction lines',
+					target: [potentialLines.requireLines('cooldown', 2)],
+					kinds: ['cooldown', 'cooldown']
+				},
+				statTriple
+			];
+		default:
+			return [statTriple, statDouble];
+	}
+}
+
+/**
+ * The potential the item would END UP with, not just the goal's lines.
+ *
+ * A reroll replaces all three lines, so valuing only the two or three the goal
+ * names credits the item for lines it would have lost. The model here is: the
+ * goal's lines, then the item's OWN best surviving lines of other kinds fill the
+ * remaining slots. That is optimistic — the untargeted slots are random in
+ * reality — so the gain is an upper estimate and is labelled as such.
+ */
+function goalContribution(
+	goal: SlotGoal,
+	source: { grade: potential.PotentialGrade; lines: readonly string[] },
+	grade: potential.PotentialGrade,
+	itemLevel: number,
+	slot: string,
+	cls: ClassDef
+): Contribution | null {
+	const category = POTENTIAL_CATEGORIES[
+		(CATEGORY_BY_SLOT as Record<string, string>)[slot] ?? 'armor'
+	] as potential.PotentialCategory | undefined;
+	if (!category) return null;
+
+	const out = emptyContribution();
+	const main = mainStatOf(cls);
+	const slotOpt = { slot: slot as potential.PotentialSlot };
+	let placed = 0;
+
+	for (const kind of goal.kinds) {
+		if (placed >= 3) break;
+		const value = potential.lineValue(grade, itemLevel, category, kind, slotOpt);
+		if (value === null || value === 0) continue;
+		addLine(out, kind, value, main, cls);
+		placed += 1;
+	}
+	if (placed === 0) return null;
+
+	// Fill the untargeted slots with the item's own best current lines that the
+	// goal did not already ask for, so a reroll is never credited with keeping
+	// everything AND gaining the target.
+	const goalKinds = new Set(goal.kinds);
+	const survivors = calc
+		.parsePotentialLines(source.lines)
+		.map((line) => ({ line, dataKind: PARSED_TO_DATA[line.kind] }))
+		.filter((entry) => entry.dataKind && !goalKinds.has(entry.dataKind))
+		.sort((a, b) => b.line.value - a.line.value);
+
+	for (const { line, dataKind } of survivors) {
+		if (placed >= 3) break;
+		const stat = line.stat && line.stat !== 'hp' ? line.stat : undefined;
+		addLine(out, dataKind as potential.PotentialLineKind, line.value, stat, cls);
+		placed += 1;
+	}
+
+	return out;
+}
+
 /** Three "useful" lines for a category at a grade (potential.USEFUL_LINES). */
 function usefulContribution(
 	category: potential.PotentialCategory,
@@ -739,51 +909,74 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 			});
 		}
 
-		// (b) reroll to three useful lines at the current grade.
-		const useful = usefulContribution(category, source.grade, item.itemLevel, slot, cls);
-		if (useful.kinds.length > 0) {
-			const delta = deltaBetween(current, useful.contribution);
-			const odds =
-				source.grade === 'legendary'
-					? potential.LEGENDARY_PRIME_ODDS.bright.triplePrime
-					: undefined;
-			const cubes = odds ? Math.ceil(1 / odds) : undefined;
-			// A CEILING, not an action. `triplePrime` is the chance of three PRIME
-			// lines of any kind; the chance they are the three specific lines you
-			// want is smaller by roughly the size of the legendary line pool cubed,
-			// and we have no sourced pool with weights, so the meso cost is NOT
-			// computable from the data in `potential.ts`. Pricing it at
-			// `1 / triplePrime` understated it by orders of magnitude and let a
-			// jackpot outrank every achievable action — so no `mesos` is emitted at
-			// all, which also keeps it out of the gain-per-meso ranking.
-			const primeNote = cubes
-				? `A triple prime alone is ~1 in ${Math.round(1 / (odds as number))} Bright cubes ` +
-					`(${((cubes * potential.HEROIC_CUBE_PRICES.bright) / 1e9).toFixed(1)}B mesos). Hitting ` +
-					'the three SPECIFIC lines above is far rarer again — by roughly the legendary ' +
-					'line-pool size cubed — and that pool is not in our data, so the real cost is ' +
-					'unknown and very much larger.'
-				: 'No published triple-prime odds below Legendary.';
-			candidates.push({
-				id: `${kind}:${slot}:useful-lines`,
-				kind,
-				label: `${item.name} — best case at ${source.grade}`,
-				detail:
-					`The CEILING for ${slot}: ${useful.kinds.join(' / ')} at ${source.grade}. ` +
-					'Shows the headroom in the slot; it is not a purchase plan.',
-				slot,
-				itemName: item.name,
-				delta,
-				cost: { note: primeNote },
-				confidence: 'speculative',
-				feasibility: 'ceiling',
-				notes: [
-					'CEILING, not advice — three specific legendary lines is a jackpot, not a plan.',
-					'USEFUL_LINES is an editorial judgement call, not a sourced game table.',
-					'Meso cost deliberately omitted: the legendary line pool is not in our data, ' +
-						'so the odds of three SPECIFIC lines cannot be priced.',
-					...unknownItemNote(caps)
-				]
-			});
+		// (b) reroll to the lines that are actually worth chasing IN THIS SLOT.
+		//
+		// Pools are per SLOT, not per broad category: gloves are the only armour
+		// that rolls Critical Damage, hats are the only slot that rolls cooldown,
+		// and an emblem CANNOT roll Boss Damage at all (p = 0). Cost comes from
+		// the real pools in `potential-lines.ts`, not `1 / triplePrime` — that old
+		// basis priced three specific crit-damage lines on gloves at 2.2B when the
+		// true expectation is 2.9 TRILLION, a factor of 1,331.
+		const group = potentialLines.poolGroupForSlot(slot);
+		if (group && item.itemLevel !== undefined && source.grade !== 'rare') {
+			for (const goal of slotGoals(group, cls)) {
+				const contribution = goalContribution(
+					goal,
+					source,
+					source.grade,
+					item.itemLevel,
+					slot,
+					cls
+				);
+				if (!contribution) continue;
+
+				let cost: potentialLines.CubeCost;
+				try {
+					cost = potentialLines.cheapestCubeFor(
+						{ group, itemLevel: item.itemLevel, grade: source.grade as potentialLines.PoolGrade },
+						goal.target
+					);
+				} catch {
+					// The pools are only published above a per-group item level; the
+					// module throws rather than extrapolating, and so do we.
+					continue;
+				}
+				if (!Number.isFinite(cost.expectedCubes)) continue;
+
+				candidates.push({
+					id: `${kind}:${slot}:goal:${goal.id}`,
+					kind,
+					label: `${item.name} → ${goal.label}`,
+					detail:
+						`Cube ${slot} for ${goal.label} at ${source.grade}. ` +
+						`~${Math.round(cost.expectedCubes).toLocaleString()} ${cost.cube} cubes expected ` +
+						`(median ${cost.medianCubes.toLocaleString()}).`,
+					slot,
+					itemName: item.name,
+					delta: deltaBetween(current, contribution),
+					cost: {
+						mesos: cost.expectedMesos ?? undefined,
+						note:
+							`Expected cost from the real ${group} line pool: 1 in ` +
+							`${Math.round(1 / cost.probability).toLocaleString()} cubes. ` +
+							`Median ${cost.medianCubes.toLocaleString()}, 95th percentile ` +
+							`${cost.p95Cubes.toLocaleString()}.`
+					},
+					confidence: 'estimated',
+					feasibility: cost.expectedCubes > 5000 ? 'ceiling' : 'grind',
+					notes: [
+						...(cost.expectedCubes > 5000
+							? [
+									'Priced but effectively unreachable — shown as a ceiling so it cannot ' +
+										'outrank an achievable action.'
+								]
+							: []),
+						'Gain is an UPPER estimate: the lines the goal does not name are random ' +
+							'in reality, and are modelled as keeping your current best.',
+						...unknownItemNote(caps)
+					]
+				});
+			}
 		}
 	}
 
