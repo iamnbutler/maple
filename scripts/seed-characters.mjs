@@ -70,14 +70,14 @@ const lutorenGear = {
 		'Fafnir Mistilteinn',
 		{
 			itemLevel: 150,
-			starforce: 15,
+			starforce: 14,
 			total: { str: 285, dex: 140, att: 337 },
 			potential: {
 				grade: 'legendary',
 				lines: ['Attack Power : +12%', 'Attack Power : +9%', 'Boss Monster Damage : +30%']
 			}
 		},
-		`${GUESSED} User stated: Fafnir sword, 15 stars, legendary ATT/ATT/Boss. ` +
+		`${GUESSED} User stated: Fafnir sword, 14 stars, legendary ATT(prime)/ATT/Boss. ` +
 			`"Fafnir Sword" is not an item name — the Root Abyss one-handed sword is ` +
 			`Fafnir Mistilteinn (Ren wields a one-handed Sword).`
 	),
@@ -124,30 +124,39 @@ const lutorenGear = {
 	),
 	pendant1: item(
 		'Daybreak Pendant',
-		{ itemLevel: 140, starforce: 17, total: { str: 220, dex: 100, att: 22 }, setName: 'Dawn Boss' },
+		{ itemLevel: 140, starforce: 17, total: { str: 220, dex: 100, att: 22 }, setName: 'Dawn Boss Set' },
 		`${GUESSED} User stated: Dawn necklace.`
 	),
+	// All four rings are stated. Three of them (Restraint, Heroic Awake, Eternal
+	// Flame) take NO star force and NO flame — their level is a skill level raised
+	// with Grindstones, not stars. Only the Dawn Guardian Angel Ring is a real
+	// star force target, so the ring slots are close to fixed.
 	ring1: item(
 		'Ring of Restraint',
-		{ itemLevel: 200, total: { str: 150, att: 15 } },
-		`${GUESSED} User stated: RoR6, temporary. Special ring — takes no star force.`
+		{ itemLevel: 110, total: { str: 150, att: 15 } },
+		`${GUESSED} User stated: RoR 6 — an event variant, to be treated as the real ` +
+			`ring. "6" is the skill level, not a star count.`
 	),
 	ring2: item(
-		'Guardian Angel Ring',
-		{ itemLevel: 160, starforce: 17, total: { str: 200, dex: 90, att: 20 }, setName: 'Dawn Boss' },
-		`${GUESSED} User stated: slime ring (Dawn set).`
+		'Dawn Guardian Angel Ring',
+		{
+			itemLevel: 160,
+			starforce: 17,
+			total: { str: 200, dex: 90, att: 20 },
+			setName: 'Dawn Boss Set'
+		},
+		`${GUESSED} User stated: Dawn Guardian Angel Ring (the "slime ring").`
 	),
-	// The user said "2 event rings" without naming them. These are real items used
-	// as stand-ins so the slot renders and scores; replace on the first capture.
 	ring3: item(
-		'Meister Ring',
-		{ itemLevel: 140, starforce: 15, total: { str: 60, att: 5 } },
-		`${GUESSED} STAND-IN. User stated "event ring" without naming it.`
+		'Heroic Awake Ring (Lv. 4)',
+		{ itemLevel: 120, total: { str: 60, att: 5 } },
+		`${GUESSED} User stated: Heroic Awake Ring level 4. Takes no star force — its ` +
+			`upgrade slots consume Awake Ring Exclusive Enhancement Scrolls.`
 	),
 	ring4: item(
-		'Silver Blossom Ring',
-		{ itemLevel: 110, starforce: 10, total: { str: 60, att: 5 } },
-		`${GUESSED} STAND-IN. User stated "event ring" without naming it.`
+		'Eternal Flame Ring',
+		{ itemLevel: 120, total: { str: 60, att: 5 } },
+		`${GUESSED} User stated: Eternal Flame Ring. Takes no star force.`
 	),
 	heart: item(
 		'Fairy Heart',
@@ -156,34 +165,109 @@ const lutorenGear = {
 	),
 
 	// --- not mentioned; invented so the analysis has something to chew on ---
-	secondary: item('Imugi Gem', { itemLevel: 140, total: { str: 120, dex: 60, att: 12 } }),
-	emblem: item('Gold Maple Leaf Emblem', { itemLevel: 100, total: { str: 100, att: 8 } }),
-	shoulder: item('AbsoLab Shoulder', {
-		itemLevel: 160,
-		starforce: 12,
-		total: { str: 130, att: 18 }
-	}),
-	belt: item('Golden Clover Belt', { itemLevel: 140, starforce: 15, total: { str: 180, att: 15 } }),
-	pendant2: item('Dominator Pendant', {
-		itemLevel: 140,
-		starforce: 12,
-		total: { str: 165, att: 15 }
-	}),
-	earrings: item('Estella Earrings', {
-		itemLevel: 140,
-		starforce: 15,
-		total: { str: 195, att: 20 },
-		setName: 'Dawn Boss'
-	}),
-	face: item('Condensed Power Crystal', {
-		itemLevel: 140,
-		starforce: 12,
-		total: { str: 130, att: 12 }
-	}),
-	eye: item('Black Bean Mark', { itemLevel: 140, starforce: 12, total: { str: 130, att: 12 } }),
+	// Ren's secondary. Genuinely absent from the v270 catalogue, so its
+	// capabilities fall back to slot rules and it renders without a sprite.
+	secondary: item(
+		'Imugi Gem',
+		{
+			itemLevel: 140,
+			total: { str: 120, dex: 60, att: 12 },
+			potential: {
+				grade: 'legendary',
+				lines: ['Attack Power : +12%', 'Damage : +12%', 'Attack Power : +9%']
+			}
+		},
+		`${GUESSED} User stated potential LINES only — ATT(prime)/DMG(prime)/ATT. ` +
+			`The percentages are the standard legendary prime/non-prime values and ` +
+			`are inferred, not read off the tooltip.`
+	),
+	emblem: item(
+		'Gold Sword Emblem',
+		{
+			itemLevel: 100,
+			total: { str: 100, att: 8 },
+			potential: {
+				grade: 'legendary',
+				lines: ['Attack Power : +12%', 'Damage : +9%', 'Damage : +9%']
+			}
+		},
+		`${GUESSED} User stated: gold sword emblem, ATT(prime)/DMG/DMG. No such ` +
+			`emblem exists in the v270 catalogue (its emblems are all Maple Leaf / ` +
+			`Dragon / Angel / Boss Arena), so this is a Ren-era class emblem — the ` +
+			`same coverage gap as the Imugi Gem. Percentages are inferred.`
+	),
+	shoulder: item(
+		'Royal Black Metal Shoulder',
+		{
+			itemLevel: 120,
+			starforce: 12,
+			total: { str: 130, att: 18 },
+			setName: 'Boss Accessory Set'
+		},
+		`${GUESSED} User stated: royal black metal shoulder.`
+	),
+	belt: item(
+		'Superior Engraved Gollux Belt',
+		{
+			itemLevel: 150,
+			starforce: 15,
+			total: { str: 180, att: 15 },
+			setName: 'Superior Gollux Set'
+		},
+		`${GUESSED} User stated: superior Gollux belt.`
+	),
+	pendant2: item(
+		'Dominator Pendant',
+		{
+			itemLevel: 140,
+			starforce: 12,
+			total: { str: 165, att: 15 },
+			setName: 'Boss Accessory Set'
+		},
+		`${GUESSED} User stated: Dominator Pendant.`
+	),
+	earrings: item(
+		"Will o' the Wisps",
+		{
+			itemLevel: 130,
+			starforce: 15,
+			total: { str: 195, att: 20 },
+			setName: 'Boss Accessory Set'
+		},
+		`${GUESSED} User stated: will o the wisps. NOTE this is the EARRINGS slot, ` +
+			`not a face/eye accessory, and it is Boss Accessory Set — so it does not ` +
+			`count toward the Dawn set the way Estella Earrings would.`
+	),
+	face: item(
+		'Condensed Power Crystal',
+		{
+			itemLevel: 110,
+			starforce: 12,
+			total: { str: 130, att: 12 },
+			setName: 'Boss Accessory Set'
+		},
+		`${GUESSED} User stated: Condensed Power Crystal.`
+	),
+	eye: item(
+		'Aquatic Letter Eye Accessory',
+		{
+			itemLevel: 100,
+			starforce: 12,
+			total: { str: 130, att: 12 },
+			setName: 'Boss Accessory Set'
+		},
+		`${GUESSED} PROVISIONAL NAME. User wrote "aquacit eye"; the only aquatic eye ` +
+			`accessory in the v270 catalogue is the Aquatic Letter Eye Accessory. ` +
+			`Confirm against the tooltip.`
+	),
 	badge: item('Crystal Ventus Badge', { itemLevel: 130, total: { str: 40, att: 12 } }),
 	medal: item('Silent Crusade Champion', { itemLevel: 120, total: { str: 35, att: 8 } }),
-	pocket: item('Pink Holy Cup', { itemLevel: 140, total: { str: 100, att: 10 } }),
+	pocket: item(
+		'Pink Holy Cup',
+		{ itemLevel: 140, total: { str: 100, att: 10 }, setName: 'Boss Accessory Set' },
+		`${GUESSED} User stated: Pink Holy Cup. Takes no star force and no potential, ` +
+			`but it DOES take a flame.`
+	),
 	android: item('Lotusroid', { itemLevel: 10, total: {} })
 	// totems: user says none yet.
 };
@@ -268,7 +352,7 @@ const demoGear = {
 		itemLevel: 140,
 		starforce: 22,
 		total: { str: 300, att: 30 },
-		setName: 'Dawn Boss'
+		setName: 'Dawn Boss Set'
 	}),
 	pendant2: item('Source of Suffering', {
 		itemLevel: 160,
@@ -280,7 +364,7 @@ const demoGear = {
 		itemLevel: 160,
 		starforce: 22,
 		total: { str: 280, att: 28 },
-		setName: 'Dawn Boss'
+		setName: 'Dawn Boss Set'
 	}),
 	ring3: item('Whisper of the Source', {
 		itemLevel: 160,
@@ -292,7 +376,7 @@ const demoGear = {
 		itemLevel: 140,
 		starforce: 22,
 		total: { str: 290, att: 30 },
-		setName: 'Dawn Boss'
+		setName: 'Dawn Boss Set'
 	}),
 	belt: item('Dreamy Belt', { itemLevel: 160, starforce: 22, total: { str: 300, att: 28 } }),
 	heart: item('Total Control Heart', {
