@@ -30,7 +30,9 @@ import {
 	type ArcaneRegion,
 	type SacredRegion,
 	type Symbols
-} from '$lib/schema';
+	// Leaf module, NOT the `$lib/schema` barrel: the barrel re-exports
+	// `validate.ts`, which pulls the 1.15 MB item catalogue into the bundle.
+} from '$lib/schema/character';
 import { humanize } from '$lib/ui/format';
 
 /** One symbol as drawn: a hexagon plus a level and a bar. */

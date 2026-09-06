@@ -12,6 +12,7 @@ import { tryGetClass } from '$lib/data/classes';
 import type { Character } from '$lib/schema';
 import { humanize } from '$lib/ui/format';
 import { DEMO_CHARACTER, demoAnalysis } from '$lib/ui/fixtures';
+import { withIconUrls } from '$lib/ui/icons.server';
 
 import type { PageServerLoad } from './$types';
 
@@ -82,7 +83,7 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
 
 	if (demo) {
 		return {
-			character: DEMO_CHARACTER,
+			character: withIconUrls(DEMO_CHARACTER),
 			className: tryGetClass(DEMO_CHARACTER.classId)?.name ?? DEMO_CHARACTER.classId,
 			analysis: demoAnalysis(target),
 			analysisError: null as AnalysisError | null,
@@ -100,7 +101,9 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
 	const { analysis, analysisError } = await loadAnalysis(fetch, params.id, target);
 
 	return {
-		character,
+		// Sprite URLs are resolved here so the 1.15 MB item catalogue never has to
+		// reach the browser — see `$lib/ui/icons.server`.
+		character: withIconUrls(character),
 		className: tryGetClass(character.classId)?.name ?? character.classId,
 		analysis,
 		analysisError,

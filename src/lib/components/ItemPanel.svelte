@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 
-	import { CATEGORY_BY_SLOT, type Item, type Slot } from '$lib/schema';
+	// Imported from the leaf module, NOT the `$lib/schema` barrel: the barrel also
+	// re-exports `validate.ts`, which pulls in the 1.15 MB item catalogue and would
+	// drag all of it into the browser bundle.
+	import { CATEGORY_BY_SLOT, type Item, type Slot } from '$lib/schema/item';
 	import { int, stars } from '$lib/ui/format';
 	import { resolveIconUrl } from '$lib/ui/icons';
 	import { GRADE_COLORS, GRADE_LABELS, SLOT_LABELS, statEntries } from '$lib/ui/slots';

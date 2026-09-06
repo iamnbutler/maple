@@ -13,7 +13,8 @@ import {
 	starStatGain,
 	STAR_RATES,
 	UNVERIFIED_WEAPON_26_30,
-	weaponSub15Attack
+	weaponSub15Attack,
+	maxStarException
 } from './starforce';
 
 describe('maxStars', () => {
@@ -354,8 +355,7 @@ describe('expectedCostToReach — boom recovery is transitive', () => {
 				safeguard: opts.safeguard && s >= 15 && s <= 17
 			});
 
-			const rebuilt =
-				attempt + r.maintain * here + r.success * onSuccess + r.destroy * onBoom;
+			const rebuilt = attempt + r.maintain * here + r.success * onSuccess + r.destroy * onBoom;
 
 			expect(rebuilt).toBeCloseTo(here, -3);
 		});
@@ -376,5 +376,37 @@ describe('expectedCostToReach — boom recovery is transitive', () => {
 		expect(cost).toBeGreaterThan(3e11);
 		expect(cost).toBeLessThan(1.2e12);
 		expect(expectedBooms(22, 25, opts)).toBeGreaterThan(40);
+	});
+});
+
+describe('maxStarException — the liberated-weapon fragments are anchored', () => {
+	it('matches the real Genesis and Destiny weapons', () => {
+		expect(maxStarException('Genesis Sword', 'weapon')).toMatchObject({
+			maxStars: 22,
+			fixed: true
+		});
+		expect(maxStarException('Destiny Shining Rod', 'weapon')).toMatchObject({
+			maxStars: 22,
+			starforceable: false
+		});
+	});
+
+	// A bare `includes('genesis')` catches all of these, and every one of them is
+	// an ordinary 30-star item. This is the reason the rows carry `anchor` and
+	// `slots` at all.
+	it('does not capture non-weapons that merely contain the word', () => {
+		expect(maxStarException('Genesis Badge', 'badge')).toBeUndefined();
+		expect(maxStarException('Genesis Bandana', 'hat')).toBeUndefined();
+		expect(maxStarException('Bond of Destiny', 'cape')).toBeUndefined();
+		expect(maxStarException('Adversary of Destiny', 'medal')).toBeUndefined();
+	});
+
+	it('skips slot-restricted rows when the slot is unknown, rather than guessing', () => {
+		expect(maxStarException('Genesis Sword')).toBeUndefined();
+	});
+
+	it('still matches the unrestricted rows anywhere in the name', () => {
+		expect(maxStarException('Sweetwater Shoes', 'shoes')).toMatchObject({ maxStars: 15 });
+		expect(maxStarException('Ghost Ship Exorcist', 'badge')).toMatchObject({ maxStars: 22 });
 	});
 });

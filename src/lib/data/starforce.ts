@@ -76,17 +76,63 @@ export const MAX_STARS_BY_LEVEL_SUPERIOR = [
 /**
  * Per-item exceptions to `maxStars`.
  * formulas.md §4A §1.2 "Exceptions" / "Fixed-star items".
- * Keyed by a lowercase item-name fragment; consumers match on their own item names.
+ *
+ * Keyed by a lowercase item-name fragment. Each row also says HOW to match:
+ * `anchor: 'prefix'` means the fragment must start the name, and `slots` limits
+ * the row to those equipment slots. Both exist because of the liberated
+ * weapons: a bare `includes('genesis')` also captures the Genesis Badge, the
+ * Genesis Bandana, the "Bond of Destiny" cape and four "…Destiny" medals, none
+ * of which are fixed at 22 stars. Match through `maxStarException()` rather
+ * than reimplementing the comparison — the whole point of the extra fields is
+ * that a caller should not have to know this.
  */
-export const MAX_STAR_EXCEPTIONS = [
+export interface MaxStarException {
+	readonly match: string;
+	readonly maxStars: number;
+	/** `'substring'` (default) or `'prefix'` — the fragment must begin the name. */
+	readonly anchor?: 'substring' | 'prefix';
+	/** When present, the row only applies in these slots. */
+	readonly slots?: readonly string[];
+	/** The item arrives at `maxStars` and cannot be enhanced past it. */
+	readonly fixed?: boolean;
+	/** The item cannot be star forced at all. */
+	readonly starforceable?: boolean;
+}
+
+export const MAX_STAR_EXCEPTIONS: readonly MaxStarException[] = [
 	{ match: 'sweetwater shoes', maxStars: 15 },
 	{ match: 'sweetwater gloves', maxStars: 15 },
 	{ match: 'sweetwater cape', maxStars: 15 },
 	{ match: 'ghost ship exorcist', maxStars: 22 },
 	{ match: 'sengoku hakase', maxStars: 22 },
-	{ match: 'genesis', maxStars: 22, fixed: true },
-	{ match: 'destiny', maxStars: 22, fixed: true, starforceable: false }
-] as const;
+	{ match: 'genesis', maxStars: 22, fixed: true, anchor: 'prefix', slots: ['weapon'] },
+	{ match: 'sealed genesis', maxStars: 22, fixed: true, anchor: 'prefix', slots: ['weapon'] },
+	{
+		match: 'destiny',
+		maxStars: 22,
+		fixed: true,
+		starforceable: false,
+		anchor: 'prefix',
+		slots: ['weapon']
+	}
+];
+
+/**
+ * The max-star exception for an item, or `undefined` when none applies.
+ *
+ * `slot` is optional but strongly recommended: without it, slot-restricted rows
+ * are skipped rather than guessed at, so a Genesis Badge is never mistaken for
+ * a Genesis weapon.
+ */
+export function maxStarException(name: string, slot?: string): MaxStarException | undefined {
+	const lower = name.trim().toLowerCase();
+	for (const row of MAX_STAR_EXCEPTIONS) {
+		if (row.slots && (slot === undefined || !row.slots.includes(slot))) continue;
+		const hit = row.anchor === 'prefix' ? lower.startsWith(row.match) : lower.includes(row.match);
+		if (hit) return row;
+	}
+	return undefined;
+}
 
 /** Max Star Force for an item level. `superior` selects the Tyrant/Nova/Heliseum table. */
 export function maxStars(itemLevel: number, superior = false): number {

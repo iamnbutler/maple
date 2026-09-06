@@ -8,18 +8,13 @@
 //
 //   1. an explicit `iconUrl` (or `icon`) carried on the item payload;
 //   2. an item id on the payload (`itemId` / `id`);
-//   3. a name lookup in the item catalogue (`src/lib/data/items`).
-//
-// Step 3 reuses the catalogue's own `resolveByName`, which already handles the
-// approximations a tooltip capture produces ("AbsoLab Shoulder" for "AbsoLab
-// Knight Shoulder"). We pass the slot whenever we have one: it is what stops a
-// fuzzy match from wandering into the wrong category, and it is also what
-// disambiguates the many same-named items that differ only by class.
+//   3. a name lookup in the item catalogue — but that happens on the SERVER, in
+//      `icons.server.ts`, which stamps an `iconUrl` onto each item so step 1
+//      succeeds here. The catalogue is 1.15 MB of JSON and has no business in a
+//      browser bundle, so this module must never import it.
 //
 // Callers must still handle a broken image — an id can be right and the sprite
 // still 404. See `ItemIcon.svelte`.
-
-import { catalogueSlot, resolveByName } from '$lib/data/items';
 
 /** maplestory.io icon endpoint. GMS, version 270. */
 export const ICON_REGION = 'GMS';
@@ -48,16 +43,7 @@ export function resolveIconUrl(item: unknown): string | null {
 		return iconUrlForItemId(id);
 	}
 
-	const name = typeof rec.name === 'string' ? rec.name : '';
-	if (!name) return null;
-
-	const slot = typeof rec.slot === 'string' ? catalogueSlot(rec.slot) : undefined;
-	const { entries } = resolveByName(name, slot);
-	// An approximate match is still worth an icon: a nearly-right sprite reads
-	// better than a wall of text, and the analysis surfaces the naming warning
-	// separately.
-	return entries[0]?.iconUrl ?? null;
+	// No name lookup here — see the header. An item that reaches the client
+	// without an `iconUrl` was not resolvable server-side, and falls back to text.
+	return null;
 }
-
-/** True when the item catalogue module is present in this build. */
-export const HAS_ITEM_CATALOGUE = true;
