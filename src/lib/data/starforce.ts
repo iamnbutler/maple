@@ -860,6 +860,33 @@ export function starforceCost(
  * Superior gear is out of scope here — it still loses a star on failure and has
  * Chance Time (formulas.md §4A §1.4).
  */
+/**
+ * Every star the chain can occupy on the way from `from`★ to `to`★, ascending.
+ *
+ * Boom recovery is **transitive**, and getting this wrong is a subtle, expensive
+ * mistake: booming at 24★ drops you to 19★, but climbing back up passes through
+ * 20★, where a boom drops you to 15★. Taking only one level of recovery
+ * (`min(from, recovered(s))` over `s` in `[from, to)`) leaves those deeper
+ * states outside the solved system, and the transitions into them then get
+ * silently discarded — which prices a destruction as if it were free. That
+ * under-priced `22★ → 25★` by ~75x.
+ *
+ * So walk to a fixed point: keep lowering the floor until no reachable star
+ * recovers below it.
+ */
+function reachableStars(from: number, to: number): number[] {
+	let low = from;
+	for (;;) {
+		let next = low;
+		for (let s = Math.max(low, 15); s < to; s++) next = Math.min(next, getRecoveredStars(s));
+		if (next === low) break;
+		low = next;
+	}
+	const stars: number[] = [];
+	for (let s = low; s < to; s++) stars.push(s);
+	return stars;
+}
+
 export function expectedCostToReach(
 	itemLevel: number,
 	from: number,
@@ -869,11 +896,8 @@ export function expectedCostToReach(
 	if (to <= from) return 0;
 	const replacementCost = opts.replacementCost ?? 0;
 
-	// Stars whose expected cost we need: everything a boom can drop us to, up to `to - 1`.
-	let low = from;
-	for (let s = Math.max(from, 15); s < to; s++) low = Math.min(low, getRecoveredStars(s));
-	const stars: number[] = [];
-	for (let s = low; s < to; s++) stars.push(s);
+	const stars = reachableStars(from, to);
+	const low = stars[0];
 	const n = stars.length;
 	const index = new Map<number, number>(stars.map((s, i) => [s, i]));
 
@@ -892,7 +916,15 @@ export function expectedCostToReach(
 		if (next !== undefined) m[i][next] -= r.success; // E[to] is 0, so no column for it
 		if (r.destroy > 0) {
 			const recovered = index.get(getRecoveredStars(s));
-			if (recovered !== undefined) m[i][recovered] -= r.destroy;
+			// Dropping this term silently would price the boom as free — see
+			// `reachableStars`. The closure guarantees the state exists.
+			if (recovered === undefined) {
+				throw new Error(
+					`Star-force chain escaped its solved window: ${s}★ recovers to ` +
+						`${getRecoveredStars(s)}★, outside [${low}, ${to}).`
+				);
+			}
+			m[i][recovered] -= r.destroy;
 		}
 		m[i][n] = c + r.destroy * replacementCost;
 	}
@@ -932,10 +964,8 @@ export function expectedBooms(from: number, to: number, opts: StarforceOptions =
 	if (to <= from) return 0;
 	// Reuse the cost solver with a synthetic "cost" of 1 per boom: pass an item
 	// level of 0 (base cost 1000 → we subtract it out) is fragile, so solve directly.
-	let low = from;
-	for (let s = Math.max(from, 15); s < to; s++) low = Math.min(low, getRecoveredStars(s));
-	const stars: number[] = [];
-	for (let s = low; s < to; s++) stars.push(s);
+	const stars = reachableStars(from, to);
+	const low = stars[0];
 	const n = stars.length;
 	const index = new Map<number, number>(stars.map((s, i) => [s, i]));
 	const m: number[][] = Array.from({ length: n }, () => new Array<number>(n + 1).fill(0));
@@ -951,7 +981,13 @@ export function expectedBooms(from: number, to: number, opts: StarforceOptions =
 		if (next !== undefined) m[i][next] -= r.success;
 		if (r.destroy > 0) {
 			const recovered = index.get(getRecoveredStars(s));
-			if (recovered !== undefined) m[i][recovered] -= r.destroy;
+			if (recovered === undefined) {
+				throw new Error(
+					`Boom chain escaped its solved window: ${s}★ recovers to ` +
+						`${getRecoveredStars(s)}★, outside [${low}, ${to}).`
+				);
+			}
+			m[i][recovered] -= r.destroy;
 		}
 		m[i][n] = r.destroy;
 	}

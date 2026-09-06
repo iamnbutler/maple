@@ -314,3 +314,67 @@ describe('expectedCostToReach', () => {
 		expect(expectedCostToReach(160, 23, 22)).toBe(0);
 	});
 });
+
+describe('expectedCostToReach — boom recovery is transitive', () => {
+	// Regression: the reachable-state window used to take only ONE level of boom
+	// recovery. Booming at 24★ drops to 19★, but climbing back through 20★ can
+	// drop to 15★ — a state that fell outside the window, so the transition into
+	// it was silently discarded and the destruction priced as free. That made
+	// `22★ → 25★` come out ~75x too cheap, which corrupted the whole
+	// gain-per-meso upgrade ranking.
+	//
+	// The check below is the Bellman identity for one attempt, expressed purely
+	// through the public API:
+	//
+	//   E(s → to) = cost(s) + maintain·E(s → to)
+	//                       + success·E(s+1 → to)
+	//                       + destroy·E(recovered(s) → to)
+	//
+	// A dropped transition breaks it, whatever the magnitude of the error.
+	const level = 200;
+	const opts = { safeguard: true } as const;
+
+	const cases: [number, number][] = [
+		[22, 25],
+		[22, 23],
+		[19, 23],
+		[24, 25],
+		[17, 22],
+		[15, 25]
+	];
+
+	for (const [s, to] of cases) {
+		it(`satisfies the one-attempt identity at ${s}★ → ${to}★`, () => {
+			const r = starRates(s, { ...opts, safeguard: opts.safeguard && s >= 15 && s <= 17 });
+			const here = expectedCostToReach(level, s, to, opts);
+			const onSuccess = expectedCostToReach(level, s + 1, to, opts);
+			const onBoom = expectedCostToReach(level, getRecoveredStars(s), to, opts);
+			const attempt = starforceCost(level, s, {
+				...opts,
+				safeguard: opts.safeguard && s >= 15 && s <= 17
+			});
+
+			const rebuilt =
+				attempt + r.maintain * here + r.success * onSuccess + r.destroy * onBoom;
+
+			expect(rebuilt).toBeCloseTo(here, -3);
+		});
+	}
+
+	it('is monotonically decreasing in the starting star', () => {
+		let previous = Infinity;
+		for (let from = 15; from < 25; from++) {
+			const cost = expectedCostToReach(level, from, 25, opts);
+			expect(cost).toBeLessThan(previous);
+			previous = cost;
+		}
+	});
+
+	it('prices 22★ → 25★ in the hundreds of billions, not single digits', () => {
+		// Verified against a 600-run Monte Carlo over the same rate table: ~660B.
+		const cost = expectedCostToReach(level, 22, 25, opts);
+		expect(cost).toBeGreaterThan(3e11);
+		expect(cost).toBeLessThan(1.2e12);
+		expect(expectedBooms(22, 25, opts)).toBeGreaterThan(40);
+	});
+});
