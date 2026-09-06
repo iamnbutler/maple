@@ -47,7 +47,7 @@ describe('buildChecksums', () => {
 
 	it('grades a small discrepancy `close` and a large one `mismatch`', () => {
 		const close = checksums((character) => {
-			character.statWindow!.displayed!.rangeMax = Math.round(21_124_769 * 1.01);
+			character.statWindow!.displayed!.rangeMax = Math.round(26_337_375 * 1.01);
 		});
 		expect(close[0].status).toBe('close');
 		expect(close[0].deltaPercent).toBeLessThan(0);

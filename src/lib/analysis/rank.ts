@@ -112,42 +112,64 @@ export function rankCandidates(
 		return a.id.localeCompare(b.id);
 	});
 
-	// Truncation must not silently delete an entire SYSTEM. Candidates with no
-	// meso price sort behind every priced one, so a plain `slice` dropped all four
-	// set-threshold candidates — including "Boss Accessory 7 -> 9 pieces", a flat
-	// Boss Damage +10%. Every kind that made the cut at all gets one RESERVED
-	// slot, taken from the tail rather than added on top, so `topN` still means
-	// topN. When topN is smaller than the number of kinds, the better-ranked kinds
-	// win, which is the same order the caller would have got anyway.
+	// SELECTION, not truncation.
+	//
+	// The UI offers three sort modes (gain %, gain per 1B mesos, gain per day)
+	// but can only ever sort what it was sent. Selecting the top N by ONE key
+	// silently destroys the other views: star-force candidates carry enormous
+	// meso costs, so ranking by gain-per-meso cut every one of them, and "sort by
+	// Gain %" then presented a +9% potential reroll as the best available action
+	// while a +20.32% weapon star force sat outside the payload entirely. A user
+	// spotted that immediately, and was right.
+	//
+	// So fill the N places ROUND-ROBIN from the three key orders. Each view is
+	// guaranteed roughly its own top N/3, `topN` still means at most N rows, and
+	// no key can starve another.
 	const limit = Math.max(0, topN);
+	if (limit === 0) return [];
 	if (scored.length <= limit) return scored;
 
-	const kept = scored.slice(0, limit);
-	const keptKinds = new Set(kept.map((u) => u.kind));
-	const missing: RankedUpgrade[] = [];
-	for (const upgrade of scored.slice(limit)) {
-		if (keptKinds.has(upgrade.kind) || missing.some((m) => m.kind === upgrade.kind)) continue;
-		missing.push(upgrade);
-	}
-	if (missing.length === 0) return kept;
+	const order = (key: (u: RankedUpgrade) => number | undefined): RankedUpgrade[] =>
+		scored
+			.filter((u) => key(u) !== undefined)
+			.sort((a, b) => (key(b) as number) - (key(a) as number));
 
-	// Drop from the tail, but never drop the last remaining example of a kind.
-	const result = [...kept];
-	for (const rescue of missing) {
-		let dropIndex = -1;
-		for (let i = result.length - 1; i >= 0; i--) {
-			const count = result.filter((u) => u.kind === result[i].kind).length;
-			if (count > 1) {
-				dropIndex = i;
-				break;
-			}
+	const queues = [
+		order((u) => u.gainPercent),
+		order((u) => u.gainPerBillionMesos),
+		order((u) => u.gainPerDay)
+	];
+
+	const selected = new Map<string, RankedUpgrade>();
+	const cursors = queues.map(() => 0);
+	let progressed = true;
+	while (selected.size < limit && progressed) {
+		progressed = false;
+		for (let q = 0; q < queues.length && selected.size < limit; q++) {
+			const queue = queues[q];
+			while (cursors[q] < queue.length && selected.has(queue[cursors[q]].id)) cursors[q]++;
+			if (cursors[q] >= queue.length) continue;
+			selected.set(queue[cursors[q]].id, queue[cursors[q]]);
+			cursors[q]++;
+			progressed = true;
 		}
-		if (dropIndex === -1) break;
-		result.splice(dropIndex, 1);
-		result.push(rescue);
 	}
 
-	return result.sort((a, b) => {
+	// One reserved place for any KIND the round-robin missed entirely, so a whole
+	// system can never vanish from the board. Taken from the tail of whichever
+	// kind is over-represented, so the cap still holds.
+	for (const upgrade of scored) {
+		if (selected.size < limit) break;
+		if ([...selected.values()].some((u) => u.kind === upgrade.kind)) continue;
+		const counts = new Map<string, number>();
+		for (const u of selected.values()) counts.set(u.kind, (counts.get(u.kind) ?? 0) + 1);
+		const victim = [...selected.values()].reverse().find((u) => (counts.get(u.kind) ?? 0) > 1);
+		if (!victim) break;
+		selected.delete(victim.id);
+		selected.set(upgrade.id, upgrade);
+	}
+
+	return [...selected.values()].sort((a, b) => {
 		const bucketDiff = bucketOf(a) - bucketOf(b);
 		if (bucketDiff !== 0) return bucketDiff;
 		const keyDiff = sortKey(b) - sortKey(a);

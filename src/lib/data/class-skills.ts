@@ -133,6 +133,13 @@ export interface ClassSkill {
 	scope: SkillScope;
 	/** Set when a permanent passive still needs a game state to be true. */
 	conditional?: string;
+	/**
+	 * True when the skill is a build CHOICE rather than something every character
+	 * of the class has — in practice a hyper passive competing for a limited pool
+	 * of points, which Grandis Library marks "optional" and leaves out of its own
+	 * base aggregate. Excluded from `alwaysOnTotals()` unless `includeOptional`.
+	 */
+	optional?: boolean;
 	/** Buff duration in seconds, when the source states one. */
 	durationSeconds?: number;
 	/** For `scope: 'skill'`, the skills the effect applies to. */
@@ -620,7 +627,8 @@ const HERO: ClassSkillSet = {
 			source: 'passive',
 			alwaysOn: true,
 			scope: 'character',
-			conditional: 'only while an Axe is equipped; the tracker models Hero as 2H Sword (design §11)',
+			conditional:
+				'only while an Axe is equipped; the tracker models Hero as 2H Sword (design §11)',
 			effects: { damagePercent: 5 }
 		},
 		{
@@ -729,7 +737,17 @@ const HERO: ClassSkillSet = {
 			alwaysOn: true,
 			scope: 'character',
 			conditional: 'per Combo Orb; +2% Final Damage each, so +20% at 10 orbs',
-			effects: { finalDamagePercent: 20 }
+			// DELIBERATELY EMPTY. This hyper passive raises Advanced Combo's per-orb
+			// final damage from 10% to 12%, which Grandis Library writes as
+			// "+12% per Combo Orb (Max. +120%)". The +20% is ADDITIVE INSIDE the
+			// Advanced Combo term, not a separate multiplicative final damage
+			// source; recording it as an effect would compose it wrongly
+			// (x2.00 x 1.20 = 2.40 instead of x2.20).
+			effects: {},
+			note:
+				"Raises Advanced Combo's Combo Orb final damage from +10%/orb to +12%/orb, i.e. " +
+				'from +100% to +120% at 10 orbs. Additive within Advanced Combo, so no separate ' +
+				'`finalDamagePercent` is stored here.'
 		},
 		{
 			name: 'Advanced Combo Attack - Boss Rush',
@@ -746,6 +764,7 @@ const HERO: ClassSkillSet = {
 			source: 'hyper',
 			alwaysOn: true,
 			scope: 'character',
+			optional: true,
 			effects: { attack: 20 },
 			note:
 				'Grandis Library marks this "optional" in its Attack total, because hyper passive ' +
@@ -1011,7 +1030,15 @@ const WIND_ARCHER: ClassSkillSet = {
 				finalDamagePercent: 12,
 				criticalRatePercent: 10,
 				attackSpeedStages: 1
-			}
+			},
+			note:
+				'CONFLICT — Albatross Max (4th Job) says "Effects below are added additively to ' +
+				'Eagle Eye", and the page\'s Crit Rate row (+25% credited to Albatross Max = 10 + ' +
+				'15) and Attack Speed row (+2 = 1 + 1) both use the combined figure. Its Attack ' +
+				"row does NOT: it credits Albatross Max +30 and omits Eagle Eye's +20, giving " +
+				'+170 where the skill descriptions give +190. We follow the skill descriptions ' +
+				'(+190), which are the granular source and are the ones that reproduce the crit ' +
+				'and attack-speed rows. The 20 ATT difference is UNRESOLVED.'
 		},
 		{
 			name: 'Second Wind',
@@ -1189,6 +1216,10 @@ const WIND_ARCHER: ClassSkillSet = {
 		'Wind Archer is the cleanest of the five: its whole final damage stack (+66.32%) is ' +
 			'unconditional permanent passives, and it is the only one of the five with ' +
 			'always-on class Boss Damage (+40% from Bow Expert).',
+		"CONFLICT (20 ATT): the page's Attack row totals +170 but its own skill descriptions " +
+			'total +190, because the Attack row omits Eagle Eye while the Crit Rate and Attack ' +
+			"Speed rows use Eagle Eye + Albatross Max combined. See Eagle Eye's note; this module " +
+			'follows the skill descriptions.',
 		"Grandis Library's printed Crit Rate (+60%) and Crit Damage (+36%) fold in Sharp Eyes, " +
 			'a 300-second party buff. Excluding it gives +40% crit rate and +21% crit damage ' +
 			'always-on. Its printed Ignore DEF (+34.98%) likewise folds in Emerald Dust, which ' +
@@ -1400,6 +1431,7 @@ const NIGHT_WALKER: ClassSkillSet = {
 			source: 'hyper',
 			alwaysOn: true,
 			scope: 'character',
+			optional: true,
 			effects: { attack: 60 },
 			note:
 				'Grandis Library marks this "optional" in its Attack total (hyper passive points ' +
@@ -1850,6 +1882,12 @@ export interface TotalsOptions {
 	includeConditional?: boolean;
 	/** Include `scope: 'skill'` entries too. Default false. Almost never wanted. */
 	includeSkillScoped?: boolean;
+	/**
+	 * Include entries flagged `optional` (a hyper passive the class may or may
+	 * not have spent points on). Default false, matching Grandis Library's own
+	 * base aggregate.
+	 */
+	includeOptional?: boolean;
 	/** Restrict to these sources. Default: all six. */
 	sources?: readonly SkillSource[];
 }
@@ -1864,12 +1902,14 @@ export function alwaysOnTotals(classId: string, options: TotalsOptions = {}): Sk
 	const set = getClassSkills(classId);
 	const includeConditional = options.includeConditional ?? false;
 	const includeSkillScoped = options.includeSkillScoped ?? false;
+	const includeOptional = options.includeOptional ?? false;
 	const sources = options.sources;
 
 	const contributors = set.skills.filter((s) => {
 		if (!s.alwaysOn) return false;
 		if (!includeConditional && s.conditional !== undefined) return false;
 		if (!includeSkillScoped && s.scope !== 'character') return false;
+		if (!includeOptional && s.optional === true) return false;
 		if (sources && !sources.includes(s.source)) return false;
 		return true;
 	});

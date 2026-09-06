@@ -7,6 +7,8 @@
 
 import * as calc from '$lib/calc';
 import type { CalcInput } from '$lib/calc/types';
+import * as classSkills from '$lib/data/class-skills';
+import { tryGetClassSkills } from '$lib/data/class-skills';
 import { getClass } from '$lib/data/classes';
 import type { Character, Item } from '$lib/schema';
 
@@ -161,6 +163,30 @@ export function combatPowerFor(character: Character, input: CalcInput): Sourced<
 		notes.push('No weapon is equipped, so the bow normalisation was skipped.');
 	}
 
+	// Combat Power is computed by the game from SKILL-STRIPPED stats, so subtract
+	// what the class contributes unconditionally. Only ALWAYS-ON, unconditional,
+	// character-scoped skills are subtracted: a duration-limited buff may or may
+	// not have been running when the window was captured, and a conditional one
+	// (Hero's Combo Orbs, Battle Mage's toggled auras) cannot be known at all.
+	// Every term we fail to subtract leaves the result too HIGH, which is why
+	// this stays an upper bound rather than becoming a point estimate — it is
+	// just a much tighter one. See docs/research/class-skills.md.
+	const skills = tryGetClassSkills(character.classId)
+		? classSkills.alwaysOnTotals(character.classId)
+		: undefined;
+	if (skills) {
+		notes.push(
+			`Subtracted ${cls.name}'s always-on class contribution ` +
+				`(final damage ${skills.finalDamagePercent.toFixed(2)}%, boss ` +
+				`${skills.bossDamagePercent}%, damage ${skills.damagePercent}%, crit damage ` +
+				`${skills.criticalDamagePercent}%, ATT ${skills.attack}) to tighten the bound.`
+		);
+	} else {
+		notes.push(
+			`No class-skill data for ${cls.name}, so nothing was stripped and the bound is loose.`
+		);
+	}
+
 	const result = calc.computeCombatPower({
 		mainStatBase: mainTriple.base,
 		mainStatPercent: mainTriple.percent,
@@ -176,7 +202,13 @@ export function combatPowerFor(character: Character, input: CalcInput): Sourced<
 		finalDamagePercent: input.finalDamagePercent,
 		weaponBaseAtt,
 		weaponStarAtt,
-		bowBaseAtt
+		bowBaseAtt,
+		attFromSkills: cls.usesMagicAttack ? skills?.magicAttack : skills?.attack,
+		critDamageFromSkills: skills?.criticalDamagePercent,
+		damageFromSkills: skills?.damagePercent,
+		bossDamageFromSkills: skills?.bossDamagePercent,
+		// A DIVISOR, not a subtraction: final damage composes multiplicatively.
+		finalDamageFromSkills: skills === undefined ? undefined : 1 + skills.finalDamagePercent / 100
 	});
 
 	// CP subtracts skill/consumable contributions from every term (§2.2), and the

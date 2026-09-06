@@ -198,3 +198,38 @@ describe('topN never deletes an entire system', () => {
 		expect(ranked.map((u) => u.id)).toEqual(['sf0', 'sf1']);
 	});
 });
+
+describe('selection serves every sort mode the UI offers', () => {
+	// The UI can only sort what it was sent. Picking the top N by gain-per-meso
+	// alone hid every star-force candidate — they carry enormous meso costs — so
+	// "sort by Gain %" showed a +9% potential reroll as the best action while a
+	// +20% weapon star force never left the server.
+	it('keeps the best gain-% candidate even when it is worst by gain-per-meso', () => {
+		const cheapSmall = Array.from({ length: 20 }, (_, i) =>
+			candidate({
+				id: `cheap${i}`,
+				kind: 'potential',
+				delta: { att: 5 },
+				cost: { mesos: 1_000_000 }
+			})
+		);
+		const hugeExpensive = candidate({
+			id: 'weapon-stars',
+			kind: 'starforce',
+			delta: { att: 400 },
+			cost: { mesos: 2_000_000_000_000 }
+		});
+
+		const ranked = rankCandidates(input, [...cheapSmall, hugeExpensive], target, { topN: 6 });
+
+		expect(ranked.length).toBeLessThanOrEqual(6);
+		expect(ranked.map((u) => u.id)).toContain('weapon-stars');
+		// It really is both the biggest gain and the worst value, which is the
+		// exact shape that used to be dropped.
+		const stars = ranked.find((u) => u.id === 'weapon-stars')!;
+		for (const other of ranked.filter((u) => u.id !== 'weapon-stars')) {
+			expect(stars.gainPercent).toBeGreaterThan(other.gainPercent);
+			expect(stars.gainPerBillionMesos!).toBeLessThan(other.gainPerBillionMesos!);
+		}
+	});
+});

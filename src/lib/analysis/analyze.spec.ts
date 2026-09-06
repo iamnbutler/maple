@@ -57,8 +57,16 @@ describe('analyze — end to end', () => {
 			expect(typeof upgrade.label).toBe('string');
 		}
 
+		// Mirrors `bucketOf` in rank.ts, INCLUDING the ceiling bucket: a ceiling is
+		// not an action, so it sorts below everything regardless of its gain.
 		const bucket = (u: (typeof analysis.upgrades)[number]) =>
-			u.gainPerDay !== undefined ? 1 : u.gainPerBillionMesos !== undefined ? 0 : 2;
+			u.feasibility === 'ceiling'
+				? 3
+				: u.gainPerDay !== undefined
+					? 1
+					: u.gainPerBillionMesos !== undefined
+						? 0
+						: 2;
 		const key = (u: (typeof analysis.upgrades)[number]) =>
 			bucket(u) === 1 ? u.gainPerDay! : bucket(u) === 0 ? u.gainPerBillionMesos! : u.gainPercent;
 

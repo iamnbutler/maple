@@ -6,9 +6,22 @@
 // mid-level and a partially-invested hyper stat build — i.e. the shape of
 // character the ranking is actually for.
 //
-// The `displayed` numbers are the values `calc.displayedRange` and
-// `calc.computeCombatPower` produce for this input, so the checksums read
-// `match`; `checksums.spec.ts` perturbs them to exercise the other statuses.
+// `displayed.rangeMax` / `rangeMin` ARE the values `calc.displayedRange`
+// produces for this input, so those checksums read `match`; `checksums.spec.ts`
+// perturbs them to exercise the other statuses.
+//
+// `displayed.combatPower` is NOT engine-derived, deliberately. It used to be —
+// it was whatever `computeCombatPower` returned — which made the CP checksum
+// circular and, once we started subtracting the class's always-on contribution,
+// impossible: the old figure sat ABOVE the bound. It is now an illustrative
+// value chosen to sit below the bound at roughly the ratio a real capture shows
+// (Lutoren reads 19.5M against a 31.4M bound). CP is a bound, not a
+// reproduction, so a fixture must not pretend otherwise.
+//
+// `finalDamagePercent` is likewise floored at the class's own always-on total:
+// a Wind Archer's unconditional passives alone are +66.32% final damage
+// (docs/research/class-skills.md), so a window showing less than that describes
+// a character who cannot exist.
 
 import type { Character, Item, Slot } from '$lib/schema';
 
@@ -146,16 +159,16 @@ export function windArcherFixture(): Character {
 			attack: { base: 1240, percent: 92, flat: 0 },
 			damagePercent: 58,
 			bossDamagePercent: 322,
-			finalDamagePercent: 54,
+			finalDamagePercent: 92,
 			ignoreDefensePercent: 94.2,
 			criticalRatePercent: 100,
 			criticalDamagePercent: 76,
 			arcaneForce: 1330,
 			sacredForce: 480,
 			displayed: {
-				rangeMax: 21_124_769,
-				rangeMin: 17_956_055,
-				combatPower: 104_163_419
+				rangeMax: 26_337_375,
+				rangeMin: 22_386_770,
+				combatPower: 30_002_057
 			}
 		},
 		equipment,
