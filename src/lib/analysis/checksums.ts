@@ -32,6 +32,33 @@ function checksum(label: string, computed: number, displayed: number | undefined
 }
 
 /**
+ * A checksum whose computed value only BOUNDS the displayed one from above.
+ *
+ * Anything at or below the bound is consistent and says nothing more; only a
+ * displayed value ABOVE the bound is evidence of a problem, and then it is
+ * strong evidence — either the number was misread or the model is wrong.
+ */
+function boundChecksum(
+	label: string,
+	computed: number,
+	displayed: number | undefined,
+	note: string
+): Checksum {
+	if (displayed === undefined || displayed === 0) {
+		return { label, computed, status: 'missing', kind: 'upper-bound', note };
+	}
+	return {
+		label,
+		computed,
+		displayed,
+		deltaPercent: ((computed - displayed) / displayed) * 100,
+		status: displayed <= computed ? 'within-bound' : 'over-bound',
+		kind: 'upper-bound',
+		note
+	};
+}
+
+/**
  * Bow-equivalent base ATT for the CP normalisation (formulas.md §2.2).
  *
  * Matched off the weapon NAME first, because the four documented rows are
@@ -175,6 +202,22 @@ export function buildChecksums(character: Character, input: CalcInput): Checksum
 	return [
 		checksum('Damage range (max)', range.upper, displayed?.rangeMax),
 		checksum('Damage range (min)', range.lower, displayed?.rangeMin),
-		checksum('Combat Power', cp.value, displayed?.combatPower)
+		// NOT a point comparison. The game computes Combat Power from
+		// SKILL-STRIPPED stats (formulas.md §2.2: every term subtracts its skill
+		// and consumable contribution), while a stat-window capture is whatever
+		// the character had running at the time. Those skill contributions are
+		// the opaque class baseline this project deliberately does not try to
+		// reconstruct (design §2), so we cannot subtract them — and because each
+		// one only ever REDUCES a term, computing with them all at zero yields an
+		// upper bound rather than an estimate. Comparing that bound as if it were
+		// a point estimate is what produced the old, permanent "+229% mismatch".
+		boundChecksum(
+			'Combat Power',
+			cp.value,
+			displayed?.combatPower,
+			'Upper bound: the game strips skill and buff contributions from every term ' +
+				'before computing CP, and a stat-window capture cannot separate them, so the ' +
+				'displayed value should sit BELOW this. Only a value above it indicates a problem.'
+		)
 	];
 }

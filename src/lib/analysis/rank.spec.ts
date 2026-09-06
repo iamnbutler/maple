@@ -109,3 +109,55 @@ describe('rankCandidates', () => {
 		expect(ranked.map((r) => r.id)).toEqual(['a', 'b']);
 	});
 });
+
+describe('ceilings never outrank achievable actions', () => {
+	// A "reroll to three specific legendary lines" candidate is a jackpot whose
+	// real meso cost we cannot compute. It used to be priced at 1/triplePrime and
+	// so ranked FIRST, above every routine action — which is what this pins shut.
+	it('sorts a huge ceiling below a small routine gain', () => {
+		const ranked = rankCandidates(
+			input,
+			[
+				candidate({
+					id: 'ceiling',
+					kind: 'potential',
+					delta: { boss: 120 },
+					cost: { note: 'unknown' },
+					confidence: 'speculative',
+					feasibility: 'ceiling'
+				}),
+				candidate({
+					id: 'routine',
+					kind: 'starforce',
+					delta: { boss: 1 },
+					cost: { mesos: 500_000_000 },
+					confidence: 'sourced'
+				})
+			],
+			target
+		);
+
+		expect(ranked.map((u) => u.id)).toEqual(['routine', 'ceiling']);
+		// ...and the ceiling really is the larger gain, which is the whole point.
+		const ceiling = ranked.find((u) => u.id === 'ceiling')!;
+		const routine = ranked.find((u) => u.id === 'routine')!;
+		expect(ceiling.gainPercent).toBeGreaterThan(routine.gainPercent);
+	});
+
+	it('carries feasibility through to the ranked upgrade', () => {
+		const [only] = rankCandidates(
+			input,
+			[
+				candidate({
+					id: 'ceiling',
+					kind: 'potential',
+					delta: { boss: 10 },
+					confidence: 'speculative',
+					feasibility: 'ceiling'
+				})
+			],
+			target
+		);
+		expect(only.feasibility).toBe('ceiling');
+	});
+});

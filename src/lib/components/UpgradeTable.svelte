@@ -24,7 +24,11 @@
 		return u.gainPerDay;
 	}
 
+	/** Ceilings sort below everything, in every mode — they are not actions. */
+	const isCeiling = (u: RankedUpgrade) => u.feasibility === 'ceiling';
+
 	function compare(a: RankedUpgrade, b: RankedUpgrade, m: Mode): number {
+		if (isCeiling(a) !== isCeiling(b)) return isCeiling(a) ? 1 : -1;
 		const av = sortKey(a, m) ?? Number.NEGATIVE_INFINITY;
 		const bv = sortKey(b, m) ?? Number.NEGATIVE_INFINITY;
 		if (av !== bv) return bv - av;
@@ -32,7 +36,8 @@
 	}
 
 	const sorted = $derived([...upgrades].sort((a, b) => compare(a, b, mode)));
-	const best = $derived(sorted[0]);
+	// "BEST" is advice, so it can only ever land on something achievable.
+	const best = $derived(sorted.find((u) => !isCeiling(u)));
 	const maxGain = $derived(Math.max(1e-9, ...upgrades.map((u) => u.gainPercent)));
 
 	function groupLabel(u: RankedUpgrade): string {
@@ -81,10 +86,17 @@
 </div>
 
 {#snippet row(u: RankedUpgrade, isBest: boolean, isGroupBest: boolean)}
-	<tr class:best={isBest} class:groupbest={isGroupBest && !isBest}>
+	<tr class:best={isBest} class:groupbest={isGroupBest && !isBest} class:ceiling={isCeiling(u)}>
 		<td class="what">
 			<div class="line">
 				{#if isBest}<span class="tag">best</span>{/if}
+				{#if isCeiling(u)}
+					<span
+						class="tag ceiling"
+						title="The best case for this slot, not something you can plan to buy. Its true cost is unknown and far larger than a triple-prime."
+						>ceiling</span
+					>
+				{/if}
 				<span class="label">{u.label}</span>
 			</div>
 			<div class="sub">
@@ -238,6 +250,16 @@
 
 	.gain span:last-child {
 		position: relative;
+	}
+
+	/* A ceiling is context, not advice — recede it. */
+	tr.ceiling td {
+		opacity: 0.62;
+	}
+	.tag.ceiling {
+		background: transparent;
+		border: 1px solid var(--dim);
+		color: var(--dim);
 	}
 
 	tr.best td {

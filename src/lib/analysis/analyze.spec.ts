@@ -36,9 +36,15 @@ describe('analyze — end to end', () => {
 		expect(analysis.input.bossDamagePercent).toBe(322);
 	});
 
-	it('calibrates: checksums match, residuals are positive, warnings are strings', () => {
+	it('calibrates: checksums are healthy, residuals are positive, warnings are strings', () => {
 		expect(analysis.calibration.checksums).toHaveLength(3);
-		expect(analysis.calibration.checksums.every((c) => c.status === 'match')).toBe(true);
+		// The two range rows are point comparisons; Combat Power is a bound, so
+		// `within-bound` is its healthy state.
+		expect(
+			analysis.calibration.checksums.every(
+				(c) => c.status === 'match' || c.status === 'within-bound'
+			)
+		).toBe(true);
 		expect(analysis.calibration.residuals.length).toBeGreaterThan(5);
 		for (const warning of analysis.calibration.warnings) expect(typeof warning).toBe('string');
 	});

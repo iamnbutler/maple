@@ -4,13 +4,19 @@
 
 	let { calibration }: { calibration: Calibration } = $props();
 
-	const mismatches = $derived(calibration.checksums.filter((c) => c.status === 'mismatch'));
+	// `within-bound` is a healthy state, not a near-miss: it is what a bound-type
+	// checksum looks like when everything is fine.
+	const mismatches = $derived(
+		calibration.checksums.filter((c) => c.status === 'mismatch' || c.status === 'over-bound')
+	);
 
 	const STATUS_LABEL: Record<Checksum['status'], string> = {
 		match: 'match',
 		close: 'close',
 		mismatch: 'MISMATCH',
-		missing: 'not captured'
+		missing: 'not captured',
+		'within-bound': 'within bound',
+		'over-bound': 'ABOVE BOUND'
 	};
 
 	/** Checksums are big absolute numbers; keep them grouped, not abbreviated. */
@@ -51,9 +57,14 @@
 						<td class="right num">{value(c.computed)}</td>
 						<td class="right num">{value(c.displayed)}</td>
 						<td class="right num"
-							>{c.deltaPercent === undefined ? '—' : signedPercent(c.deltaPercent)}</td
+							>{c.kind === 'upper-bound' || c.deltaPercent === undefined
+								? '—'
+								: signedPercent(c.deltaPercent)}</td
 						>
-						<td><span class="pill {c.status}">{STATUS_LABEL[c.status]}</span></td>
+						<td
+							><span class="pill {c.status}" title={c.note ?? ''}>{STATUS_LABEL[c.status]}</span
+							></td
+						>
 					</tr>
 				{/each}
 			</tbody>
@@ -150,6 +161,11 @@
 	.pill.missing {
 		color: var(--muted);
 	}
+	.pill.within-bound {
+		/* Healthy, but says less than a point match — read it as "no contradiction". */
+		opacity: 0.75;
+	}
+	.pill.over-bound,
 	.pill.mismatch {
 		color: #fff;
 		background: var(--bad);

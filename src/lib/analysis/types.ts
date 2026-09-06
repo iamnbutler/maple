@@ -112,7 +112,25 @@ export interface Checksum {
 	displayed?: number;
 	/** `(computed - displayed) / displayed`, as a whole percent. */
 	deltaPercent?: number;
-	status: 'match' | 'close' | 'mismatch' | 'missing';
+	/**
+	 * `match` / `close` / `mismatch` compare two numbers that should be equal.
+	 *
+	 * `within-bound` / `over-bound` are for a checksum whose computed value is
+	 * only a BOUND on the displayed one — see `kind`. `within-bound` is the
+	 * healthy state and carries no information about how far apart they are.
+	 */
+	status: 'match' | 'close' | 'mismatch' | 'missing' | 'within-bound' | 'over-bound';
+	/**
+	 * `point` (default) — computed and displayed should be equal.
+	 * `upper-bound` — computed is the largest value the displayed one could
+	 *   legitimately take, so anything at or below it is consistent. Used for
+	 *   Combat Power, which the game computes on SKILL-STRIPPED stats while a
+	 *   stat-window capture is inherently buffed; every unknown skill
+	 *   contribution can only push the true value down.
+	 */
+	kind?: 'point' | 'upper-bound';
+	/** Why this checksum reads the way it does. */
+	note?: string;
 }
 
 /**
@@ -139,13 +157,7 @@ export interface Calibration {
 /* -------------------------------------------------------------------------- */
 
 export type UpgradeKind =
-	| 'starforce'
-	| 'flame'
-	| 'potential'
-	| 'bonus-potential'
-	| 'symbol'
-	| 'hyper-stat'
-	| 'stat-line';
+	'starforce' | 'flame' | 'potential' | 'bonus-potential' | 'symbol' | 'hyper-stat' | 'stat-line';
 
 /** What an upgrade costs. Any field may be absent when we cannot source it. */
 export interface UpgradeCost {
@@ -156,6 +168,20 @@ export interface UpgradeCost {
 	points?: number;
 	note?: string;
 }
+
+/**
+ * How attainable a candidate actually is.
+ *
+ *   `routine`  — a bounded, repeatable action: stars, a flame, a symbol level.
+ *                The cost model is a real expectation.
+ *   `grind`    — expensive but a normal progression goal.
+ *   `ceiling`  — the BEST CASE for a slot, not an action. Rolling three
+ *                specific legendary lines is a jackpot whose true cost we
+ *                cannot compute (see `RankedUpgrade.cost.note`), so these show
+ *                the headroom in a slot and must never be ranked as advice
+ *                against a routine action.
+ */
+export type Feasibility = 'routine' | 'grind' | 'ceiling';
 
 /** One candidate change, scored. */
 export interface RankedUpgrade {
@@ -180,6 +206,8 @@ export interface RankedUpgrade {
 	gainPerDay?: number;
 
 	confidence: Confidence;
+	/** Defaults to `routine` when absent. */
+	feasibility?: Feasibility;
 	notes?: string[];
 }
 
@@ -207,12 +235,7 @@ export interface StatWorth {
  * or a force deficit so large the damage penalty makes the fight pointless).
  */
 export type BossVerdict =
-	| 'comfortable'
-	| 'possible'
-	| 'minimum'
-	| 'out-of-reach'
-	| 'blocked'
-	| 'uncalibrated';
+	'comfortable' | 'possible' | 'minimum' | 'out-of-reach' | 'blocked' | 'uncalibrated';
 
 export interface BossAxis {
 	verdict: BossVerdict;

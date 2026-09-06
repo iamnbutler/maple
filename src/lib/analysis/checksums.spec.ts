@@ -12,17 +12,37 @@ function checksums(mutate: (character: ReturnType<typeof windArcherFixture>) => 
 }
 
 describe('buildChecksums', () => {
-	it('matches the captured range and Combat Power', () => {
+	it('matches the captured damage range exactly', () => {
 		const rows = checksums();
 		expect(rows.map((row) => row.label)).toEqual([
 			'Damage range (max)',
 			'Damage range (min)',
 			'Combat Power'
 		]);
-		for (const row of rows) {
+		for (const row of rows.slice(0, 2)) {
+			expect(row.kind ?? 'point').toBe('point');
 			expect(row.status).toBe('match');
 			expect(Math.abs(row.deltaPercent!)).toBeLessThanOrEqual(0.1);
 		}
+	});
+
+	// Combat Power is computed from SKILL-STRIPPED stats, and a stat-window
+	// capture cannot separate the skill contributions out, so the computed value
+	// is only ever an upper bound. Asserting equality here is what let the real
+	// character read a permanent "+229% mismatch".
+	it('treats Combat Power as an upper bound, not a point comparison', () => {
+		const [, , cp] = checksums();
+		expect(cp.kind).toBe('upper-bound');
+		expect(cp.status).toBe('within-bound');
+		expect(cp.displayed!).toBeLessThanOrEqual(cp.computed);
+		expect(cp.note).toMatch(/upper bound/i);
+	});
+
+	it('flags a displayed Combat Power ABOVE the bound, which is the impossible case', () => {
+		const [, , cp] = checksums((character) => {
+			character.statWindow!.displayed!.combatPower = 10 ** 12;
+		});
+		expect(cp.status).toBe('over-bound');
 	});
 
 	it('grades a small discrepancy `close` and a large one `mismatch`', () => {

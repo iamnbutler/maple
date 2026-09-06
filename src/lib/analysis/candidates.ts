@@ -27,7 +27,7 @@ import {
 	type SacredRegion
 } from '$lib/schema';
 
-import type { Confidence, NamedTarget, UpgradeCost, UpgradeKind } from './types';
+import type { Confidence, Feasibility, NamedTarget, UpgradeCost, UpgradeKind } from './types';
 
 /** A scored-in-`rank.ts` proposal. */
 export interface UpgradeCandidate {
@@ -40,6 +40,8 @@ export interface UpgradeCandidate {
 	delta: Delta;
 	cost: UpgradeCost;
 	confidence: Confidence;
+	/** How attainable this is. Defaults to `routine` when absent. */
+	feasibility?: Feasibility;
 	notes?: string[];
 }
 
@@ -694,25 +696,39 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 					? potential.LEGENDARY_PRIME_ODDS.bright.triplePrime
 					: undefined;
 			const cubes = odds ? Math.ceil(1 / odds) : undefined;
+			// A CEILING, not an action. `triplePrime` is the chance of three PRIME
+			// lines of any kind; the chance they are the three specific lines you
+			// want is smaller by roughly the size of the legendary line pool cubed,
+			// and we have no sourced pool with weights, so the meso cost is NOT
+			// computable from the data in `potential.ts`. Pricing it at
+			// `1 / triplePrime` understated it by orders of magnitude and let a
+			// jackpot outrank every achievable action — so no `mesos` is emitted at
+			// all, which also keeps it out of the gain-per-meso ranking.
+			const primeNote = cubes
+				? `A triple prime alone is ~1 in ${Math.round(1 / (odds as number))} Bright cubes ` +
+					`(${((cubes * potential.HEROIC_CUBE_PRICES.bright) / 1e9).toFixed(1)}B mesos). Hitting ` +
+					'the three SPECIFIC lines above is far rarer again — by roughly the legendary ' +
+					'line-pool size cubed — and that pool is not in our data, so the real cost is ' +
+					'unknown and very much larger.'
+				: 'No published triple-prime odds below Legendary.';
 			candidates.push({
 				id: `${kind}:${slot}:useful-lines`,
 				kind,
-				label: `${item.name} → 3 useful ${source.grade} lines`,
-				detail: `Reroll ${slot} to ${useful.kinds.join(' / ')} at ${source.grade}.`,
+				label: `${item.name} — best case at ${source.grade}`,
+				detail:
+					`The CEILING for ${slot}: ${useful.kinds.join(' / ')} at ${source.grade}. ` +
+					'Shows the headroom in the slot; it is not a purchase plan.',
 				slot,
 				itemName: item.name,
 				delta,
-				cost: {
-					mesos: cubes ? cubes * potential.HEROIC_CUBE_PRICES.bright : undefined,
-					note: cubes
-						? `${cubes} Bright cubes — a LOWER BOUND: it prices a triple prime, not a ` +
-							'triple prime of the three specific lines you want.'
-						: 'No published triple-prime odds below Legendary.'
-				},
-				confidence: 'estimated',
+				cost: { note: primeNote },
+				confidence: 'speculative',
+				feasibility: 'ceiling',
 				notes: [
+					'CEILING, not advice — three specific legendary lines is a jackpot, not a plan.',
 					'USEFUL_LINES is an editorial judgement call, not a sourced game table.',
-					'The cube count is a lower bound on the real cost.',
+					'Meso cost deliberately omitted: the legendary line pool is not in our data, ' +
+						'so the odds of three SPECIFIC lines cannot be priced.',
 					...unknownItemNote(caps)
 				]
 			});

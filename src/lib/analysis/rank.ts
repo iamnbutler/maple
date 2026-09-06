@@ -39,7 +39,13 @@ export interface RankOptions {
  * not the same as "it is free". Ties inside a bucket break on raw gain, then on
  * id, so the order is deterministic.
  */
-function bucketOf(upgrade: RankedUpgrade): 0 | 1 | 2 {
+/**
+ * Sort buckets, best first. Ceilings are LAST unconditionally: they describe the
+ * headroom in a slot rather than an action anyone can take, so however large
+ * their gain, they must never sit above something achievable.
+ */
+function bucketOf(upgrade: RankedUpgrade): 0 | 1 | 2 | 3 {
+	if (upgrade.feasibility === 'ceiling') return 3;
 	if (upgrade.gainPerDay !== undefined) return 1;
 	if (upgrade.gainPerBillionMesos !== undefined) return 0;
 	return 2;
@@ -82,6 +88,7 @@ export function rankCandidates(
 			gainPercent: gainPct,
 			cost: candidate.cost,
 			confidence: candidate.confidence,
+			feasibility: candidate.feasibility,
 			notes: candidate.notes
 		};
 
