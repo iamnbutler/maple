@@ -226,10 +226,26 @@ export interface BossAxis {
 	reason?: string;
 }
 
+/**
+ * How relevant a boss is to a progressing character, used to keep the board
+ * free of filler.
+ *
+ *   `trivial` — below Chaos Zakum. Never shown, under any option; the engine
+ *               drops these rows entirely.
+ *   `early`   — Chaos Zakum up to but excluding Normal Lotus. Hidden unless
+ *               `BossBoardOptions.includeEarlyBosses` is set.
+ *   `current` — Normal Lotus and above. Always shown.
+ *
+ * (GMS Zakum difficulties are Easy/Normal/Chaos — "hard zak" colloquially means
+ * Chaos Zakum, which is where the floor sits.)
+ */
+export type BossTier = 'trivial' | 'early' | 'current';
+
 export interface BossRow {
 	bossId: string;
 	bossName: string;
 	difficulty: string;
+	tier: BossTier;
 	level: number;
 	entryLevel: number;
 	totalHp?: number;
@@ -258,9 +274,12 @@ export interface BossRow {
 }
 
 export interface BossBoard {
+	/** Never contains `tier: 'trivial'` rows. */
 	rows: BossRow[];
 	/** False until per-class DPM anchors exist; UI must label verdicts accordingly. */
 	calibrated: boolean;
+	/** How many rows fell into each tier before filtering, for "N hidden" copy. */
+	tierCounts?: Record<BossTier, number>;
 	note?: string;
 }
 
@@ -277,6 +296,8 @@ export interface AnalysisOptions {
 	kinds?: UpgradeKind[];
 	/** Include the boss board. Defaults to true. */
 	includeBossBoard?: boolean;
+	/** Show `tier: 'early'` bosses (Chaos Zakum → pre-Normal-Lotus). Defaults to false. */
+	includeEarlyBosses?: boolean;
 }
 
 export interface Analysis {
