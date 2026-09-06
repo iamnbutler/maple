@@ -392,12 +392,16 @@ describe('generateVMatrix', () => {
 	// the highest inflated node 4 to +180% FD against its neighbours' +120%.
 	it('uses the LOWEST rate in a node that covers several skills', () => {
 		const { candidates } = generateVMatrix(atLevel(0));
-		const node4 = candidates.find((c) => c.id.startsWith('v-matrix:boost-4') && c.id.endsWith(':0-60'));
+		const node4 = candidates.find(
+			(c) => c.id.startsWith('v-matrix:boost-4') && c.id.endsWith(':0-60')
+		);
 		// Raining Blossoms is 3%/level but Riotous Heart and Unbowed Blade are 2%.
 		expect(node4?.delta.fd).toBe(120);
 		expect(node4?.notes?.join(' ')).toMatch(/covers skills at 2%-3%/);
 		// And a single-skill node says nothing about a range.
-		const node1 = candidates.find((c) => c.id.startsWith('v-matrix:boost-1') && c.id.endsWith(':0-60'));
+		const node1 = candidates.find(
+			(c) => c.id.startsWith('v-matrix:boost-1') && c.id.endsWith(':0-60')
+		);
 		expect(node1?.delta.fd).toBe(120);
 		expect(node1?.notes?.join(' ')).not.toMatch(/covers skills at/);
 	});

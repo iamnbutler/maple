@@ -200,20 +200,20 @@ pure table lookups over the character document.
 
 ### What landed
 
-| Module | Tests | Ground truth |
-|---|---|---|
-| `src/lib/data/legion.ts` | 46 | Legion 9083 → Legendary III / 38 members; the whole grid-bonus list |
-| `src/lib/data/links.ts` | 46 | faction caps; the self-vs-mule split |
-| `src/lib/data/legion-artifact.ts` | 40 | all nine artifact lines, summing to the exact Lv39 budget |
-| `src/lib/data/vmatrix.ts` | 47 | cost curves from the wiki's Lua source; five class rosters |
-| `src/lib/data/hexa.ts` | 44 | every stat line, every enhancement rate, both applied totals |
-| `src/lib/analysis/progression-candidates.ts` | 41 | generators run against the real captured Ren |
+| Module                                       | Tests | Ground truth                                                        |
+| -------------------------------------------- | ----- | ------------------------------------------------------------------- |
+| `src/lib/data/legion.ts`                     | 46    | Legion 9083 → Legendary III / 38 members; the whole grid-bonus list |
+| `src/lib/data/links.ts`                      | 46    | faction caps; the self-vs-mule split                                |
+| `src/lib/data/legion-artifact.ts`            | 40    | all nine artifact lines, summing to the exact Lv39 budget           |
+| `src/lib/data/vmatrix.ts`                    | 47    | cost curves from the wiki's Lua source; five class rosters          |
+| `src/lib/data/hexa.ts`                       | 44    | every stat line, every enhancement rate, both applied totals        |
+| `src/lib/analysis/progression-candidates.ts` | 41    | generators run against the real captured Ren                        |
 
 ### The rule that came out of building it
 
 **Absent is not zero, and a note is not a defence.** The first working version
 defaulted uncaptured V Matrix and Legion board data to level 0, then proposed a
-0 → 60 boost node worth +120% Final Damage. It ranked *first on the whole board*
+0 → 60 boost node worth +120% Final Damage. It ranked _first on the whole board_
 and was fiction — the real Ren has all six nodes at 60/60 and no upgrade
 available. Both generators now produce nothing at all when the data is missing,
 and say why. A warning the user might not read cannot offset a candidate ranked
