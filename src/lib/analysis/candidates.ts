@@ -627,6 +627,17 @@ interface SlotGoal {
 	 * less than two boss plus one IED.
 	 */
 	valueKinds?: potential.PotentialLineKind[];
+	/**
+	 * A SUMMED percentage across `lines` lines, which is how the community and
+	 * every calculator state these goals ("21%+", "30%", "33%") — never as a
+	 * per-line minimum. `minValue: 12` x3 is the 36% "double prime" target that
+	 * cubing-strategy.md says nobody rolls for; the real rung is 33% = 12/12/9,
+	 * which a per-line minimum cannot express at all.
+	 *
+	 * Stat goals summed this way count %All Stat lines, which is what makes a
+	 * "fake 3L" a 30%: see `potentialLines.mainStatPercent`.
+	 */
+	totalPercent?: number;
 }
 
 /**
@@ -656,56 +667,82 @@ function goalLineValue(
 	return value;
 }
 
-function slotGoals(group: potentialLines.PotentialPoolGroup, cls: ClassDef): SlotGoal[] {
+function slotGoals(
+	group: potentialLines.PotentialPoolGroup,
+	cls: ClassDef,
+	itemLevel: number
+): SlotGoal[] {
 	const attKind: potential.PotentialLineKind = cls.usesMagicAttack ? 'matt_pct' : 'att_pct';
 	const attPool: potentialLines.PoolLineKind = cls.usesMagicAttack ? 'matt_pct' : 'att_pct';
 	const attWord = cls.usesMagicAttack ? '%magic attack' : '%attack';
 
-	const stat = (lines: number): SlotGoal => ({
-		id: `stat${lines}`,
-		label: `${lines} lines of {value}% main stat`,
+	// cubing-strategy.md SS6: "`%` figures are for item level 151+ (all current
+	// Heroic endgame gear); subtract 3 for lv 71-150 gear."
+	const rung = (at151: number): number => (itemLevel >= 151 ? at151 : at151 - 3);
+
+	const stat = (id: string, total: number, lines: number, note: string): SlotGoal => ({
+		id,
+		label: `${rung(total)}%+ main stat (${note})`,
 		lines,
 		kind: 'stat_pct',
-		poolKind: 'stat_pct'
+		poolKind: 'stat_pct',
+		totalPercent: rung(total)
+	});
+
+	// The armour/accessory ladder, in the order the community climbs it.
+	// SS6 "Default target set": default 21%+, next rung 30% ("fake 3L"),
+	// terminal 33% ("real 3L") and only on gear you will not replace.
+	const statLadder = (): SlotGoal[] => [
+		stat('stat21', 21, 2, '2 lines'),
+		stat('stat30', 30, 3, 'fake 3L'),
+		stat('stat33', 33, 3, 'real 3L')
+	];
+
+	const att = (id: string, total: number, lines: number, note: string): SlotGoal => ({
+		id,
+		label: `${rung(total)}%+ ${attWord} (${note})`,
+		lines,
+		kind: attKind,
+		poolKind: attPool,
+		totalPercent: rung(total)
 	});
 
 	switch (group) {
+		// WSE. SS6: default is 2L ATT, NOT three prime lines.
+		//
+		// NOTE: the researched next rung is a MIXED goal — "2 ATT + 1 Boss" — which
+		// this shape cannot express (one `poolKind` per goal). Tracked as a gap;
+		// the whole-WSE 9-line budget in SS4.1 needs the same conjunction support.
 		case 'weapon':
 		case 'secondary':
 		case 'shieldSoulRing':
 			return [
-				// Any boss or IED line is worth having here, so this one is valued at
-				// what it asks for rather than at the prime.
+				att('att2', 23, 2, '2L ATT'),
+				att('att3', 33, 3, '3L ATT'),
+				// Boss and IED are HARD-CAPPED at 2 lines per item (StrategyWiki,
+				// quoted in cubing-strategy.md SS1): three of either is impossible,
+				// and we used to offer it.
 				{
-					id: 'bossied3',
-					label: '3 lines of boss damage or IED',
-					lines: 3,
+					id: 'bossied2',
+					label: '2 lines of boss damage or IED',
+					lines: 2,
 					kind: 'boss',
 					poolKind: ['boss', 'ied'],
 					anyValue: true,
-					valueKinds: ['boss', 'boss', 'ied']
-				},
-				{
-					id: 'att3',
-					label: `3 lines of {value}% ${attWord}`,
-					lines: 3,
-					kind: attKind,
-					poolKind: attPool
+					valueKinds: ['boss', 'ied']
 				}
 			];
-		// An emblem's pool has NO boss-damage line at any rank.
+		// An emblem's pool has NO boss-damage line at any rank (five independent
+		// confirmations, cubing-strategy.md SS1).
 		case 'emblem':
 			return [
-				{ id: 'ied3', label: '3 lines of {value}% IED', lines: 3, kind: 'ied', poolKind: 'ied' },
-				{
-					id: 'att3',
-					label: `3 lines of {value}% ${attWord}`,
-					lines: 3,
-					kind: attKind,
-					poolKind: attPool
-				}
+				att('att2', 23, 2, '2L ATT'),
+				att('att3', 33, 3, '3L ATT — cheapest 3L-ATT slot'),
+				{ id: 'ied2', label: '2 lines of {value}% IED', lines: 2, kind: 'ied', poolKind: 'ied' }
 			];
 		// Gloves are the only armour slot whose pool contains Critical Damage.
+		// 3L crit damage is deliberately ABSENT: 133,100 cubes ~ 2.9T mesos, the
+		// target Nate described as "maybe 5 people in all of maple story history".
 		case 'gloves':
 			return [
 				{
@@ -715,22 +752,15 @@ function slotGoals(group: potentialLines.PotentialPoolGroup, cls: ClassDef): Slo
 					kind: 'crit_dmg',
 					poolKind: 'crit_dmg'
 				},
-				{
-					id: 'critdmg3',
-					label: '3 lines of {value}% critical damage',
-					lines: 3,
-					kind: 'crit_dmg',
-					poolKind: 'crit_dmg'
-				},
-				stat(2)
+				...statLadder()
 			];
 		// Hats are the only slot whose pool contains Skill Cooldown.
 		//
-		// ⚠️ Generated and priced, but it SCORES ZERO and the ranker drops it,
-		// because cooldown buys rotation uptime and the damage index models a
-		// single hit with no notion of a rotation. For a cooldown-gated class
-		// (Ren notably) that understates the line badly. Modelling it needs a
-		// skill rotation, which this tracker does not have.
+		// WARNING: the cooldown goal is generated and priced, but it SCORES ZERO
+		// and the ranker drops it, because cooldown buys rotation uptime and the
+		// damage index models a single hit with no notion of a rotation. For a
+		// cooldown-gated class (Ren notably) that understates the line badly.
+		// Modelling it needs a skill rotation, which this tracker does not have.
 		case 'hat':
 			return [
 				{
@@ -741,10 +771,10 @@ function slotGoals(group: potentialLines.PotentialPoolGroup, cls: ClassDef): Slo
 					poolKind: 'cooldown',
 					anyValue: true
 				},
-				stat(3)
+				...statLadder()
 			];
 		default:
-			return [stat(3), stat(2)];
+			return statLadder();
 	}
 }
 
@@ -769,7 +799,16 @@ function goalContribution(
 	const main = mainStatOf(cls);
 	let placed = 0;
 
-	for (let i = 0; i < goal.lines && placed < 3; i++) {
+	// A summed goal names a TOTAL, not a per-line value. Damage only cares about
+	// the total for the additive kinds these goals use (%stat, %ATT), so credit it
+	// once and mark the lines it consumed. Never route a multiplicative kind (IED)
+	// through here — stacking is not summation for those.
+	if (goal.totalPercent !== undefined) {
+		addLine(out, goal.kind, goal.totalPercent, main, cls);
+		placed = Math.min(goal.lines, 3);
+	}
+
+	for (let i = placed; i < goal.lines && placed < 3; i++) {
 		const kind = goal.valueKinds?.[i] ?? goal.kind;
 		const value =
 			kind === goal.kind ? lineValueForGoal : (perKindValue?.(kind) ?? lineValueForGoal);
@@ -967,14 +1006,16 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 		// true expectation is 2.9 TRILLION, a factor of 1,331.
 		const group = potentialLines.poolGroupForSlot(slot);
 		if (group && item.itemLevel !== undefined && source.grade !== 'rare') {
-			for (const goal of slotGoals(group, cls)) {
+			for (const goal of slotGoals(group, cls, item.itemLevel)) {
 				// ONE value drives both sides. `minValue` is what the probability
 				// model prices, and the same number is what `goalContribution` credits
 				// — so the cost can never describe a cheaper outcome than the gain.
-				const value = goal.anyValue
-					? undefined
-					: goalLineValue(goal, source.grade, item.itemLevel, category, slot);
-				if (!goal.anyValue && value === null) continue;
+				const summed = goal.totalPercent !== undefined;
+				const value =
+					goal.anyValue || summed
+						? undefined
+						: goalLineValue(goal, source.grade, item.itemLevel, category, slot);
+				if (!goal.anyValue && !summed && value === null) continue;
 
 				// A multi-line STAT requirement must name the stat it wants. Without
 				// it, STR/DEX/INT/LUK count interchangeably and a roll of
@@ -991,11 +1032,33 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 					? statScope
 					: {};
 
-				const target: potentialLines.PotentialTarget = [
-					value === undefined || value === null
-						? { kind: goal.poolKind, lines: goal.lines, ...scope }
-						: { kind: goal.poolKind, lines: goal.lines, minValue: Math.abs(value), ...scope }
-				];
+				// A summed goal is what the community actually states ("33%+"), and it
+				// is a DIFFERENT requirement from three lines of >=11%: 12/12/9 clears
+				// 33 but fails a per-line minimum. Built by the module so stat goals
+				// pick up %All Stat, which is what makes a "fake 3L" add to 30.
+				let requirement: potentialLines.LineRequirement;
+				if (summed) {
+					const total = goal.totalPercent as number;
+					if (goal.kind === 'stat_pct') {
+						const main = mainStatOf(cls);
+						requirement =
+							cls.flags?.xenon || !main
+								? { kind: ['stat_pct', 'all_stat_pct'], totalValue: total, anyStat: true }
+								: potentialLines.mainStatPercent(main as potentialLines.PoolStat, total);
+					} else {
+						requirement = potentialLines.attackPercent(total, cls.usesMagicAttack);
+					}
+				} else if (value === undefined || value === null) {
+					requirement = { kind: goal.poolKind, lines: goal.lines, ...scope };
+				} else {
+					requirement = {
+						kind: goal.poolKind,
+						lines: goal.lines,
+						minValue: Math.abs(value),
+						...scope
+					};
+				}
+				const target: potentialLines.PotentialTarget = [requirement];
 
 				// Validate OUTSIDE the try below. An ambiguous target is a bug in
 				// this file, not a missing pool, and the catch would otherwise turn

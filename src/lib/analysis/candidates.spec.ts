@@ -152,7 +152,7 @@ describe('potential candidates', () => {
 
 	it('removes the current IED lines before adding the new ones', () => {
 		const { candidates } = generate(() => {}, { kinds: ['potential'] });
-		const weapon = candidates.find((c) => c.id === 'potential:weapon:goal:bossied3')!;
+		const weapon = candidates.find((c) => c.id === 'potential:weapon:goal:bossied2')!;
 
 		expect(weapon.delta.iedRemove).toEqual([40]);
 		expect(weapon.delta.iedAdd!.length).toBeGreaterThan(0);
@@ -166,14 +166,24 @@ describe('potential candidates', () => {
 		expect(emblem.some((c) => c.id.includes('boss'))).toBe(false);
 	});
 
-	// The old model priced this at 1/triplePrime = 2.2B. The real pools put it
-	// in the trillions, which is the entire point of the rewrite.
-	it('prices three critical-damage glove lines in the trillions, not billions', () => {
+	// 3L crit damage is 133,100 cubes ~ 2.9T mesos (cubing-strategy.md SS1, which
+	// the community independently derives at 2.3-3T). Nate: "Maybe 5 people in all
+	// of maple story history have had 3 crit lines." It is not a plan, so it is not
+	// a candidate. 2L crit damage IS the researched rung and must still be offered.
+	it('never offers three critical-damage glove lines', () => {
 		const { candidates } = generate(() => {}, { kinds: ['potential'] });
-		const triple = candidates.find((c) => c.id === 'potential:gloves:goal:critdmg3');
-		if (!triple) return; // gloves may be below the published pool level
-		expect(triple.cost.mesos!).toBeGreaterThan(1e12);
-		expect(triple.feasibility).toBe('ceiling');
+		expect(candidates.some((c) => c.id === 'potential:gloves:goal:critdmg3')).toBe(false);
+	});
+
+	// Boss / IED / Drop are hard-capped at 2 lines per item (StrategyWiki, quoted
+	// in cubing-strategy.md SS1). Three of any of them cannot be rolled at all, and
+	// we used to offer exactly that.
+	it('never asks for more than two boss or IED lines on one item', () => {
+		const { candidates } = generate(() => {}, { kinds: ['potential'] });
+		for (const c of candidates.filter((x) => /goal:(boss|ied)/.test(x.id))) {
+			const added = (c.delta.iedAdd?.length ?? 0) + (c.delta.boss !== undefined ? 1 : 0);
+			expect(added).toBeLessThanOrEqual(2);
+		}
 	});
 
 	it('skips bonus potential entirely in Heroic', () => {
@@ -636,8 +646,9 @@ describe('cube goals price and value the SAME outcome', () => {
 		const statGoals = candidates.filter((c) => c.id.includes(':goal:stat'));
 		expect(statGoals.length).toBeGreaterThan(0);
 		for (const goal of statGoals) {
-			// e.g. "... -> 2 lines of 12% main stat" — never a bare "%main stat".
-			expect(goal.label).toMatch(/\d+% main stat/);
+			// Summed, the way every guide and calculator states it: "... -> 21%+ main
+			// stat (2 lines)". Never a bare "%main stat" with no number attached.
+			expect(goal.label).toMatch(/\d+%\+? main stat/);
 		}
 	});
 
@@ -651,11 +662,23 @@ describe('cube goals price and value the SAME outcome', () => {
 		}
 	});
 
-	// IED composes multiplicatively, so three IED lines are worth much less than
-	// two boss plus one IED. A mixed goal must be valued as the mix.
-	it('values a boss-or-IED goal as boss/boss/IED, not three of one', () => {
-		const { candidates } = generate(() => {}, { kinds: ['potential'] });
-		const weapon = candidates.find((c) => c.id === 'potential:weapon:goal:bossied3')!;
+	// IED composes multiplicatively, so two IED lines are worth much less than one
+	// boss plus one IED. A mixed goal must be valued as the mix.
+	//
+	// Rolled on a weapon that does NOT already carry boss/IED: the fixture's own
+	// bow has Boss 40 + IED 40, which since the 2-line cap landed IS the goal, so
+	// it correctly gains nothing there.
+	it('values a boss-or-IED goal as boss + IED, not two of one', () => {
+		const { candidates } = generate(
+			(character) => {
+				character.equipment.weapon!.potential = {
+					grade: 'legendary',
+					lines: ['DEX : +12%', 'DEX : +12%', 'DEX : +9%']
+				};
+			},
+			{ kinds: ['potential'] }
+		);
+		const weapon = candidates.find((c) => c.id === 'potential:weapon:goal:bossied2')!;
 		expect(weapon.delta.boss).toBeGreaterThan(0);
 		expect(weapon.delta.iedAdd!.length).toBe(1);
 	});
