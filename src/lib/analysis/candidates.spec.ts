@@ -3,8 +3,13 @@ import { describe, expect, it } from 'vitest';
 import * as potentialData from '$lib/data/potential';
 import * as starforceData from '$lib/data/starforce';
 
+import { getClass, listClasses } from '$lib/data/classes';
+import { CATALOGUE, CATALOGUE_META, capabilities, findByName } from '$lib/data/items';
+import type { Item } from '$lib/schema';
+
 import { toCalcInput } from './adapter';
 import { generateCandidates, STAR_BREAKPOINTS, weakest } from './candidates';
+import { summarizeGear } from './gear';
 import { resolveTarget } from './targets';
 import { windArcherFixture } from './test-fixtures';
 
@@ -68,7 +73,15 @@ describe('star force candidates', () => {
 	});
 
 	it('marks weapon 26-30 speculative', () => {
-		const { candidates } = generate(() => {}, { kinds: ['starforce'] });
+		// The fixture holds a Genesis Bow, which is a fixed 22★ and generates no
+		// star force candidates at all (see the capability tests below), so swap in
+		// an ordinary Lv200 bow to exercise the 26-30 extrapolation.
+		const { candidates } = generate(
+			(character) => {
+				character.equipment.weapon!.name = 'Arcane Umbra Bow';
+			},
+			{ kinds: ['starforce'] }
+		);
 		const to30 = candidates.find((c) => c.id === 'starforce:weapon:22-30')!;
 		expect(to30.confidence).toBe('speculative');
 		expect(to30.notes!.join(' ')).toContain('UNVERIFIED_WEAPON_26_30');
@@ -247,5 +260,349 @@ describe('generateCandidates', () => {
 			new Set(['starforce', 'flame', 'potential', 'symbol', 'hyper-stat'])
 		);
 		expect(new Set(candidates.map((c) => c.id)).size).toBe(candidates.length);
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* Upgrade capabilities (src/lib/data/items)                                    */
+/* -------------------------------------------------------------------------- */
+
+describe('capability gate', () => {
+	function starforceFor(name: string, slot: 'weapon' | 'ring1', extra: Partial<Item> = {}) {
+		return generate(
+			(character) => {
+				const base: Item = character.equipment[slot] ?? {
+					name,
+					slot,
+					category: slot === 'weapon' ? 'weapon' : 'accessory'
+				};
+				character.equipment[slot] = { ...base, name, ...extra };
+			},
+			{ kinds: ['starforce'] }
+		);
+	}
+
+	it('generates no star force candidate for a Ring of Restraint, and says why', () => {
+		const { candidates, notes } = starforceFor('Ring of Restraint', 'ring1', {
+			itemLevel: 110,
+			starforce: 0
+		});
+
+		expect(candidates.filter((c) => c.slot === 'ring1')).toEqual([]);
+		const note = notes.find((n) => n.includes('Ring of Restraint'));
+		expect(note).toBeDefined();
+		expect(note).toContain('no upgrade slots');
+	});
+
+	it('says a Ring of Restraint cannot be star forced at all', () => {
+		const caps = capabilities({
+			name: 'Ring of Restraint',
+			slot: 'ring1',
+			category: 'accessory',
+			itemLevel: 110
+		});
+		expect(caps.canStarforce).toBe(false);
+		expect(caps.maxStarforce).toBeUndefined();
+		expect(caps.known).toBe(true);
+		expect(Object.keys(caps.reasons)).toContain('no-upgrade-slots');
+	});
+
+	it('generates no star force candidate for a Genesis weapon and reports 22★ fixed', () => {
+		// "Genesis Sword" is not a real GMS item id — Genesis weapons are per class
+		// — so this also pins the NAME-FAMILY rule rather than the id lookup.
+		const { candidates, notes } = starforceFor('Genesis Sword', 'weapon', {
+			itemLevel: 200,
+			starforce: 22
+		});
+
+		expect(candidates.filter((c) => c.slot === 'weapon')).toEqual([]);
+		const note = notes.find((n) => n.includes('Genesis Sword'));
+		expect(note).toBeDefined();
+		expect(note).toContain('22★');
+	});
+
+	it('fixes every Genesis and Destiny weapon at 22★', () => {
+		for (const name of ['Genesis Sword', 'Genesis Fan', 'Genesis Bow', 'Destiny Bladecaster']) {
+			const caps = capabilities({
+				name,
+				slot: 'weapon',
+				category: 'weapon',
+				itemLevel: name.startsWith('Destiny') ? 250 : 200
+			});
+			expect(caps.canStarforce).toBe(false);
+			expect(caps.fixedStarforce).toBe(22);
+			expect(caps.maxStarforce).toBe(22);
+		}
+	});
+
+	it('does not mistake the Genesis Badge or a Destiny medal for a liberated weapon', () => {
+		const badge = capabilities({
+			name: 'Genesis Badge',
+			slot: 'badge',
+			category: 'badge',
+			itemLevel: 200
+		});
+		expect(badge.fixedStarforce).toBeUndefined();
+
+		const medal = capabilities({
+			name: 'Adversary of Destiny',
+			slot: 'medal',
+			category: 'medal',
+			itemLevel: 200
+		});
+		expect(medal.fixedStarforce).toBeUndefined();
+	});
+
+	it('still star forces a normal Arcane Umbra hat', () => {
+		const caps = capabilities({
+			name: 'Arcane Umbra Knight Hat',
+			slot: 'hat',
+			category: 'armor',
+			itemLevel: 200
+		});
+		expect(caps.canStarforce).toBe(true);
+		expect(caps.canFlame).toBe(true);
+		expect(caps.canPotential).toBe(true);
+		expect(caps.maxStarforce).toBe(30);
+
+		const { candidates } = generate(() => {}, { kinds: ['starforce'] });
+		expect(candidates.filter((c) => c.slot === 'hat').length).toBeGreaterThan(0);
+	});
+
+	it('still generates candidates for an unknown item, but flags it', () => {
+		const caps = capabilities({
+			name: 'Completely Made Up Battlehat',
+			slot: 'hat',
+			category: 'armor',
+			itemLevel: 200
+		});
+		expect(caps.known).toBe(false);
+		expect(caps.matchQuality).toBe('none');
+		expect(caps.canStarforce).toBe(true);
+		expect(Object.keys(caps.reasons)).toContain('unknown-item');
+
+		const { candidates } = generate(
+			(character) => {
+				character.equipment.hat!.name = 'Completely Made Up Battlehat';
+			},
+			{ kinds: ['starforce'] }
+		);
+		const hat = candidates.filter((c) => c.slot === 'hat');
+		expect(hat.length).toBeGreaterThan(0);
+		expect(hat[0].notes!.join(' ')).toContain('not in the v270 GMS catalogue');
+	});
+
+	it('treats an absent name as UNKNOWN, never as a restriction', () => {
+		// The v270 dump predates Ren, so "Imugi Gem" is genuinely not in it. An
+		// absence must NOT be read as "this item cannot be upgraded" — a Ren main
+		// would then get wrong advice on every slot.
+		expect(findByName('Imugi Gem')).toHaveLength(0);
+		const caps = capabilities({
+			name: 'Imugi Gem',
+			slot: 'secondary',
+			category: 'secondary',
+			itemLevel: 200
+		});
+		expect(caps.known).toBe(false);
+		expect(caps.canStarforce).toBe(true);
+		expect(caps.canPotential).toBe(true);
+		expect(caps.blockedBy.starforce).toEqual([]);
+		expect(Object.keys(caps.reasons)).toContain('unknown-item');
+		// ...and the catalogue says so about itself.
+		expect(CATALOGUE_META.gameVersion).toBe('270');
+		expect(CATALOGUE_META.coverage.knownMissing.join(' ')).toContain('Imugi Gem');
+		expect(CATALOGUE_META.coverage.note).toContain('UNKNOWN');
+	});
+
+	it('resolves approximate capture names to the closest catalogue entry', () => {
+		const caps = capabilities({
+			name: 'Arcane Umbra Hat',
+			slot: 'hat',
+			category: 'armor',
+			itemLevel: 200
+		});
+		expect(caps.matchQuality).toBe('approximate');
+		expect(caps.known).toBe(true);
+		expect(caps.canStarforce).toBe(true);
+
+		// "Total Control Heart" is a capture of the item actually named "Total Control".
+		const heart = capabilities({
+			name: 'Total Control Heart',
+			slot: 'heart',
+			category: 'heart',
+			itemLevel: 200
+		});
+		expect(heart.matchQuality).toBe('exact');
+		expect(heart.entries[0].name).toBe('Total Control');
+	});
+
+	it('blocks star force on the exclusive-currency event rings, which DO have slots', () => {
+		// Vengeful / Cosmos / Awake rings carry 3-20 upgrade slots that only accept
+		// their own enhancement currency, so the `tuc === 0` screen does not catch
+		// them. https://maplestorywiki.net/w/Vengeful_Ring
+		for (const name of ['Vengeful Ring', 'Cosmos Ring', 'Awake Ring']) {
+			const caps = capabilities({
+				name,
+				slot: 'ring1',
+				category: 'accessory',
+				itemLevel: 120
+			});
+			expect(caps.canStarforce, name).toBe(false);
+			expect(caps.blockedBy.starforce, name).toContain('exclusive-scroll-only');
+		}
+		// ...but a Platinum Cross Ring and Glona's Heart still do.
+		expect(
+			capabilities({ name: 'Platinum Cross Ring', slot: 'ring1', category: 'accessory' })
+				.canStarforce
+		).toBe(true);
+	});
+
+	it('reports only the reasons that bear on the blocked capability', () => {
+		const caps = capabilities({
+			name: 'Ring of Restraint',
+			slot: 'ring1',
+			category: 'accessory',
+			itemLevel: 110
+		});
+		// The ring is blocked from BOTH star force and flames, for different
+		// reasons; the star force explanation must not drag the flame one in.
+		expect(caps.blockedBy.starforce).toEqual(['no-upgrade-slots']);
+		expect(caps.blockedBy.flame).toEqual(['flame-ineligible-slot']);
+		expect(caps.blockedBy.potential).toEqual([]);
+	});
+
+	it('never flames a ring, a badge, an emblem or a secondary', () => {
+		for (const [name, slot, category] of [
+			['Ring of Restraint', 'ring1', 'accessory'],
+			['Genesis Badge', 'badge', 'badge'],
+			['Gold Maple Leaf Emblem', 'emblem', 'emblem'],
+			['Astra Sacred Aegis', 'secondary', 'secondary']
+		] as const) {
+			expect(capabilities({ name, slot, category, itemLevel: 200 }).canFlame).toBe(false);
+		}
+		// ...but a belt, an earring and a pendant all take flames.
+		for (const [name, slot] of [
+			['Dreamy Belt', 'belt'],
+			['Commanding Force Earring', 'earrings'],
+			['Source of Suffering', 'pendant1']
+		] as const) {
+			expect(capabilities({ name, slot, category: 'accessory', itemLevel: 200 }).canFlame).toBe(
+				true
+			);
+		}
+	});
+
+	it('never gives potential to a medal, a pocket item, an android or a plain badge', () => {
+		for (const [name, slot, category] of [
+			['Chaos Vellum Medal', 'medal', 'medal'],
+			['Pink Holy Cup', 'pocket', 'pocket'],
+			['Lumiwing Android', 'android', 'android'],
+			['Genesis Badge', 'badge', 'badge']
+		] as const) {
+			expect(capabilities({ name, slot, category, itemLevel: 200 }).canPotential).toBe(false);
+		}
+		// The two star-forceable badges are also the badges that take potential.
+		expect(
+			capabilities({
+				name: 'Ghost Ship Exorcist',
+				slot: 'badge',
+				category: 'badge',
+				itemLevel: 150
+			}).canPotential
+		).toBe(true);
+	});
+
+	it('never offers bonus potential, because Heroic has none', () => {
+		const caps = capabilities({
+			name: 'Arcane Umbra Knight Hat',
+			slot: 'hat',
+			category: 'armor',
+			itemLevel: 200
+		});
+		expect(caps.canBonusPotential).toBe(false);
+		expect(Object.keys(caps.reasons)).toContain('bonus-potential-not-in-heroic');
+	});
+
+	it('recognises exactly the 50 GMS Superior items, and not Superior Gollux', () => {
+		// https://maplestorywiki.net/w/Category:Superior_Equipment — Tyrant
+		// belt/boots/cloak/gloves, Nova belt/boots/cloak, Elite Heliseum
+		// belt/boots/cape, five variants each.
+		expect(CATALOGUE.filter((e) => e.superior)).toHaveLength(50);
+		// "Superior Gollux" accessories are NOT Superior equipment; they use the
+		// ordinary 30★ table.
+		const gollux = capabilities({
+			name: 'Superior Gollux Ring',
+			slot: 'ring1',
+			category: 'accessory',
+			itemLevel: 150
+		});
+		expect(gollux.superior).toBeUndefined();
+		expect(gollux.maxStarforce).toBe(30);
+	});
+
+	it('caps Superior (Tyrant) gear at its own table', () => {
+		const caps = capabilities({
+			name: 'Tyrant Hyades Gloves',
+			slot: 'gloves',
+			category: 'armor',
+			itemLevel: 150
+		});
+		expect(caps.superior).toBe(true);
+		expect(caps.maxStarforce).toBe(15);
+	});
+
+	it('suppresses flame and potential candidates with a reason, not silently', () => {
+		const { notes } = generate(() => {}, { kinds: ['flame', 'potential'] });
+		const joined = notes.join('\n');
+		expect(joined).toContain('No flame candidate for');
+		expect(joined).toMatch(/can never receive bonus stats/);
+	});
+});
+
+describe('class weapon table', () => {
+	it('matches the five priority classes exactly', () => {
+		const expected: Record<string, { weaponType: string; secondaryType: string }> = {
+			// https://grandislibrary.com/anima/ren — Sword + Imugi Gem, STR / DEX.
+			ren: { weaponType: 'Sword', secondaryType: 'Imugi Gem' },
+			hero: { weaponType: 'Two-Handed Sword', secondaryType: 'Medallion' },
+			'wind-archer': { weaponType: 'Bow', secondaryType: 'Jewel' },
+			'battle-mage': { weaponType: 'Staff', secondaryType: 'Magic Marble' },
+			'night-walker': { weaponType: 'Claw', secondaryType: 'Jewel' }
+		};
+		for (const [id, want] of Object.entries(expected)) {
+			const cls = getClass(id);
+			expect(cls.weaponType).toBe(want.weaponType);
+			expect(cls.secondaryType).toBe(want.secondaryType);
+		}
+	});
+
+	it('keeps Ren STR / DEX and leaves the sourced 1.3 weapon constant alone', () => {
+		const ren = getClass('ren');
+		expect(ren.primary).toEqual(['str']);
+		expect(ren.secondary).toEqual(['dex']);
+		// formulas.md §1.5 — a per-class value, NOT "the Sword constant".
+		expect(ren.weaponConstant).toBe(1.3);
+	});
+
+	it('gives every class a weapon and a secondary', () => {
+		for (const cls of listClasses()) {
+			expect(cls.weaponType, cls.id).toBeTruthy();
+			expect(cls.secondaryType, cls.id).toBeTruthy();
+		}
+	});
+
+	it('warns when a class holds a weapon it cannot equip', () => {
+		const character = windArcherFixture();
+		character.equipment.weapon!.name = 'Arcane Umbra Shining Rod';
+		const { warnings } = summarizeGear(character);
+		expect(warnings.join('\n')).toContain('but Wind Archer uses a Bow');
+	});
+
+	it('does not warn about Ren, whose weapon postdates the v270 catalogue', () => {
+		const character = windArcherFixture();
+		character.classId = 'ren';
+		character.equipment.weapon!.name = 'Genesis Sword';
+		const { warnings } = summarizeGear(character);
+		expect(warnings.join('\n')).not.toContain('uses a Sword');
 	});
 });

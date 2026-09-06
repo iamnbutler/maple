@@ -17,6 +17,8 @@ export * as hyperstats from './hyperstats';
 export * as classes from './classes';
 export * as weaponConstants from './weapon-constants';
 export * as bosses from './bosses';
+// GMS v270 item catalogue + upgrade-capability rules (`data.items.capabilities(item)`).
+export * as items from './items';
 
 // Flat re-exports of the gear-system tables.
 export * from './starforce';

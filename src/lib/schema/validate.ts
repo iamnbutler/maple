@@ -7,6 +7,7 @@
 // `src/lib/calc/gear.ts` extends this set later with residual-based checks; keep
 // this module free of calc imports so it stays usable from the API layer alone.
 
+import { capabilities } from '$lib/data/items';
 import type { Character } from './character';
 import { CATEGORY_BY_SLOT, STAR_FORCEABLE_CATEGORIES, type Item, type Slot } from './item';
 import { ADDITIVE_STAT_KEYS, type StatBlock } from './stats';
@@ -51,10 +52,18 @@ export function itemWarnings(slot: Slot, item: Item): string[] {
 	}
 
 	const category = item.category ?? CATEGORY_BY_SLOT[slot];
+	// The category test alone is too coarse: rings are a star-forceable CATEGORY,
+	// but 132 of the 184 level-100+ rings cannot take a single star (Ring of
+	// Restraint, the whole skill-ring family, ...). Asking the user for a star
+	// count on those is not just noise, it contradicts the catalogue's own
+	// "cannot be star forced" reason. Consult the item before warning.
 	if (item.starforce === undefined && STAR_FORCEABLE_CATEGORIES.includes(category)) {
-		warnings.push(
-			`${where}: starforce is missing — it cannot be read from a screenshot, ask the user for the star count`
-		);
+		const caps = capabilities({ name: item.name, slot, category, itemLevel: item.itemLevel });
+		if (caps.canStarforce) {
+			warnings.push(
+				`${where}: starforce is missing — it cannot be read from a screenshot, ask the user for the star count`
+			);
+		}
 	}
 
 	if (item.itemLevel === undefined) {

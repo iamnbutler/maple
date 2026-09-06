@@ -28,6 +28,22 @@
 //    the slot/category rules only — which are certain — and is flagged
 //    `known: false` with an `unknown-item` reason so the UI can say
 //    "unrecognised item" rather than "no upgrades available".
+//
+// COVERAGE — READ THIS BEFORE TRUSTING AN ABSENCE
+// ----------------------------------------------
+// The dump is GMS **v270**, the newest maplestory.io serves (v271-v278 all
+// return 500/502, and there is no `latest` alias). v270 PREDATES the Anima
+// class **Ren**, so "Imugi Gem" — Ren's secondary — is genuinely not in here,
+// and neither are Mo Xuan's, Sia Astelle's or Erel Light's weapons, nor Kanna's
+// v266 Talisman. See `CATALOGUE_META.coverage`.
+//
+// Therefore: **absence is UNKNOWN, never INVALID.** `capabilities()` never
+// infers a restriction from a name it could not find — it falls through to the
+// SLOT rules, which are independently verified across the whole v270 dump (0 of
+// 316 medals, 0 of 239 androids, 0 of 102 totems and 0 of 59 pocket items have
+// any upgrade slots), and flags the item `known: false`. A weapon or secondary
+// whose name is unknown keeps every capability, so a Ren main is advised
+// normally rather than being told its gear does not exist.
 
 import * as starforce from '$lib/data/starforce';
 
@@ -70,11 +86,18 @@ export type CatalogueSlot =
 	| 'android'
 	| 'totem';
 
+/**
+ * One catalogue item.
+ *
+ * `category`, `canBonusPotential` and `iconUrl` are DERIVED at load and are not
+ * in the JSON — storing them cost ~640 KB across 5,700 entries in a file that
+ * ships in the bundle. Consumers see them exactly as if they were stored.
+ */
 export interface CatalogueEntry {
 	id: number;
 	name: string;
 	slot: CatalogueSlot;
-	/** The `ItemCategory` from `src/lib/schema/item.ts`. */
+	/** Derived. The `ItemCategory` from `src/lib/schema/item.ts`. */
 	category: string;
 	/** REQ LEV / base item level. */
 	itemLevel: number;
@@ -90,16 +113,27 @@ export interface CatalogueEntry {
 	 * the "this item has no upgrade slots at all" signal.
 	 */
 	upgradeSlots: number;
+	/** Derived from `CATALOGUE_META.sources.iconTemplate`. */
 	iconUrl: string;
 
 	canStarforce: boolean;
 	fixedStarforce?: number;
 	canFlame: boolean;
 	canPotential: boolean;
+	/** Derived: bonus potential requires regular potential, so it tracks `canPotential`. */
 	canBonusPotential: boolean;
 	superior?: boolean;
 	superiorMaxStars?: number;
 	rules: string[];
+}
+
+export interface CatalogueCoverage {
+	/** Prose warning about what this dump cannot contain. Safe to show a user. */
+	note: string;
+	/** Named things released after v270 that will never resolve. */
+	knownMissing: string[];
+	/** What happened when newer GMS versions were probed. */
+	newerVersionsProbed: string;
 }
 
 export interface CatalogueMeta {
@@ -107,6 +141,8 @@ export interface CatalogueMeta {
 	region: string;
 	gameVersion: string;
 	minItemLevel: number;
+	/** What this dump is missing, and why an absent name must mean "unknown". */
+	coverage: CatalogueCoverage;
 	sources: Record<string, string>;
 	counts: Record<string, number>;
 }
@@ -121,13 +157,41 @@ export interface ItemCapabilities {
 	/** Highest reachable star count. Absent when the item takes no star force at all. */
 	maxStarforce?: number;
 	superior?: boolean;
-	/** False when the item name is not in the catalogue (permissive fallback was used). */
+	/** False when the item name could not be resolved to any catalogue entry. */
 	known: boolean;
+	/** How the name resolved: exact catalogue hit, a fuzzy same-slot hit, or nothing. */
+	matchQuality: NameMatch;
 	/** The catalogue entries the name resolved to, in id order. Empty when unknown. */
 	entries: readonly CatalogueEntry[];
 	/** `{ ruleId: human-readable reason }` for every rule that fired. */
 	reasons: Record<string, string>;
+	/**
+	 * The rule ids that actually blocked each capability, so a caller can print
+	 * "why is there no star force candidate" WITHOUT also printing the unrelated
+	 * flame and bonus-potential rules. Empty when the capability is allowed.
+	 */
+	blockedBy: Record<'starforce' | 'flame' | 'potential' | 'bonusPotential', string[]>;
+	/** Set when a liberated-weapon family rule decided this item ("Genesis", "Destiny", ...). */
+	family?: string;
 }
+
+/** Which rule ids are evidence for which capability being blocked. */
+const BLOCKING_RULES: Record<
+	'starforce' | 'flame' | 'potential' | 'bonusPotential',
+	readonly string[]
+> = {
+	starforce: [
+		'liberated-weapon-fixed-star',
+		'destiny-stage-ambiguous',
+		'sealed-liberation-weapon',
+		'no-upgrade-slots',
+		'exclusive-scroll-only',
+		'superior-equipment'
+	],
+	flame: ['flame-ineligible-slot'],
+	potential: ['potential-ineligible-slot'],
+	bonusPotential: ['bonus-potential-not-in-heroic']
+};
 
 /** The subset of `schema.Item` this module needs. */
 export interface CapabilityQuery {
@@ -145,15 +209,55 @@ export interface CapabilityQuery {
 /* The catalogue                                                               */
 /* -------------------------------------------------------------------------- */
 
-const doc = raw as unknown as CatalogueMeta & { entries: CatalogueEntry[] };
+const doc = raw as unknown as CatalogueMeta & {
+	entries: (Omit<CatalogueEntry, 'category' | 'canBonusPotential' | 'iconUrl' | 'rules'> & {
+		rules?: string[];
+	})[];
+};
 
-export const CATALOGUE: readonly CatalogueEntry[] = doc.entries;
+/** Our canonical slot family -> the `ItemCategory` in `src/lib/schema/item.ts`. */
+const SLOT_TO_CATEGORY: Record<CatalogueSlot, string> = {
+	weapon: 'weapon',
+	secondary: 'secondary',
+	emblem: 'emblem',
+	hat: 'armor',
+	top: 'armor',
+	bottom: 'armor',
+	overall: 'armor',
+	shoes: 'armor',
+	gloves: 'armor',
+	cape: 'armor',
+	shoulder: 'armor',
+	belt: 'accessory',
+	pendant: 'accessory',
+	ring: 'accessory',
+	earrings: 'accessory',
+	face: 'accessory',
+	eye: 'accessory',
+	pocket: 'pocket',
+	badge: 'badge',
+	medal: 'medal',
+	heart: 'heart',
+	android: 'android',
+	totem: 'totem'
+};
+
+const ICON_TEMPLATE = doc.sources.iconTemplate;
+
+export const CATALOGUE: readonly CatalogueEntry[] = doc.entries.map((entry) => ({
+	...entry,
+	category: SLOT_TO_CATEGORY[entry.slot],
+	canBonusPotential: entry.canPotential,
+	iconUrl: ICON_TEMPLATE.replace('{id}', String(entry.id)),
+	rules: entry.rules ?? []
+}));
 
 export const CATALOGUE_META: CatalogueMeta = {
 	generatedAt: doc.generatedAt,
 	region: doc.region,
 	gameVersion: doc.gameVersion,
 	minItemLevel: doc.minItemLevel,
+	coverage: doc.coverage,
 	sources: doc.sources,
 	counts: doc.counts
 };
@@ -179,9 +283,141 @@ for (const entry of CATALOGUE) {
 	else BY_NAME.set(key, [entry]);
 }
 
+export type NameMatch = 'exact' | 'approximate' | 'none';
+
+/**
+ * Trailing nouns that a capture often appends but the real item name omits:
+ * "Total Control Heart" is really "Total Control", "Arcane Umbra Hat" is really
+ * "Arcane Umbra Knight Hat". Stripping the trailing slot noun and retrying is a
+ * cheap way to turn a miss into a hit.
+ */
+const TRAILING_SLOT_NOUNS: Record<string, readonly string[]> = {
+	heart: ['heart'],
+	ring: ['ring'],
+	badge: ['badge'],
+	medal: ['medal'],
+	android: ['android'],
+	totem: ['totem'],
+	emblem: ['emblem'],
+	pocket: ['pocket'],
+	shoulder: ['shoulder'],
+	belt: ['belt'],
+	pendant: ['pendant'],
+	earrings: ['earrings', 'earring'],
+	cape: ['cape'],
+	gloves: ['gloves', 'glove'],
+	shoes: ['shoes', 'shoe'],
+	hat: ['hat', 'helm', 'cap'],
+	overall: ['overall'],
+	top: ['top'],
+	bottom: ['bottom']
+};
+
 /** Every catalogue entry sharing an in-game name. Empty when the name is unknown. */
 export function findByName(name: string): readonly CatalogueEntry[] {
 	return BY_NAME.get(normalizeItemName(name)) ?? [];
+}
+
+/**
+ * Resolve a captured item name to catalogue entries.
+ *
+ * Captures are made from tooltip screenshots, so names arrive approximated
+ * ("Arcane Umbra Hat" for "Arcane Umbra Knight Hat", "AbsoLab Shoulder" for
+ * "AbsoLab Knight Shoulder", "Total Control Heart" for "Total Control"). Three
+ * passes, most specific first:
+ *   1. exact, on the normalised name;
+ *   2. exact, after dropping a trailing slot noun;
+ *   3. token-superset within the same slot — every token of the query appears
+ *      in the candidate's name. Needs at least two query tokens so that a bare
+ *      "Ring" cannot match 184 rings.
+ * Pass 3 is reported as `approximate` so the caller can flag it.
+ */
+export function resolveByName(
+	name: string,
+	slot?: CatalogueSlot
+): { entries: CatalogueEntry[]; match: NameMatch } {
+	const key = normalizeItemName(name);
+
+	const exact = BY_NAME.get(key);
+	if (exact) return { entries: exact, match: 'exact' };
+
+	const tokens = key.split(' ').filter(Boolean);
+	if (slot && tokens.length > 1) {
+		const nouns = TRAILING_SLOT_NOUNS[slot] ?? [];
+		if (nouns.includes(tokens[tokens.length - 1])) {
+			const stripped = BY_NAME.get(tokens.slice(0, -1).join(' '));
+			if (stripped) return { entries: stripped, match: 'exact' };
+		}
+	}
+
+	if (tokens.length < 2) return { entries: [], match: 'none' };
+	const pool = slot ? CATALOGUE.filter((e) => e.slot === slot) : CATALOGUE;
+	const fuzzy = pool.filter((entry) => {
+		const words = normalizeItemName(entry.name).split(' ');
+		return tokens.every((token) => words.includes(token));
+	});
+	if (fuzzy.length > 0) return { entries: fuzzy, match: 'approximate' };
+	return { entries: [], match: 'none' };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Liberated-weapon families                                                   */
+/*                                                                             */
+/* Genesis and Destiny weapons are per-class, so there are dozens of names      */
+/* ("Genesis Bow", "Genesis Bladecaster", "Destiny Shining Rod", ...) and a     */
+/* capture may well produce a generic one ("Genesis Sword", "Genesis Fan") that */
+/* is not a real item id at all. A NAME-FAMILY rule is therefore the primary    */
+/* mechanism here, not the per-id catalogue flags: it fires on the prefix,      */
+/* regardless of whether the exact name is in the v270 dump.                    */
+/*                                                                             */
+/* Anchored at the start of the name AND restricted to the weapon slot, so it   */
+/* cannot capture the Genesis Badge, the Genesis Bandana (a hat), the "Bond of  */
+/* Destiny" cape or the four "…Destiny" medals — all of which a bare substring  */
+/* match on "genesis"/"destiny" would wrongly hit.                              */
+/* -------------------------------------------------------------------------- */
+
+export interface LiberatedWeaponFamily {
+	/** Matched against the normalised (lowercase) item name. */
+	prefix: RegExp;
+	label: string;
+	/** The star count the weapon is granted at, when it has one. */
+	fixedStarforce?: number;
+	rules: readonly RuleId[];
+}
+
+export const LIBERATED_WEAPON_FAMILIES: readonly LiberatedWeaponFamily[] = [
+	{
+		// Must be tested BEFORE the bare `genesis` prefix.
+		prefix: /^sealed genesis\b/,
+		label: 'Sealed Genesis',
+		rules: ['sealed-liberation-weapon', 'no-upgrade-slots']
+	},
+	{
+		prefix: /^genesis\b/,
+		label: 'Genesis',
+		fixedStarforce: 22,
+		rules: ['liberated-weapon-fixed-star']
+	},
+	{
+		prefix: /^destiny\b/,
+		label: 'Destiny',
+		fixedStarforce: 22,
+		rules: ['liberated-weapon-fixed-star', 'destiny-stage-ambiguous']
+	}
+];
+
+/**
+ * The liberated-weapon family for an item, or `undefined`.
+ * Only ever applies to the WEAPON slot.
+ */
+export function liberatedWeaponFamily(
+	name: string,
+	slot: CatalogueSlot | undefined,
+	category?: string
+): LiberatedWeaponFamily | undefined {
+	if (slot !== 'weapon' && category !== 'weapon') return undefined;
+	const key = normalizeItemName(name);
+	return LIBERATED_WEAPON_FAMILIES.find((family) => family.prefix.test(key));
 }
 
 export function findById(id: number): CatalogueEntry | undefined {
@@ -250,8 +486,10 @@ export const NEVER_FLAME_SLOTS: readonly CatalogueSlot[] = [
 	'android',
 	'heart',
 	'shoulder',
-	'totem',
-	'pocket'
+	'totem'
+	// `pocket` is NOT here: pocket items are absent from the wiki's and
+	// formulas.md §4A §2.1's "cannot receive bonus stats" lists, and the Pink
+	// Holy Cup is a Boss Reward item that does get bonus stats.
 ];
 
 /** formulas.md §4A §3.1. See `rules.ts` for the citation. */
@@ -299,13 +537,34 @@ function namedMaxStars(name: string): number | undefined {
  *      real upgrade from the ranking.
  */
 export function capabilities(item: CapabilityQuery): ItemCapabilities {
-	const entries = findByName(item.name);
+	// `capabilities` is pure and the analysis calls it several times per item
+	// (star force, flames, potential, the gear summary), and a miss walks all
+	// 5,691 entries for the fuzzy pass. Memoise on the whole query.
+	const cacheKey = [
+		item.name,
+		item.slot ?? '',
+		item.category ?? '',
+		item.itemLevel ?? '',
+		item.superior ? '1' : ''
+	].join('\u0000');
+	const cached = CAPABILITY_CACHE.get(cacheKey);
+	if (cached) return cached;
+
+	const result = computeCapabilities(item);
+	CAPABILITY_CACHE.set(cacheKey, result);
+	return result;
+}
+
+const CAPABILITY_CACHE = new Map<string, ItemCapabilities>();
+
+function computeCapabilities(item: CapabilityQuery): ItemCapabilities {
+	const querySlot = catalogueSlot(item.slot) ?? categoryToSlot(item.category);
+	const resolved = resolveByName(item.name, querySlot);
+	const entries = resolved.entries;
 	const ruleIds: string[] = [];
 
-	const slot =
-		entries.length > 0
-			? entries[0].slot
-			: (catalogueSlot(item.slot) ?? categoryToSlot(item.category));
+	const slot = entries.length > 0 ? entries[0].slot : querySlot;
+	if (resolved.match === 'approximate') ruleIds.push('approximate-name-match');
 
 	let canStarforce: boolean;
 	let canFlame: boolean;
@@ -330,9 +589,7 @@ export function capabilities(item: CapabilityQuery): ItemCapabilities {
 			fixedStarforce = [...fixed][0];
 		}
 
-		const caps = entries
-			.map((e) => e.superiorMaxStars)
-			.filter((v): v is number => v !== undefined);
+		const caps = entries.map((e) => e.superiorMaxStars).filter((v): v is number => v !== undefined);
 		if (caps.length > 0) superiorMaxStars = Math.max(...caps);
 
 		for (const entry of entries) {
@@ -340,7 +597,11 @@ export function capabilities(item: CapabilityQuery): ItemCapabilities {
 		}
 		// A rule only earns its reason if it actually bit after the merge.
 		if (canStarforce) {
-			for (const id of ['no-upgrade-slots', 'liberated-weapon-fixed-star', 'destiny-stage-ambiguous']) {
+			for (const id of [
+				'no-upgrade-slots',
+				'liberated-weapon-fixed-star',
+				'destiny-stage-ambiguous'
+			]) {
 				const at = ruleIds.indexOf(id);
 				if (at >= 0) ruleIds.splice(at, 1);
 			}
@@ -362,6 +623,28 @@ export function capabilities(item: CapabilityQuery): ItemCapabilities {
 	if (canBonusPotential) ruleIds.push('bonus-potential-not-in-heroic');
 	canBonusPotential = false;
 
+	// The liberated-weapon family rule OVERRIDES everything above. It is keyed on
+	// the name prefix rather than on a catalogue id, because Genesis and Destiny
+	// weapons are per-class (dozens of names) and a capture may produce a generic
+	// one — "Genesis Sword", "Genesis Fan" — that no catalogue id carries.
+	const family = liberatedWeaponFamily(item.name, slot, item.category);
+	if (family) {
+		// The family rule is authoritative, so an approximate name hit is no longer
+		// interesting: "Genesis Sword" was recognised, just not as one exact id.
+		drop(ruleIds, 'approximate-name-match');
+		canStarforce = false;
+		fixedStarforce = family.fixedStarforce;
+		for (const id of [
+			'no-upgrade-slots',
+			'liberated-weapon-fixed-star',
+			'destiny-stage-ambiguous',
+			'sealed-liberation-weapon'
+		]) {
+			drop(ruleIds, id);
+		}
+		ruleIds.push(...family.rules);
+	}
+
 	/* --- max stars -------------------------------------------------------- */
 	const itemLevel = item.itemLevel ?? entries[0]?.itemLevel;
 	let maxStarforce: number | undefined;
@@ -374,6 +657,19 @@ export function capabilities(item: CapabilityQuery): ItemCapabilities {
 		if (superiorMaxStars !== undefined) maxStarforce = Math.min(maxStarforce, superiorMaxStars);
 	}
 
+	// Only report a rule as "blocking" X when X is actually blocked, and only
+	// report the rules that bear on X — printing every rule that fired made the
+	// star force note also explain flames and bonus potential.
+	const unrecognised = entries.length === 0 ? ['unknown-item'] : [];
+	const blockedFor = (
+		key: 'starforce' | 'flame' | 'potential' | 'bonusPotential',
+		blocked: boolean
+	): string[] => {
+		if (!blocked) return [];
+		const own = ruleIds.filter((id) => BLOCKING_RULES[key].includes(id));
+		return [...own, ...unrecognised.filter((id) => ruleIds.includes(id))];
+	};
+
 	return {
 		canStarforce,
 		canFlame,
@@ -383,8 +679,16 @@ export function capabilities(item: CapabilityQuery): ItemCapabilities {
 		...(maxStarforce !== undefined ? { maxStarforce } : {}),
 		...(superior ? { superior: true } : {}),
 		known: entries.length > 0,
+		matchQuality: resolved.match,
 		entries,
-		reasons: reasonsFor(ruleIds)
+		reasons: reasonsFor(ruleIds),
+		blockedBy: {
+			starforce: blockedFor('starforce', !canStarforce),
+			flame: blockedFor('flame', !canFlame),
+			potential: blockedFor('potential', !canPotential),
+			bonusPotential: blockedFor('bonusPotential', !canBonusPotential)
+		},
+		...(family ? { family: family.label } : {})
 	};
 }
 

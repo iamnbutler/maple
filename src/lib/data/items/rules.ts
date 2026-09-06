@@ -13,13 +13,16 @@
 export const RULE_IDS = [
 	'liberated-weapon-fixed-star',
 	'destiny-stage-ambiguous',
+	'sealed-liberation-weapon',
 	'no-upgrade-slots',
+	'exclusive-scroll-only',
 	'superior-equipment',
 	'flame-ineligible-slot',
 	'flame-eligible-exception',
 	'potential-ineligible-slot',
 	'potential-badge-exception',
 	'bonus-potential-not-in-heroic',
+	'approximate-name-match',
 	'unknown-item'
 ] as const;
 
@@ -55,6 +58,13 @@ export const RULES: Record<RuleId, RuleDoc> = {
 		research: 'formulas.md §4B §5 "Genesis Weapon and Destiny Weapon"',
 		sources: ['https://maplestorywiki.net/w/Destiny_Weapon']
 	},
+	'sealed-liberation-weapon': {
+		reason:
+			'A Sealed Genesis weapon is the pre-liberation quest weapon. It has no upgrade slots ' +
+			'and takes no star force; liberating it grants the Genesis weapon at a fixed 22★.',
+		research: 'formulas.md §4B §5 "Genesis Weapon and Destiny Weapon"',
+		sources: ['https://maplestorywiki.net/w/Genesis_Weapon']
+	},
 	'no-upgrade-slots': {
 		reason:
 			'This item has no upgrade slots at all, and equipment with no upgrade slots cannot be ' +
@@ -63,6 +73,18 @@ export const RULES: Record<RuleId, RuleDoc> = {
 		sources: [
 			'https://maplestorywiki.net/w/Star_Force_Enhancement',
 			'https://github.com/masonym/masonym.dev/blob/main/src/lib/equip/starforce.js'
+		]
+	},
+	'exclusive-scroll-only': {
+		reason:
+			'This event ring has upgrade slots, but they only accept its own exclusive enhancement ' +
+			'currency (Vengeful Stones, Cosmos Atoms, the Awake Ring Exclusive Enhancement Scroll). ' +
+			'It takes no star force and stays at 0★.',
+		research: 'GMS wiki item pages; the tuc>0 exception to the no-upgrade-slots screen',
+		sources: [
+			'https://maplestorywiki.net/w/Vengeful_Ring',
+			'https://maplestorywiki.net/w/Cosmos_Ring',
+			'https://maplestorywiki.net/w/Awake_Ring'
 		]
 	},
 	'superior-equipment': {
@@ -79,7 +101,8 @@ export const RULES: Record<RuleId, RuleDoc> = {
 		reason:
 			'This equipment type can never receive bonus stats (flames): secondary weapons and ' +
 			'shields (incl. Katara), emblems, badges, medals, rings, androids and android/mechanical ' +
-			'hearts, shoulders, totems and pocket items are all excluded.',
+			'hearts, shoulders and totems are all excluded. (Pocket items are NOT excluded — they ' +
+			'do take flames.)',
 		research: 'formulas.md §4A §2.1 "Cannot receive bonus stats at all"',
 		sources: [
 			'https://maplestorywiki.net/w/Bonus_Stats',
@@ -117,6 +140,14 @@ export const RULES: Record<RuleId, RuleDoc> = {
 			'in Heroic/Reboot, which is the only world scope this tracker models.',
 		research: 'formulas.md §4A §3.1 "System summary"',
 		sources: ['https://maplestorywiki.net/w/Potential']
+	},
+	'approximate-name-match': {
+		reason:
+			'The exact item name is not in the v270 GMS catalogue, so capabilities were resolved ' +
+			'from the closest matching catalogue items in the same slot. Check the spelling if a ' +
+			'suggestion looks wrong.',
+		research: 'src/lib/data/items/index.ts — documented approximate-name fallback',
+		sources: []
 	},
 	'unknown-item': {
 		reason:

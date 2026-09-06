@@ -48,7 +48,407 @@ export interface ClassDef {
 	/** Minimum of the published mastery range (formulas.md §4.0), whole percent. */
 	masteryPercent: number;
 	flags?: ClassFlags;
+
+	/**
+	 * In-game primary weapon type, e.g. "Bow", "Claw", "Sword".
+	 * Populated from `CLASS_WEAPONS` at module load; see that table for sources.
+	 */
+	weaponType?: string;
+	/** In-game secondary weapon type, e.g. "Imugi Gem", "Jewel", "Magic Marble". */
+	secondaryType?: string;
+	/** The full weapon record, including alternatives and catalogue aliases. */
+	weapons?: ClassWeapons;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Weapons                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What a class actually holds.
+ *
+ * ⚠️ WEAPON TYPE AND WEAPON CONSTANT ARE INDEPENDENT. `weaponConstant` above is
+ * job-keyed (formulas.md §1.5) and the newer classes get bespoke constants that
+ * do NOT follow from their weapon type — Ren's 1.3 is a sourced per-class value,
+ * not "the Sword constant". Never derive one of these two fields from the other.
+ */
+export interface ClassWeapons {
+	/** Primary weapon type, spelled as the game and Grandis Library spell it. */
+	weaponType: string;
+	/** Other primary weapon types the class may equip. */
+	weaponTypeAlternatives?: readonly string[];
+	/** Secondary weapon type, spelled as the game spells it. */
+	secondaryType: string;
+	/** True when the primary is two-handed. Two-handed classes still take a secondary. */
+	twoHandedPrimary?: boolean;
+	/**
+	 * The `weaponType` labels used by `src/lib/data/items/catalogue.json`, which
+	 * come from maplestory.io's `typeInfo.subCategory` and do NOT always match the
+	 * in-game name (Kain's "Whispershot" is subCategory "Breath Shooter"; Lynn's
+	 * "Memorial Staff" is "Scepter"; Illium's "Lucent Gauntlet" is "Gauntlet").
+	 * EMPTY means GMS v270 has no matching label — Ren, Mo Xuan, Sia Astelle and
+	 * Erel Light postdate the v270 dump — and consumers must skip the check
+	 * rather than warn.
+	 */
+	catalogueWeaponTypes: readonly string[];
+}
+
+/**
+ * Per-class weapons. Primary source: the Grandis Library class pages
+ * (<https://grandislibrary.com/>), cross-checked against maplestorywiki.net
+ * class infoboxes and, where the item exists in GMS v270, against the
+ * maplestory.io item API's subCategory.
+ *
+ * Ren is the class design §11 calls out: Sword + Imugi Gem, STR / DEX —
+ * verified at <https://grandislibrary.com/anima/ren>.
+ */
+export const CLASS_WEAPONS: Record<string, ClassWeapons> = {
+	// --- Explorers ---
+	// The tracker models Hero as TWO-HANDED ONLY, to match the 1.44 weapon
+	// constant chosen above (§1.5 lists 1.34 for a 1H Hero). Hero can hold 1H
+	// swords/axes and 2H axes in game; that path is deliberately out of scope.
+	hero: {
+		weaponType: 'Two-Handed Sword',
+		secondaryType: 'Medallion',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Two-Handed Sword']
+	},
+	paladin: {
+		weaponType: 'Two-Handed Sword',
+		weaponTypeAlternatives: ['One-Handed Sword', 'One-Handed Blunt Weapon', 'Two-Handed Blunt'],
+		secondaryType: 'Rosary',
+		catalogueWeaponTypes: [
+			'Two-Handed Sword',
+			'One-Handed Sword',
+			'One-Handed Blunt Weapon',
+			'Two-Handed Blunt'
+		]
+	},
+	'dark-knight': {
+		weaponType: 'Spear',
+		weaponTypeAlternatives: ['Pole Arm'],
+		secondaryType: 'Iron Chain',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Spear', 'Pole Arm']
+	},
+	'arch-mage-fp': {
+		weaponType: 'Staff',
+		weaponTypeAlternatives: ['Wand'],
+		secondaryType: 'Magic Book',
+		catalogueWeaponTypes: ['Staff', 'Wand']
+	},
+	'arch-mage-il': {
+		weaponType: 'Staff',
+		weaponTypeAlternatives: ['Wand'],
+		secondaryType: 'Magic Book',
+		catalogueWeaponTypes: ['Staff', 'Wand']
+	},
+	bishop: {
+		weaponType: 'Staff',
+		weaponTypeAlternatives: ['Wand'],
+		secondaryType: 'Magic Book',
+		catalogueWeaponTypes: ['Staff', 'Wand']
+	},
+	'bow-master': {
+		weaponType: 'Bow',
+		secondaryType: 'Arrow Fletching',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Bow']
+	},
+	marksman: {
+		weaponType: 'Crossbow',
+		secondaryType: 'Bow Thimble',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Crossbow']
+	},
+	pathfinder: {
+		weaponType: 'Ancient Bow',
+		secondaryType: 'Relic',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Ancient Bow']
+	},
+	'night-lord': {
+		weaponType: 'Claw',
+		secondaryType: 'Charm',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Claw']
+	},
+	shadower: {
+		weaponType: 'Dagger',
+		secondaryType: 'Dagger Scabbard',
+		catalogueWeaponTypes: ['Dagger']
+	},
+	'dual-blade': {
+		weaponType: 'Dagger',
+		secondaryType: 'Katara',
+		catalogueWeaponTypes: ['Dagger']
+	},
+	buccaneer: {
+		weaponType: 'Knuckle',
+		secondaryType: 'Wrist Band',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Knuckle']
+	},
+	corsair: {
+		weaponType: 'Gun',
+		secondaryType: 'Far Sight',
+		catalogueWeaponTypes: ['Gun']
+	},
+	cannoneer: {
+		weaponType: 'Hand Cannon',
+		secondaryType: 'Powder Keg',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Hand Cannon']
+	},
+
+	// --- Cygnus Knights ---
+	'dawn-warrior': {
+		weaponType: 'Two-Handed Sword',
+		weaponTypeAlternatives: ['One-Handed Sword'],
+		secondaryType: 'Jewel',
+		catalogueWeaponTypes: ['Two-Handed Sword', 'One-Handed Sword']
+	},
+	mihile: {
+		weaponType: 'One-Handed Sword',
+		secondaryType: 'Soul Shield',
+		catalogueWeaponTypes: ['One-Handed Sword']
+	},
+	'blaze-wizard': {
+		weaponType: 'Staff',
+		weaponTypeAlternatives: ['Wand'],
+		secondaryType: 'Jewel',
+		catalogueWeaponTypes: ['Staff', 'Wand']
+	},
+	'wind-archer': {
+		weaponType: 'Bow',
+		secondaryType: 'Jewel',
+		twoHandedPrimary: true, // GMS item data: "Two-Handed Weapon / Bow"
+		catalogueWeaponTypes: ['Bow']
+	},
+	'night-walker': {
+		weaponType: 'Claw',
+		secondaryType: 'Jewel',
+		twoHandedPrimary: true, // GMS item data: "Two-Handed Weapon / Claw"
+		catalogueWeaponTypes: ['Claw']
+	},
+	'thunder-breaker': {
+		weaponType: 'Knuckle',
+		secondaryType: 'Jewel',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Knuckle']
+	},
+
+	// --- Heroes / Legends ---
+	aran: {
+		weaponType: 'Pole Arm',
+		secondaryType: 'Mass',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Pole Arm']
+	},
+	evan: {
+		weaponType: 'Staff',
+		weaponTypeAlternatives: ['Wand'],
+		secondaryType: 'Document',
+		catalogueWeaponTypes: ['Staff', 'Wand']
+	},
+	luminous: {
+		weaponType: 'Shining Rod',
+		secondaryType: 'Orb',
+		catalogueWeaponTypes: ['Shining Rod']
+	},
+	mercedes: {
+		weaponType: 'Dual Bowgun',
+		secondaryType: 'Magic Arrow',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Dual Bowgun']
+	},
+	phantom: {
+		weaponType: 'Cane',
+		secondaryType: 'Card',
+		catalogueWeaponTypes: ['Cane']
+	},
+	shade: {
+		weaponType: 'Knuckle',
+		secondaryType: 'Fox Marble',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Knuckle']
+	},
+
+	// --- Resistance ---
+	blaster: {
+		weaponType: 'Arm Cannon',
+		secondaryType: 'Charge',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Arm Cannon']
+	},
+	'battle-mage': {
+		weaponType: 'Staff',
+		secondaryType: 'Magic Marble',
+		catalogueWeaponTypes: ['Staff']
+	},
+	'wild-hunter': {
+		weaponType: 'Crossbow',
+		secondaryType: 'Arrowhead',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Crossbow']
+	},
+	mechanic: {
+		weaponType: 'Gun',
+		secondaryType: 'Magnum',
+		catalogueWeaponTypes: ['Gun']
+	},
+	xenon: {
+		weaponType: 'Whip Blade',
+		secondaryType: 'Core Controller',
+		catalogueWeaponTypes: ['Whip Blade']
+	},
+	'demon-slayer': {
+		weaponType: 'One-Handed Axe',
+		weaponTypeAlternatives: ['One-Handed Blunt Weapon'],
+		secondaryType: 'Demon Aegis',
+		catalogueWeaponTypes: ['One-Handed Axe', 'One-Handed Blunt Weapon']
+	},
+	'demon-avenger': {
+		weaponType: 'Desperado',
+		secondaryType: 'Demon Aegis',
+		catalogueWeaponTypes: ['Desperado']
+	},
+
+	// --- Nova ---
+	kaiser: {
+		weaponType: 'Two-Handed Sword',
+		secondaryType: 'Dragon Essence',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Two-Handed Sword']
+	},
+	kain: {
+		// In-game "Whispershot"; the v270 item data calls the subCategory "Breath Shooter".
+		weaponType: 'Whispershot',
+		secondaryType: 'Weapon Belt',
+		catalogueWeaponTypes: ['Breath Shooter']
+	},
+	cadena: {
+		weaponType: 'Chain',
+		secondaryType: 'Warp Forge',
+		catalogueWeaponTypes: ['Chain']
+	},
+	'angelic-buster': {
+		weaponType: 'Soul Shooter',
+		secondaryType: 'Soul Ring',
+		catalogueWeaponTypes: ['Soul Shooter']
+	},
+
+	// --- Child of God / Friends World ---
+	zero: {
+		// Alpha's Long Sword occupies the weapon slot, Beta's Heavy Sword the
+		// secondary slot; the v270 data calls them Lapis and Lazuli.
+		weaponType: 'Long Sword',
+		secondaryType: 'Heavy Sword',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Lapis']
+	},
+	kinesis: {
+		weaponType: 'Psy-limiter',
+		secondaryType: 'Chess Piece',
+		catalogueWeaponTypes: ['Psy-limiter']
+	},
+
+	// --- Flora ---
+	adele: {
+		weaponType: 'Bladecaster',
+		secondaryType: 'Bladebinder',
+		catalogueWeaponTypes: ['Bladecaster']
+	},
+	illium: {
+		// In-game "Lucent Gauntlet"; v270 subCategory is plain "Gauntlet".
+		weaponType: 'Lucent Gauntlet',
+		secondaryType: 'Lucent Wing',
+		catalogueWeaponTypes: ['Gauntlet']
+	},
+	khali: {
+		// ⚠️ v270 mislabels the Chakram as subCategory "Two-Handed Sword"
+		// (e.g. 1404007 "Cruso Apus"). Grandis Library, MapleWiki and the v.242
+		// patch notes all say Chakram; the catalogue alias below follows the DATA
+		// so lookups work, which is why a Khali holding a real two-handed sword
+		// will not be flagged.
+		weaponType: 'Chakram',
+		secondaryType: 'Hex Seeker',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Two-Handed Sword']
+	},
+	ark: {
+		weaponType: 'Knuckle',
+		secondaryType: 'Abyssal Path',
+		twoHandedPrimary: true,
+		catalogueWeaponTypes: ['Knuckle']
+	},
+
+	// --- Anima ---
+	lara: {
+		weaponType: 'Wand',
+		secondaryType: 'Ornament',
+		catalogueWeaponTypes: ['Wand']
+	},
+	hoyoung: {
+		weaponType: 'Ritual Fan',
+		secondaryType: 'Fan Tassel',
+		catalogueWeaponTypes: ['Ritual Fan']
+	},
+	ren: {
+		// design §11 priority class. Verified at https://grandislibrary.com/anima/ren:
+		// "Swords (Longswords in MSEA) are the exclusive weapons of Ren. They are
+		// one-handed weapons that are used in conjunction with Imugi Gems."
+		// STR primary / DEX secondary, set on the ClassDef above.
+		// NOTE: Ren's weaponConstant of 1.3 is a SOURCED per-class value from
+		// formulas.md §1.5, not something derived from "Sword" — the newer classes
+		// get bespoke constants that do not follow their weapon type. Do not
+		// "correct" it to match another Sword user.
+		weaponType: 'Sword',
+		secondaryType: 'Imugi Gem',
+		// Ren postdates the GMS v270 dump, so the catalogue has no Sword weapons
+		// and no Imugi Gems. Consumers must skip the weapon check for Ren.
+		catalogueWeaponTypes: []
+	},
+
+	// --- Sengoku ---
+	hayato: {
+		weaponType: 'Katana',
+		// The items are named "... Blade" but the category is Kodachi.
+		secondaryType: 'Kodachi',
+		catalogueWeaponTypes: ['Katana']
+	},
+	kanna: {
+		// GMS v.266 (2026-02-04) made the Fan one-handed and introduced Talisman as
+		// a real, enhanceable secondary; before that Kanna had no secondary at all.
+		// Source: https://www.nexon.com/maplestory/news/update/35483/updated-2-5-v-266-the-sengoku-warrior-reawakening-patch-notes
+		weaponType: 'Fan',
+		secondaryType: 'Talisman',
+		catalogueWeaponTypes: ['Fan']
+	},
+
+	// --- Jianghu / Shine (all postdate the v270 dump) ---
+	lynn: {
+		// In-game "Memorial Staff"; v270 subCategory is "Scepter".
+		weaponType: 'Memorial Staff',
+		secondaryType: 'Leaf',
+		catalogueWeaponTypes: ['Scepter']
+	},
+	'mo-xuan': {
+		weaponType: 'Martial Brace',
+		secondaryType: 'Brace Band',
+		catalogueWeaponTypes: []
+	},
+	'sia-astelle': {
+		weaponType: 'Celestial Light',
+		secondaryType: 'Compass',
+		catalogueWeaponTypes: []
+	},
+	'erel-light': {
+		weaponType: 'Gram',
+		secondaryType: 'Keir',
+		catalogueWeaponTypes: []
+	}
+};
 
 const CLASS_LIST: ClassDef[] = [
 	// ------------------------------------------------------------------
@@ -635,6 +1035,17 @@ const CLASS_LIST: ClassDef[] = [
 		masteryPercent: 90 // UNVERIFIED — Erel Light postdates the §4.0 mastery table
 	}
 ];
+
+// Attach the weapon record to each class. Kept as a separate table above so the
+// weapons stay reviewable in one block with their sources, rather than smeared
+// across 53 class literals.
+for (const cls of CLASS_LIST) {
+	const weapons = CLASS_WEAPONS[cls.id];
+	if (!weapons) continue;
+	cls.weapons = weapons;
+	cls.weaponType = weapons.weaponType;
+	cls.secondaryType = weapons.secondaryType;
+}
 
 const BY_ID = new Map<string, ClassDef>(CLASS_LIST.map((c) => [c.id, c]));
 

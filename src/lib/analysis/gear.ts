@@ -12,7 +12,8 @@
 // re-add a source correctly.
 
 import * as calc from '$lib/calc';
-import { getClass } from '$lib/data/classes';
+import { getClass, type ClassDef } from '$lib/data/classes';
+import { CATALOGUE_META, capabilities } from '$lib/data/items';
 import { STAR_FORCEABLE_CATEGORIES, type Character, type Item, type StatBlock } from '$lib/schema';
 
 import type { GearResidual } from './types';
@@ -146,25 +147,90 @@ function addPotential(totals: GearTotals, lines: readonly string[] | undefined):
 	}
 }
 
-function itemWarnings(slot: string, item: Item): string[] {
+function itemWarnings(slot: string, item: Item, cls: ClassDef): string[] {
 	const out: string[] = [];
+	const caps = capabilities({
+		name: item.name,
+		slot,
+		category: item.category,
+		itemLevel: item.itemLevel,
+		superior: item.superior
+	});
+
 	if (item.itemLevel === undefined) {
 		out.push(
 			`${slot} (${item.name}) has no itemLevel; star force, flame and potential tables ` +
 				'cannot be applied to it.'
 		);
 	}
-	if (item.starforce === undefined && STAR_FORCEABLE_CATEGORIES.includes(item.category)) {
+
+	// Only ask for a star count on gear that can actually hold one. The category
+	// alone is not enough: a Ring of Restraint is an `accessory`, which IS a
+	// star-forceable category, but the item itself has no upgrade slots — calling
+	// it "star-forceable" contradicted the capability gate in `candidates.ts`.
+	if (
+		item.starforce === undefined &&
+		STAR_FORCEABLE_CATEGORIES.includes(item.category) &&
+		caps.canStarforce
+	) {
 		out.push(
 			`${slot} (${item.name}) is star-forceable but has no confirmed starforce value; no ` +
 				'star force upgrades will be suggested for it.'
 		);
 	}
+
+	if (!caps.known) {
+		out.push(
+			`${slot} (${item.name}) is not in the GMS v${CATALOGUE_META.gameVersion} item catalogue, so its ` +
+				'upgrade capabilities were assumed from its slot. Check the item name.'
+		);
+	} else if (caps.matchQuality === 'approximate' && !caps.family) {
+		out.push(
+			`${slot} (${item.name}) is not an exact GMS item name; capabilities were resolved from ` +
+				`the closest catalogue match (${caps.entries[0].name}).`
+		);
+	}
+
+	out.push(...weaponWarnings(slot, item, cls, caps.entries));
 	return out;
+}
+
+/**
+ * Does this class actually hold this weapon?
+ *
+ * The engine had no idea which weapon a class uses, so nothing objected to a
+ * Ren holding a "Genesis Fan" (Ren uses a Sword with an Imugi Gem secondary).
+ * The check is deliberately conservative: it only fires when the catalogue
+ * knows the item's weapon type AND `classes.ts` lists catalogue labels for the
+ * class. Classes newer than the v270 dump (Ren, Mo Xuan, Sia Astelle, Erel
+ * Light) list none, so they are never falsely accused.
+ */
+function weaponWarnings(
+	slot: string,
+	item: Item,
+	cls: ClassDef,
+	entries: readonly { weaponType?: string }[]
+): string[] {
+	if (slot !== 'weapon') return [];
+	const allowed = cls.weapons?.catalogueWeaponTypes ?? [];
+	if (allowed.length === 0) return [];
+
+	const found = entries.map((e) => e.weaponType).filter((t): t is string => t !== undefined);
+	if (found.length === 0) return [];
+	if (found.some((type) => allowed.includes(type))) return [];
+
+	const held = [...new Set(found)].join(' / ');
+	return [
+		`${slot} (${item.name}) is a ${held}, but ${cls.name} uses a ` +
+			`${cls.weaponType}${cls.secondaryType ? ` with a ${cls.secondaryType} secondary` : ''}. ` +
+			'Either the item name or the class is wrong — every weapon-derived number below is ' +
+			'suspect until that is resolved.'
+	];
 }
 
 /** Sum every equipped item's tooltip and potential lines. */
 export function summarizeGear(character: Character): GearSummary {
+	const cls = getClass(character.classId);
 	const totals = emptyTotals();
 	const items: GearItemSummary[] = [];
 	const warnings: string[] = [];
@@ -184,7 +250,7 @@ export function summarizeGear(character: Character): GearSummary {
 			potentialGrade: item.potential?.grade,
 			bonusPotentialGrade: item.bonusPotential?.grade
 		});
-		warnings.push(...itemWarnings(slot, item));
+		warnings.push(...itemWarnings(slot, item, cls));
 	}
 
 	const composedIedPercent = calc.ied.compose(totals.iedLines.map((v) => v / 100)) * 100;

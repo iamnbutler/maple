@@ -261,7 +261,9 @@ describe('/api/characters/[id]/equipment/[slot]', () => {
 		const { json } = await call(putItem, {
 			params: { id, slot: 'weapon' },
 			method: 'PUT',
-			body: { name: 'Genesis Dagger' }
+			// Star-forceable on purpose — a Genesis weapon is fixed-star and would
+			// (correctly) suppress the star-count warning.
+			body: { name: 'Arcane Umbra Dagger' }
 		});
 
 		expect(json.warnings.some((w: string) => w.includes('starforce is missing'))).toBe(true);

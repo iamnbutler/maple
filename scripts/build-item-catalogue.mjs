@@ -77,17 +77,31 @@ const ALWAYS_INCLUDED_SLOTS = new Set([
 	'heart'
 ]);
 
-/** Name prefixes for Superior (Tyrant / Nova / Elite Heliseum) gear, included at every level. */
+/**
+ * Superior (Tyrant / Nova / Elite Heliseum) gear, matched by exact family name.
+ *
+ * GMS Superior equipment is exactly 50 items: Tyrant belt/boots/cloak/gloves,
+ * Nova belt/boots/cloak and Elite Heliseum belt/boots/cape, each in five
+ * variants. Matching on a bare "Nova "/"Tyrant " prefix wrongly caught the
+ * "Nova Bandana" and "Nova Training Shoes" cosmetics, so the family names are
+ * spelled out. "Superior Gollux" accessories are NOT Superior equipment — they
+ * use the ordinary 30★ table — and are correctly absent.
+ *
+ * Max stars: formulas.md §4A §1.2 "Exceptions" and §1.4 "Superior equipment".
+ * Sources: https://maplestorywiki.net/w/Star_Force_Enhancement ·
+ *          https://maplestorywiki.net/w/Category:Superior_Equipment
+ */
 const SUPERIOR_NAME_RULES = [
-	// formulas.md §4A §1.2 "Exceptions" and §1.4 "Superior equipment".
-	// Nova/Tyrant secondaries ("Nova Truth Essence") are NOT superior armour —
-	// they are secondary weapons, so they are excluded by the slot check below.
-	{ prefix: 'Tyrant ', maxStars: 15 },
-	{ prefix: 'Nova ', maxStars: 8 },
-	{ prefix: 'Elite Heliseum ', maxStars: 3 }
+	{
+		pattern: /^Tyrant (Altair|Charon|Hermes|Hyades|Lycaon) (Belt|Boots|Cloak|Gloves)$/,
+		maxStars: 15
+	},
+	{ pattern: /^Nova (Altair|Charon|Hermes|Hyades|Lycaon) (Belt|Boots|Cloak)$/, maxStars: 8 },
+	{
+		pattern: /^Elite Heliseum (Warrior|Magician|Bowman|Thief|Pirate) (Belt|Cape|Boots)$/,
+		maxStars: 3
+	}
 ];
-
-const SUPERIOR_SLOTS = new Set(['belt', 'shoes', 'cape', 'gloves', 'hat', 'shoulder']);
 
 /**
  * typeInfo subCategories that are not wearable equipment for our purposes.
@@ -209,6 +223,7 @@ export const RULE_IDS = {
 	liberatedFixedStar: 'liberated-weapon-fixed-star',
 	destinyStageAmbiguous: 'destiny-stage-ambiguous',
 	noUpgradeSlots: 'no-upgrade-slots',
+	exclusiveScrollOnly: 'exclusive-scroll-only',
 	superior: 'superior-equipment',
 	flameIneligibleSlot: 'flame-ineligible-slot',
 	flameIneligibleException: 'flame-eligible-exception',
@@ -227,6 +242,10 @@ export const RULE_IDS = {
  *          https://www.whackybeanz.com/guides/flames ·
  *          https://strategywiki.org/wiki/MapleStory/Bonus_Stats
  */
+// NOTE: `pocket` is deliberately ABSENT. Pocket items are not on the wiki's
+// "cannot receive bonus stats" list and are not on formulas.md §4A §2.1's list
+// either; the Pink Holy Cup is explicitly a Boss Reward item "granting it
+// additional Bonus Stats". https://maplestorywiki.net/w/Bonus_Stats
 const FLAME_INELIGIBLE_SLOTS = new Set([
 	'secondary',
 	'emblem',
@@ -236,16 +255,11 @@ const FLAME_INELIGIBLE_SLOTS = new Set([
 	'android',
 	'heart',
 	'shoulder',
-	'totem',
-	'pocket'
+	'totem'
 ]);
 
 /** The three named exceptions from that same list. Matched case-insensitively. */
-const FLAME_ELIGIBLE_EXCEPTIONS = [
-	'immortal legacy',
-	'scarlet shoulder',
-	'ancient slate replica'
-];
+const FLAME_ELIGIBLE_EXCEPTIONS = ['immortal legacy', 'scarlet shoulder', 'ancient slate replica'];
 
 /**
  * Potential. formulas.md §4A §3.1 "Never gets potential":
@@ -287,19 +301,59 @@ function liberatedWeapon(name, slot, itemLevel) {
 	return null;
 }
 
-function superiorRule(name, slot) {
-	if (!SUPERIOR_SLOTS.has(slot)) return null;
-	for (const rule of SUPERIOR_NAME_RULES) {
-		if (name.startsWith(rule.prefix)) return rule;
-	}
-	return null;
+/**
+ * Items that HAVE upgrade slots but still take no star force, because those
+ * slots are reserved for an item-exclusive enhancement currency.
+ *
+ * The `tuc === 0` screen catches almost everything ("cannot take a spell trace
+ * -> cannot take star force" holds across all 184 level-100+ GMS rings), but it
+ * is necessary, not sufficient: these event rings carry 3-20 slots that only
+ * accept Vengeful Stones / Cosmos Atoms / the Awake Ring Exclusive Enhancement
+ * Scroll, and are permanently 0★.
+ *
+ * Sources: https://maplestorywiki.net/w/Vengeful_Ring ·
+ *          https://maplestorywiki.net/w/Cosmos_Ring ·
+ *          https://maplestorywiki.net/w/Awake_Ring
+ *
+ * The inverse trap is Glona's Heart (Lv180), which is exclusive-scroll-only yet
+ * DOES star force to 30★ — so this is a name list, not a "has exclusive
+ * scrolls" heuristic.
+ */
+const EXCLUSIVE_SCROLL_NO_STAR_FORCE = [
+	// Vengeful Stones. https://maplestorywiki.net/w/Vengeful_Ring
+	/^(heroic )?vengeful ring$/,
+	// Cosmos Atoms. https://maplestorywiki.net/w/Cosmos_Ring
+	/^(heroic )?cosmos ring$/,
+	// Awake Ring Exclusive Enhancement Scroll. https://maplestorywiki.net/w/Awake_Ring
+	/^(heroic )?awake ring$/,
+	// Tenebris Expedition Ring Enhancement Scroll. Wiki wikitext for
+	// https://maplestorywiki.net/w/Tenebris_Expedition_Ring has
+	// `starForceEnhancements=` EMPTY and `scrollEnhancements=3`.
+	/^(heroic )?tenebris expedition ring/,
+	// Hyperspace rings, upgraded with Ascension Modules. Wiki wikitext for
+	// https://maplestorywiki.net/w/Krrr_Ring has `starForceEnhancements=` empty
+	// and `scrollEnhancements=10` on every tier.
+	/(krrr|rawr|ribbit|pew pew) ring$/
+];
+
+function exclusiveScrollOnly(name) {
+	const lower = name
+		.toLowerCase()
+		.replace(/\s*\(lv\.?\s*\d+\)\s*$/, '')
+		.replace(/\s*\((complete|stage \d+)\)\s*$/, '')
+		.trim();
+	return EXCLUSIVE_SCROLL_NO_STAR_FORCE.some((pattern) => pattern.test(lower));
+}
+
+function superiorRule(name) {
+	return SUPERIOR_NAME_RULES.find((rule) => rule.pattern.test(name)) ?? null;
 }
 
 function computeCapabilities({ name, slot, itemLevel, upgradeSlots }) {
 	const lower = name.toLowerCase();
 	const rules = [];
 
-	const superior = superiorRule(name, slot);
+	const superior = superiorRule(name);
 	const liberated = liberatedWeapon(name, slot, itemLevel);
 
 	/* --- star force ------------------------------------------------------- */
@@ -314,6 +368,9 @@ function computeCapabilities({ name, slot, itemLevel, upgradeSlots }) {
 		// formulas.md §4A §1.2: "Items with no upgrade slots cannot be star forced."
 		canStarforce = false;
 		rules.push(RULE_IDS.noUpgradeSlots);
+	} else if (exclusiveScrollOnly(name)) {
+		canStarforce = false;
+		rules.push(RULE_IDS.exclusiveScrollOnly);
 	} else {
 		canStarforce = true;
 	}
@@ -330,7 +387,11 @@ function computeCapabilities({ name, slot, itemLevel, upgradeSlots }) {
 
 	/* --- potential -------------------------------------------------------- */
 	let canPotential = !POTENTIAL_INELIGIBLE_SLOTS.has(slot);
-	if (!canPotential && slot === 'badge' && POTENTIAL_BADGE_EXCEPTIONS.some((x) => lower.includes(x))) {
+	if (
+		!canPotential &&
+		slot === 'badge' &&
+		POTENTIAL_BADGE_EXCEPTIONS.some((x) => lower.includes(x))
+	) {
 		canPotential = true;
 		rules.push(RULE_IDS.potentialBadgeException);
 	} else if (!canPotential) {
@@ -349,9 +410,10 @@ function computeCapabilities({ name, slot, itemLevel, upgradeSlots }) {
 		...(fixedStarforce !== undefined ? { fixedStarforce } : {}),
 		canFlame,
 		canPotential,
-		canBonusPotential,
+		// canBonusPotential is always identical to canPotential (bonus potential
+		// requires regular potential), so it is derived at load rather than stored.
 		...(superior ? { superior: true, superiorMaxStars: superior.maxStars } : {}),
-		rules
+		...(rules.length > 0 ? { rules } : {})
 	};
 }
 
@@ -438,9 +500,7 @@ export async function build(options = {}) {
 
 		const itemLevel = stat.reqLevel ?? item.requiredLevel ?? 0;
 		const keep =
-			itemLevel >= MIN_ITEM_LEVEL ||
-			ALWAYS_INCLUDED_SLOTS.has(slot) ||
-			superiorRule(name, slot) !== null;
+			itemLevel >= MIN_ITEM_LEVEL || ALWAYS_INCLUDED_SLOTS.has(slot) || superiorRule(name) !== null;
 		if (!keep) {
 			skipped.belowLevel++;
 			continue;
@@ -450,11 +510,15 @@ export async function build(options = {}) {
 		const capabilities = computeCapabilities({ name, slot, itemLevel, upgradeSlots });
 		const setItemId = stat.setItemID && stat.setItemID > 0 ? stat.setItemID : undefined;
 
+		// `category`, `canBonusPotential` and `iconUrl` are DERIVED, not stored:
+		// `src/lib/data/items/index.ts` materialises them at load from `slot`,
+		// `canPotential` and `sources.iconTemplate`. Storing them would add ~110
+		// bytes x 5,700 entries (~640 KB) to a file that ships in the bundle.
+		// An empty `rules` array is omitted for the same reason.
 		entries.push({
 			id: item.id,
 			name,
 			slot,
-			category: SLOT_TO_CATEGORY[slot],
 			itemLevel,
 			...(resolveWeaponType(item, slot) ? { weaponType: resolveWeaponType(item, slot) } : {}),
 			...(isTwoHanded(item, stat) && slot === 'weapon' ? { twoHanded: true } : {}),
@@ -463,7 +527,6 @@ export async function build(options = {}) {
 			// RAW WZ tuc. mapledoro's _meta: "in-game upgrade slots equal tuc plus 1."
 			// Only ever compared against 0 ("has no upgrade slots at all").
 			upgradeSlots,
-			iconUrl: SOURCES.iconTemplate.replace('{id}', String(item.id)),
 			...capabilities
 		});
 	}
@@ -477,6 +540,27 @@ export async function build(options = {}) {
 		region: REGION,
 		gameVersion: GMS_VERSION,
 		minItemLevel: MIN_ITEM_LEVEL,
+		coverage: {
+			// maplestory.io serves GMS up to v270 and nothing newer: v271-v278 all
+			// return 500/502/no-response, and there is no `latest` alias. So v270 is
+			// the newest usable dump, and it PREDATES the Anima class Ren and the
+			// Jianghu/Shine classes.
+			note:
+				`This catalogue is GMS v${GMS_VERSION}, the newest dump maplestory.io serves. Items ` +
+				'and classes released after v270 are NOT in it — most notably Ren (Sword + Imugi ' +
+				'Gem), Mo Xuan, Sia Astelle and Erel Light. A name that is absent means UNKNOWN, ' +
+				'never INVALID: consumers must degrade to the permissive slot-level rules and flag ' +
+				'the item, never suppress its upgrades or warn that it does not exist.',
+			knownMissing: [
+				'Imugi Gem (Ren secondary)',
+				'Sword (Ren primary weapon type)',
+				'Talisman (Kanna secondary, GMS v266)',
+				'Martial Brace / Brace Band (Mo Xuan)',
+				'Celestial Light / Compass (Sia Astelle)',
+				'Gram / Keir (Erel Light)'
+			],
+			newerVersionsProbed: 'GMS 271-278 all return 500/502; /item/overall and paged /item 502'
+		},
 		sources: {
 			itemList: SOURCES.itemList,
 			itemStats: SOURCES.itemStats,
@@ -490,6 +574,7 @@ export async function build(options = {}) {
 			starforceable: entries.filter((e) => e.canStarforce).length,
 			flameable: entries.filter((e) => e.canFlame).length,
 			potentialable: entries.filter((e) => e.canPotential).length,
+			bonusPotentialable: entries.filter((e) => e.canPotential).length,
 			fixedStar: entries.filter((e) => e.fixedStarforce !== undefined).length,
 			superior: entries.filter((e) => e.superior).length
 		},

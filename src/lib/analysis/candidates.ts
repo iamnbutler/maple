@@ -128,9 +128,12 @@ function formatSuppressions(kind: string, list: readonly Suppression[]): string[
 	);
 }
 
-/** Every reason the capability lookup recorded, as one sentence. */
-function capabilityReasons(caps: ItemCapabilities): string {
-	const reasons = Object.values(caps.reasons);
+/** Why one specific capability was denied, as one sentence. */
+function capabilityReasons(
+	caps: ItemCapabilities,
+	which: 'starforce' | 'flame' | 'potential' | 'bonusPotential'
+): string {
+	const reasons = caps.blockedBy[which].map((id) => caps.reasons[id]).filter(Boolean);
 	return reasons.length > 0 ? reasons.join(' ') : 'the item catalogue does not allow it.';
 }
 
@@ -145,9 +148,11 @@ function capsFor(slot: string, item: Item): ItemCapabilities {
 	});
 }
 
-/** A candidate note flagging that the item is not in the catalogue. */
+/** A candidate note flagging a name the catalogue could not match exactly. */
 function unknownItemNote(caps: ItemCapabilities): string[] {
-	return caps.known ? [] : [caps.reasons['unknown-item'] ?? 'Item not found in the catalogue.'];
+	if (caps.matchQuality === 'exact') return [];
+	const id = caps.known ? 'approximate-name-match' : 'unknown-item';
+	return [caps.reasons[id] ?? 'Item name could not be matched in the catalogue.'];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -209,13 +214,11 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 		const caps = capsFor(slot, item);
 		if (!caps.canStarforce) {
 			const fixed =
-				caps.fixedStarforce !== undefined
-					? ` It is fixed at ${caps.fixedStarforce}★.`
-					: '';
+				caps.fixedStarforce !== undefined ? ` It is fixed at ${caps.fixedStarforce}★.` : '';
 			suppressed.push({
 				slot,
 				itemName: item.name,
-				reason: `${capabilityReasons(caps)}${fixed}`
+				reason: `${capabilityReasons(caps, 'starforce')}${fixed}`
 			});
 			continue;
 		}
@@ -349,7 +352,7 @@ function generateFlame(character: Character): CandidateResult {
 
 		const caps = capsFor(slot, item);
 		if (!caps.canFlame) {
-			suppressed.push({ slot, itemName: item.name, reason: capabilityReasons(caps) });
+			suppressed.push({ slot, itemName: item.name, reason: capabilityReasons(caps, 'flame') });
 			continue;
 		}
 		if (item.itemLevel === undefined) continue;
@@ -628,7 +631,11 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 		// totems never take potential, and neither do a handful of named rings.
 		const caps = capsFor(slot, item);
 		if (!caps.canPotential) {
-			suppressed.push({ slot, itemName: item.name, reason: capabilityReasons(caps) });
+			suppressed.push({
+				slot,
+				itemName: item.name,
+				reason: capabilityReasons(caps, type === 'main' ? 'potential' : 'bonusPotential')
+			});
 			continue;
 		}
 

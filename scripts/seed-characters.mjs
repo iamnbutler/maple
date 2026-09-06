@@ -22,7 +22,8 @@ const BASE = (() => {
 	return i === -1 ? 'http://localhost:5177' : process.argv[i + 1];
 })();
 
-const GUESSED = 'Dictated from memory, not read from a screenshot — stats are invented placeholders.';
+const GUESSED =
+	'Dictated from memory, not read from a screenshot — stats are invented placeholders.';
 const INVENTED = 'Slot not mentioned by the user; item and stats are invented placeholders.';
 
 async function call(method, path, body) {
@@ -66,7 +67,7 @@ function item(name, extra, note) {
 const lutorenGear = {
 	// --- stated by the user ---
 	weapon: item(
-		'Fafnir Sword',
+		'Fafnir Mistilteinn',
 		{
 			itemLevel: 150,
 			starforce: 15,
@@ -76,22 +77,27 @@ const lutorenGear = {
 				lines: ['Attack Power : +12%', 'Attack Power : +9%', 'Boss Monster Damage : +30%']
 			}
 		},
-		`${GUESSED} User stated: Fafnir sword, 15 stars, legendary ATT/ATT/Boss.`
+		`${GUESSED} User stated: Fafnir sword, 15 stars, legendary ATT/ATT/Boss. ` +
+			`"Fafnir Sword" is not an item name — the Root Abyss one-handed sword is ` +
+			`Fafnir Mistilteinn (Ren wields a one-handed Sword).`
 	),
+	// "faf hat/top/mid" is the usual shorthand for the level-150 Chaos Root Abyss
+	// ARMOUR, which is a different line from the Fafnir weapons — Fafnir in GMS is
+	// weapons-only (142 catalogue entries, every one in the weapon slot).
 	hat: item(
-		'Fafnir Hat',
+		'Royal Warrior Helm',
 		{ itemLevel: 150, starforce: 15, total: { str: 250, dex: 120, att: 20 } },
-		`${GUESSED} User stated: Fafnir hat.`
+		`${GUESSED} User stated: "faf hat" — read as the CRA (Root Abyss) hat.`
 	),
 	top: item(
-		'Fafnir Top',
+		'Eagle Eye Warrior Armor',
 		{ itemLevel: 150, starforce: 15, total: { str: 235, dex: 110, att: 18 } },
-		`${GUESSED} User stated: Fafnir top.`
+		`${GUESSED} User stated: "faf top" — read as the CRA (Root Abyss) top.`
 	),
 	bottom: item(
-		'Fafnir Bottom',
+		'Trixter Warrior Pants',
 		{ itemLevel: 150, starforce: 15, total: { str: 235, dex: 110, att: 18 } },
-		`${GUESSED} User said "faf ... mid" — read as the bottom/pants slot.`
+		`${GUESSED} User said "faf ... mid" — read as the CRA (Root Abyss) bottom.`
 	),
 	cape: item(
 		'AbsoLab Cape',
@@ -131,15 +137,17 @@ const lutorenGear = {
 		{ itemLevel: 160, starforce: 17, total: { str: 200, dex: 90, att: 20 }, setName: 'Dawn Boss' },
 		`${GUESSED} User stated: slime ring (Dawn set).`
 	),
+	// The user said "2 event rings" without naming them. These are real items used
+	// as stand-ins so the slot renders and scores; replace on the first capture.
 	ring3: item(
-		'Event Ring I',
-		{ itemLevel: 100, total: { str: 60, att: 5 } },
-		`${GUESSED} User stated: event ring (unspecified).`
+		'Meister Ring',
+		{ itemLevel: 140, starforce: 15, total: { str: 60, att: 5 } },
+		`${GUESSED} STAND-IN. User stated "event ring" without naming it.`
 	),
 	ring4: item(
-		'Event Ring II',
-		{ itemLevel: 100, total: { str: 60, att: 5 } },
-		`${GUESSED} User stated: event ring (unspecified).`
+		'Silver Blossom Ring',
+		{ itemLevel: 110, starforce: 10, total: { str: 60, att: 5 } },
+		`${GUESSED} STAND-IN. User stated "event ring" without naming it.`
 	),
 	heart: item(
 		'Fairy Heart',
@@ -150,16 +158,33 @@ const lutorenGear = {
 	// --- not mentioned; invented so the analysis has something to chew on ---
 	secondary: item('Imugi Gem', { itemLevel: 140, total: { str: 120, dex: 60, att: 12 } }),
 	emblem: item('Gold Maple Leaf Emblem', { itemLevel: 100, total: { str: 100, att: 8 } }),
-	shoulder: item('AbsoLab Shoulder', { itemLevel: 160, starforce: 12, total: { str: 130, att: 18 } }),
+	shoulder: item('AbsoLab Shoulder', {
+		itemLevel: 160,
+		starforce: 12,
+		total: { str: 130, att: 18 }
+	}),
 	belt: item('Golden Clover Belt', { itemLevel: 140, starforce: 15, total: { str: 180, att: 15 } }),
-	pendant2: item('Dominator Pendant', { itemLevel: 140, starforce: 12, total: { str: 165, att: 15 } }),
-	earrings: item('Estella Earrings', { itemLevel: 140, starforce: 15, total: { str: 195, att: 20 }, setName: 'Dawn Boss' }),
-	face: item('Condensed Power Crystal', { itemLevel: 140, starforce: 12, total: { str: 130, att: 12 } }),
+	pendant2: item('Dominator Pendant', {
+		itemLevel: 140,
+		starforce: 12,
+		total: { str: 165, att: 15 }
+	}),
+	earrings: item('Estella Earrings', {
+		itemLevel: 140,
+		starforce: 15,
+		total: { str: 195, att: 20 },
+		setName: 'Dawn Boss'
+	}),
+	face: item('Condensed Power Crystal', {
+		itemLevel: 140,
+		starforce: 12,
+		total: { str: 130, att: 12 }
+	}),
 	eye: item('Black Bean Mark', { itemLevel: 140, starforce: 12, total: { str: 130, att: 12 } }),
 	badge: item('Crystal Ventus Badge', { itemLevel: 130, total: { str: 40, att: 12 } }),
-	medal: item('Chaos Vellum Medal', { itemLevel: 130, total: { str: 35, att: 8 } }),
+	medal: item('Silent Crusade Champion', { itemLevel: 120, total: { str: 35, att: 8 } }),
 	pocket: item('Pink Holy Cup', { itemLevel: 140, total: { str: 100, att: 10 } }),
-	android: item('Lumiwing Android', { itemLevel: 100, total: {} })
+	android: item('Lotusroid', { itemLevel: 10, total: {} })
 	// totems: user says none yet.
 };
 
@@ -200,33 +225,81 @@ const demoGear = {
 			lines: ['Boss Monster Damage : +40%', 'Boss Monster Damage : +35%', 'Ignore Enemy DEF : +40%']
 		}
 	}),
-	hat: item('Arcane Umbra Hat', {
+	hat: item('Arcane Umbra Knight Hat', {
 		itemLevel: 200,
 		starforce: 22,
 		total: { str: 455, dex: 220, att: 42 },
 		potential: { grade: 'legendary', lines: ['STR : +13%', 'STR : +9%', 'Skill Cooldown : -2 sec'] }
 	}),
-	top: item('Arcane Umbra Top', { itemLevel: 200, starforce: 22, total: { str: 430, dex: 210, att: 38 } }),
-	bottom: item('Arcane Umbra Bottom', { itemLevel: 200, starforce: 22, total: { str: 430, dex: 210, att: 38 } }),
+	// Arcane Umbra has no separate top/bottom — the armour set uses an Overall,
+	// which occupies both cells in the equip window.
+	overall: item('Arcane Umbra Knight Suit', {
+		itemLevel: 200,
+		starforce: 22,
+		total: { str: 860, dex: 420, att: 76 }
+	}),
 	gloves: item('Arcane Umbra Gloves', {
 		itemLevel: 200,
 		starforce: 17,
 		total: { str: 310, dex: 150, att: 58 },
 		potential: { grade: 'legendary', lines: ['Critical Damage : +8%', 'STR : +9%', 'STR : +6%'] }
 	}),
-	shoes: item('Arcane Umbra Shoes', { itemLevel: 200, starforce: 22, total: { str: 400, dex: 190, att: 36 } }),
-	cape: item('Arcane Umbra Cape', { itemLevel: 200, starforce: 22, total: { str: 400, dex: 190, att: 36 } }),
-	shoulder: item('Arcane Umbra Shoulder', { itemLevel: 200, starforce: 17, total: { str: 250, att: 30 } }),
-	secondary: item('Imugi Gem', { itemLevel: 200, starforce: 17, total: { str: 200, dex: 100, att: 30 } }),
-	pendant1: item('Daybreak Pendant', { itemLevel: 140, starforce: 22, total: { str: 300, att: 30 }, setName: 'Dawn Boss' }),
-	pendant2: item('Source of Suffering', { itemLevel: 160, starforce: 22, total: { str: 320, att: 35 } }),
+	shoes: item('Arcane Umbra Shoes', {
+		itemLevel: 200,
+		starforce: 22,
+		total: { str: 400, dex: 190, att: 36 }
+	}),
+	cape: item('Arcane Umbra Cape', {
+		itemLevel: 200,
+		starforce: 22,
+		total: { str: 400, dex: 190, att: 36 }
+	}),
+	shoulder: item('Arcane Umbra Knight Shoulder', {
+		itemLevel: 200,
+		starforce: 17,
+		total: { str: 250, att: 30 }
+	}),
+	secondary: item('Imugi Gem', {
+		itemLevel: 200,
+		starforce: 17,
+		total: { str: 200, dex: 100, att: 30 }
+	}),
+	pendant1: item('Daybreak Pendant', {
+		itemLevel: 140,
+		starforce: 22,
+		total: { str: 300, att: 30 },
+		setName: 'Dawn Boss'
+	}),
+	pendant2: item('Source of Suffering', {
+		itemLevel: 160,
+		starforce: 22,
+		total: { str: 320, att: 35 }
+	}),
 	ring1: item('Ring of Restraint', { itemLevel: 200, total: { str: 180, att: 18 } }),
-	ring2: item('Guardian Angel Ring', { itemLevel: 160, starforce: 22, total: { str: 280, att: 28 }, setName: 'Dawn Boss' }),
-	ring3: item('Whisper of the Source', { itemLevel: 160, starforce: 22, total: { str: 290, att: 30 } }),
+	ring2: item('Guardian Angel Ring', {
+		itemLevel: 160,
+		starforce: 22,
+		total: { str: 280, att: 28 },
+		setName: 'Dawn Boss'
+	}),
+	ring3: item('Whisper of the Source', {
+		itemLevel: 160,
+		starforce: 22,
+		total: { str: 290, att: 30 }
+	}),
 	ring4: item('Kanna’s Treasure', { itemLevel: 140, total: { str: 120, att: 15 } }),
-	earrings: item('Estella Earrings', { itemLevel: 140, starforce: 22, total: { str: 290, att: 30 }, setName: 'Dawn Boss' }),
+	earrings: item('Estella Earrings', {
+		itemLevel: 140,
+		starforce: 22,
+		total: { str: 290, att: 30 },
+		setName: 'Dawn Boss'
+	}),
 	belt: item('Dreamy Belt', { itemLevel: 160, starforce: 22, total: { str: 300, att: 28 } }),
-	heart: item('Total Control Heart', { itemLevel: 160, starforce: 17, total: { str: 220, att: 40 } })
+	heart: item('Total Control Heart', {
+		itemLevel: 160,
+		starforce: 17,
+		total: { str: 220, att: 40 }
+	})
 };
 
 const demoStatWindow = {
@@ -291,7 +364,14 @@ await seed(
 		level: 283,
 		world: 'Kronos',
 		symbols: {
-			arcane: { vanishingJourney: 20, chuchu: 20, lachelein: 20, arcana: 20, morass: 20, esfera: 20 },
+			arcane: {
+				vanishingJourney: 20,
+				chuchu: 20,
+				lachelein: 20,
+				arcana: 20,
+				morass: 20,
+				esfera: 20
+			},
 			sacred: { cernium: 11, hotelArcus: 10, odium: 8, shangrila: 7, arteria: 7, carcion: 5 }
 		},
 		notes: 'Fictional well-geared Ren, kept so there is always a full analysis to look at.'

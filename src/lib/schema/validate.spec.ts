@@ -90,7 +90,10 @@ describe('characterWarnings', () => {
 				weapon: item({
 					slot: 'weapon',
 					category: 'weapon',
-					name: 'Genesis Dagger',
+					// A genuinely star-forceable weapon. NOT a Genesis/Destiny one:
+					// those are fixed-star by design, so a missing star count is not
+					// a gap to warn about — see the test below.
+					name: 'Arcane Umbra Dagger',
 					starforce: undefined
 				})
 			},
@@ -101,5 +104,32 @@ describe('characterWarnings', () => {
 		const warnings = characterWarnings(character);
 		expect(warnings.some((w) => w.startsWith('equipment.hat'))).toBe(true);
 		expect(warnings.some((w) => w.startsWith('equipment.weapon'))).toBe(true);
+	});
+
+	it('does not ask for a star count on a fixed-star liberated weapon', () => {
+		// Genesis and Destiny weapons arrive at a fixed star level and cannot be
+		// enhanced, so "starforce is missing" would be advice the user cannot act
+		// on — and it contradicts the catalogue's own reason for the same item.
+		const character = {
+			id: 'c',
+			name: 'C',
+			world: 'Kronos',
+			classId: 'shadower',
+			level: 287,
+			equipment: {
+				weapon: item({
+					slot: 'weapon',
+					category: 'weapon',
+					name: 'Genesis Dagger',
+					itemLevel: 200,
+					starforce: undefined
+				})
+			},
+			createdAt: '2026-09-06T00:00:00.000Z',
+			updatedAt: '2026-09-06T00:00:00.000Z'
+		} as unknown as Character;
+
+		const warnings = characterWarnings(character);
+		expect(warnings.some((w) => w.includes('starforce is missing'))).toBe(false);
 	});
 });
