@@ -64,235 +64,433 @@ function item(name, extra, note) {
 /* -------------------------------------------------------------------------- */
 
 // Ren is a STR warrior using a Sword + Imugi Gem (grandislibrary.com/anima/ren).
+const CAP = 'CAPTURED from screenshots 2026-09-06 (docs/capture/2026-09-06-lutoren.md).';
+
+// Every number below is read off a tooltip photograph. Where a tooltip shows a
+// decomposition like `STR +142 (40 +62 +40)` we record only the TOTAL, because
+// that is what the damage formula consumes; the base/flame/star split is in the
+// capture doc.
 const lutorenGear = {
-	// --- stated by the user ---
 	weapon: item(
-		'Fafnir Mistilteinn',
+		'Fafnir Soaring Sword',
 		{
 			itemLevel: 150,
 			starforce: 14,
-			total: { str: 285, dex: 140, att: 337 },
+			setName: 'Root Abyss Set (Warrior)',
+			total: {
+				str: 125,
+				dex: 77,
+				maxHp: 230,
+				maxMp: 230,
+				att: 275,
+				dmgPct: 4,
+				bossDmgPct: 30,
+				iedPct: 10
+			},
 			potential: {
 				grade: 'legendary',
 				lines: ['Attack Power : +12%', 'Attack Power : +9%', 'Boss Monster Damage : +30%']
 			}
 		},
-		`${GUESSED} User stated: Fafnir sword, 14 stars, legendary ATT(prime)/ATT/Boss. ` +
-			`"Fafnir Sword" is not an item name — the Root Abyss one-handed sword is ` +
-			`Fafnir Mistilteinn (Ren wields a one-handed Sword).`
+		`${CAP} Ren-specific Fafnir weapon; one-handed sword, req Lv 125 (150-25). ` +
+			`Soul: Magnificent Magnus Soul (Magic ATT +3%).`
 	),
-	// "faf hat/top/mid" is the usual shorthand for the level-150 Chaos Root Abyss
-	// ARMOUR, which is a different line from the Fafnir weapons — Fafnir in GMS is
-	// weapons-only (142 catalogue entries, every one in the weapon slot).
 	hat: item(
 		'Royal Warrior Helm',
-		{ itemLevel: 150, starforce: 15, total: { str: 250, dex: 120, att: 20 } },
-		`${GUESSED} User stated: "faf hat" — read as the CRA (Root Abyss) hat.`
+		{
+			itemLevel: 150,
+			starforce: 17,
+			setName: 'Root Abyss Set (Warrior)',
+			total: {
+				str: 142,
+				dex: 134,
+				int: 20,
+				luk: 20,
+				maxHp: 615,
+				maxMp: 360,
+				att: 27,
+				matt: 19,
+				def: 909,
+				iedPct: 10
+			},
+			potential: {
+				grade: 'legendary',
+				lines: ['All Stats : +9%', 'STR : +9%', 'HP Recovery Items and Skills Efficiency : +30%']
+			}
+		},
+		CAP
 	),
 	top: item(
 		'Eagle Eye Warrior Armor',
-		{ itemLevel: 150, starforce: 15, total: { str: 235, dex: 110, att: 18 } },
-		`${GUESSED} User stated: "faf top" — read as the CRA (Root Abyss) top.`
+		{
+			itemLevel: 150,
+			starforce: 12,
+			setName: 'Root Abyss Set (Warrior)',
+			total: { str: 81, dex: 97, int: 16, allStatPct: 6, maxHp: 180, att: 7, def: 386, iedPct: 5 },
+			potential: { grade: 'unique', lines: ['All Stats : +6%', 'STR : +6%', 'DEX : +6%'] }
+		},
+		CAP
 	),
 	bottom: item(
 		'Trixter Warrior Pants',
-		{ itemLevel: 150, starforce: 15, total: { str: 235, dex: 110, att: 18 } },
-		`${GUESSED} User said "faf ... mid" — read as the CRA (Root Abyss) bottom.`
+		{
+			itemLevel: 150,
+			starforce: 12,
+			setName: 'Root Abyss Set (Warrior)',
+			total: {
+				str: 77,
+				dex: 77,
+				allStatPct: 6,
+				maxHp: 180,
+				maxMp: 2700,
+				att: 8,
+				def: 386,
+				iedPct: 5
+			},
+			potential: { grade: 'unique', lines: ['LUK : +9%', 'All Stats : +6%', 'STR : +6%'] }
+		},
+		CAP
 	),
 	cape: item(
-		'AbsoLab Cape',
-		{ itemLevel: 160, starforce: 17, total: { str: 265, dex: 130, att: 32 } },
-		`${GUESSED} User stated: AbsoLab cape.`
+		'AbsoLab Knight Cape',
+		{
+			itemLevel: 160,
+			starforce: 13,
+			setName: 'AbsoLab Set (Warrior)',
+			total: {
+				str: 74,
+				dex: 49,
+				int: 40,
+				luk: 15,
+				allStatPct: 5,
+				maxHp: 205,
+				att: 6,
+				matt: 2,
+				def: 524
+			},
+			potential: { grade: 'unique', lines: ['STR : +10%', 'Max HP : +7%', 'Max MP : +7%'] }
+		},
+		CAP
 	),
 	gloves: item(
-		'AbsoLab Gloves',
+		'AbsoLab Knight Gloves',
 		{
 			itemLevel: 160,
-			starforce: 17,
-			total: { str: 245, dex: 120, att: 38 },
+			starforce: 14,
+			setName: 'AbsoLab Set (Warrior)',
+			total: { str: 93, dex: 127, luk: 25, att: 18, def: 306 },
 			potential: {
 				grade: 'legendary',
-				lines: ['Critical Damage : +8%', 'STR : +6%', 'STR : +3%']
+				lines: ['Critical Damage : +8%', 'Enables the <Decent Sharp Eyes> skill', 'LUK : +10%']
 			}
 		},
-		`${GUESSED} User stated: AbsoLab gloves with 8% crit damage.`
+		CAP
 	),
 	shoes: item(
-		'AbsoLab Shoes',
-		{ itemLevel: 160, starforce: 17, total: { str: 245, dex: 120, att: 30 } },
-		`${GUESSED} User stated: AbsoLab shoes.`
-	),
-	pendant1: item(
-		'Daybreak Pendant',
-		{ itemLevel: 140, starforce: 17, total: { str: 220, dex: 100, att: 22 }, setName: 'Dawn Boss Set' },
-		`${GUESSED} User stated: Dawn necklace.`
-	),
-	// All four rings are stated. Three of them (Restraint, Heroic Awake, Eternal
-	// Flame) take NO star force and NO flame — their level is a skill level raised
-	// with Grindstones, not stars. Only the Dawn Guardian Angel Ring is a real
-	// star force target, so the ring slots are close to fixed.
-	ring1: item(
-		'Ring of Restraint',
-		{ itemLevel: 110, total: { str: 150, att: 15 } },
-		`${GUESSED} User stated: RoR 6 — an event variant, to be treated as the real ` +
-			`ring. "6" is the skill level, not a star count.`
-	),
-	ring2: item(
-		'Dawn Guardian Angel Ring',
+		'AbsoLab Knight Shoes',
 		{
 			itemLevel: 160,
-			starforce: 17,
-			total: { str: 200, dex: 90, att: 20 },
-			setName: 'Dawn Boss Set'
+			starforce: 13,
+			setName: 'AbsoLab Set (Warrior)',
+			total: { str: 133, dex: 54, int: 25, att: 11, def: 291, speed: 24, jump: 21 },
+			potential: { grade: 'epic', lines: ['STR : +7%', 'LUK : +13', 'Max MP : +4%'] }
 		},
-		`${GUESSED} User stated: Dawn Guardian Angel Ring (the "slime ring").`
-	),
-	ring3: item(
-		'Heroic Awake Ring (Lv. 4)',
-		{ itemLevel: 120, total: { str: 60, att: 5 } },
-		`${GUESSED} User stated: Heroic Awake Ring level 4. Takes no star force — its ` +
-			`upgrade slots consume Awake Ring Exclusive Enhancement Scrolls.`
-	),
-	ring4: item(
-		'Eternal Flame Ring',
-		{ itemLevel: 120, total: { str: 60, att: 5 } },
-		`${GUESSED} User stated: Eternal Flame Ring. Takes no star force.`
-	),
-	heart: item(
-		'Fairy Heart',
-		{ itemLevel: 100, total: { str: 90, dex: 90, att: 12 } },
-		`${GUESSED} User stated: Fairy Heart.`
-	),
-
-	// --- not mentioned; invented so the analysis has something to chew on ---
-	// Ren's secondary. Genuinely absent from the v270 catalogue, so its
-	// capabilities fall back to slot rules and it renders without a sprite.
-	secondary: item(
-		'Imugi Gem',
-		{
-			itemLevel: 140,
-			total: { str: 120, dex: 60, att: 12 },
-			potential: {
-				grade: 'legendary',
-				lines: ['Attack Power : +12%', 'Damage : +12%', 'Attack Power : +9%']
-			}
-		},
-		`${GUESSED} User stated potential LINES only — ATT(prime)/DMG(prime)/ATT. ` +
-			`The percentages are the standard legendary prime/non-prime values and ` +
-			`are inferred, not read off the tooltip.`
-	),
-	emblem: item(
-		'Gold Sword Emblem',
-		{
-			itemLevel: 100,
-			total: { str: 100, att: 8 },
-			potential: {
-				grade: 'legendary',
-				lines: ['Attack Power : +12%', 'Damage : +9%', 'Damage : +9%']
-			}
-		},
-		`${GUESSED} User stated: gold sword emblem, ATT(prime)/DMG/DMG. No such ` +
-			`emblem exists in the v270 catalogue (its emblems are all Maple Leaf / ` +
-			`Dragon / Angel / Boss Arena), so this is a Ren-era class emblem — the ` +
-			`same coverage gap as the Imugi Gem. Percentages are inferred.`
+		`${CAP} EPIC potential — the weakest potential on the character.`
 	),
 	shoulder: item(
 		'Royal Black Metal Shoulder',
 		{
 			itemLevel: 120,
 			starforce: 12,
-			total: { str: 130, att: 18 },
-			setName: 'Boss Accessory Set'
+			setName: 'Boss Accessory Set',
+			total: { str: 41, dex: 41, int: 41, luk: 41, maxHp: 180, att: 6, matt: 6, def: 188 }
 		},
-		`${GUESSED} User stated: royal black metal shoulder.`
+		`${CAP} Potential: NONE — the tooltip shows no potential at all.`
 	),
-	belt: item(
-		'Superior Engraved Gollux Belt',
+	secondary: item(
+		"Princess No's Imugi Gem",
 		{
-			itemLevel: 150,
-			starforce: 15,
-			total: { str: 180, att: 15 },
-			setName: 'Superior Gollux Set'
+			itemLevel: 140,
+			total: { str: 14, dex: 14, att: 9 },
+			potential: {
+				grade: 'legendary',
+				lines: ['Attack Power : +12%', 'Damage : +12%', 'Attack Power : +9%']
+			}
 		},
-		`${GUESSED} User stated: superior Gollux belt.`
+		`${CAP} Ren's secondary. Takes neither star force nor flames. Postdates the ` +
+			`v270 catalogue, so it has no sprite and no per-item capability data.`
+	),
+	emblem: item(
+		'Gold Sword Emblem',
+		{
+			itemLevel: 100,
+			total: { str: 10, dex: 10, int: 10, luk: 10, att: 2, matt: 2 },
+			potential: {
+				grade: 'legendary',
+				lines: ['Attack Power : +12%', 'Damage : +9%', 'Damage : +9%']
+			}
+		},
+		`${CAP} Ren class emblem; postdates the v270 catalogue.`
+	),
+	pendant1: item(
+		'Daybreak Pendant',
+		{
+			itemLevel: 140,
+			starforce: 16,
+			setName: 'Dawn Boss Set',
+			total: {
+				str: 81,
+				dex: 145,
+				int: 57,
+				luk: 73,
+				maxHp: 255,
+				maxHpPct: 5,
+				att: 16,
+				matt: 10,
+				def: 230
+			},
+			potential: { grade: 'unique', lines: ['STR : +9%', 'Max HP : +6%', 'STR : +6%'] }
+		},
+		`${CAP} NOTE the flame rolled DEX-heavy (+88 DEX vs +24 STR) on a STR class.`
 	),
 	pendant2: item(
 		'Dominator Pendant',
 		{
 			itemLevel: 140,
-			starforce: 12,
-			total: { str: 165, att: 15 },
-			setName: 'Boss Accessory Set'
+			starforce: 17,
+			setName: 'Boss Accessory Set',
+			total: {
+				str: 138,
+				dex: 78,
+				int: 118,
+				luk: 98,
+				allStatPct: 5,
+				maxHp: 255,
+				maxHpPct: 10,
+				maxMpPct: 10,
+				att: 20,
+				matt: 20,
+				def: 242
+			},
+			potential: { grade: 'unique', lines: ['STR : +9%', 'Max MP : +6%', 'All Stats : +3%'] }
 		},
-		`${GUESSED} User stated: Dominator Pendant.`
+		CAP
+	),
+	ring1: item(
+		"Libae's Prototype R Ring",
+		{
+			itemLevel: 110,
+			total: { str: 4, dex: 4, int: 4, luk: 4, att: 4, matt: 4 }
+		},
+		`${CAP} This is the "RoR 6" — it grants [Special Skill Ring] Ring of Restraint ` +
+			`Lv. 6. TEMPORARY: expires 2026-09-24 04:20 UTC and cannot be extended. ` +
+			`Takes no star force, no flame and no potential.`
+	),
+	ring2: item(
+		'Dawn Guardian Angel Ring',
+		{
+			itemLevel: 160,
+			starforce: 14,
+			setName: 'Dawn Boss Set',
+			total: {
+				str: 42,
+				dex: 42,
+				int: 42,
+				luk: 42,
+				maxHp: 430,
+				maxMp: 200,
+				att: 2,
+				matt: 2,
+				def: 15
+			},
+			potential: { grade: 'unique', lines: ['STR : +10%', 'STR : +7%', 'Max HP : +7%'] }
+		},
+		CAP
+	),
+	ring3: item(
+		'Heroic Awake Ring (Lv. 4)',
+		{
+			itemLevel: 120,
+			total: { str: 40, dex: 40, int: 40, luk: 40, maxHp: 4000, maxMp: 4000, att: 25, matt: 25 },
+			potential: { grade: 'legendary', lines: ['STR : +12%', 'All Stats : +6%', 'All Stats : +6%'] }
+		},
+		CAP
+	),
+	ring4: item(
+		'Eternal Flame Ring',
+		{
+			itemLevel: 120,
+			total: { str: 40, dex: 40, int: 40, luk: 40, maxHp: 4000, maxMp: 4000, att: 25, matt: 25 },
+			potential: { grade: 'legendary', lines: ['Item Drop Rate : +20%', 'DEX : +9%', 'STR : +9%'] }
+		},
+		CAP
 	),
 	earrings: item(
 		"Will o' the Wisps",
 		{
 			itemLevel: 130,
-			starforce: 15,
-			total: { str: 195, att: 20 },
-			setName: 'Boss Accessory Set'
+			starforce: 14,
+			setName: 'Boss Accessory Set',
+			total: {
+				str: 93,
+				dex: 44,
+				int: 44,
+				luk: 44,
+				allStatPct: 5,
+				maxHp: 100,
+				maxMp: 100,
+				att: 7,
+				matt: 2,
+				def: 208,
+				speed: 5
+			},
+			potential: {
+				grade: 'legendary',
+				lines: ['Item Drop Rate : +20%', 'Max HP : +9%', 'All Stats : +6%']
+			}
 		},
-		`${GUESSED} User stated: will o the wisps. NOTE this is the EARRINGS slot, ` +
-			`not a face/eye accessory, and it is Boss Accessory Set — so it does not ` +
-			`count toward the Dawn set the way Estella Earrings would.`
+		CAP
 	),
 	face: item(
 		'Condensed Power Crystal',
 		{
 			itemLevel: 110,
-			starforce: 12,
-			total: { str: 130, att: 12 },
-			setName: 'Boss Accessory Set'
+			starforce: 10,
+			setName: 'Boss Accessory Set',
+			total: {
+				str: 60,
+				dex: 30,
+				int: 30,
+				luk: 30,
+				allStatPct: 5,
+				maxMp: 1650,
+				att: 9,
+				matt: 5,
+				def: 170
+			},
+			potential: { grade: 'legendary', lines: ['Max MP : +12%', 'All Stats : +9%', 'STR : +9%'] }
 		},
-		`${GUESSED} User stated: Condensed Power Crystal.`
+		CAP
 	),
 	eye: item(
 		'Aquatic Letter Eye Accessory',
 		{
 			itemLevel: 100,
-			starforce: 12,
-			total: { str: 130, att: 12 },
-			setName: 'Boss Accessory Set'
+			starforce: 8,
+			setName: 'Boss Accessory Set',
+			total: {
+				str: 67,
+				dex: 43,
+				int: 25,
+				luk: 25,
+				allStatPct: 5,
+				att: 1,
+				matt: 1,
+				def: 153,
+				speed: 5
+			},
+			potential: {
+				grade: 'legendary',
+				lines: ['Mesos Obtained : +20%', 'All Stats : +9%', 'DEX : +9%']
+			}
 		},
-		`${GUESSED} PROVISIONAL NAME. User wrote "aquacit eye"; the only aquatic eye ` +
-			`accessory in the v270 catalogue is the Aquatic Letter Eye Accessory. ` +
-			`Confirm against the tooltip.`
+		CAP
 	),
-	badge: item('Crystal Ventus Badge', { itemLevel: 130, total: { str: 40, att: 12 } }),
-	medal: item('Silent Crusade Champion', { itemLevel: 120, total: { str: 35, att: 8 } }),
+	belt: item(
+		'Superior Engraved Gollux Belt',
+		{
+			itemLevel: 150,
+			starforce: 18,
+			setName: 'Superior Gollux Set',
+			total: {
+				str: 149,
+				dex: 133,
+				int: 145,
+				luk: 145,
+				allStatPct: 4,
+				maxHp: 455,
+				maxMp: 200,
+				att: 65,
+				matt: 65,
+				def: 255
+			},
+			potential: {
+				grade: 'unique',
+				lines: ['Max HP : +9%', '20% chance to ignore 38 damage when attacked', 'STR : +6%']
+			}
+		},
+		`${CAP} Gollux gear is flameable but is NOT flame-advantaged.`
+	),
 	pocket: item(
 		'Pink Holy Cup',
-		{ itemLevel: 140, total: { str: 100, att: 10 }, setName: 'Boss Accessory Set' },
-		`${GUESSED} User stated: Pink Holy Cup. Takes no star force and no potential, ` +
-			`but it DOES take a flame.`
+		{
+			itemLevel: 140,
+			setName: 'Boss Accessory Set',
+			total: {
+				str: 41,
+				dex: 37,
+				int: 25,
+				luk: 21,
+				allStatPct: 6,
+				maxHp: 50,
+				maxMp: 50,
+				att: 5,
+				matt: 5
+			}
+		},
+		`${CAP} Flamed (+36 STR). Pocket items take flames but no star force and no ` +
+			`potential — the tooltip says "Star Force Can't Enhance" only.`
 	),
-	android: item('Lotusroid', { itemLevel: 10, total: {} })
-	// totems: user says none yet.
+	badge: item(
+		'Crystal Ventus Badge',
+		{
+			itemLevel: 130,
+			setName: 'Boss Accessory Set',
+			total: { str: 10, dex: 10, int: 10, luk: 10, att: 5, matt: 5, speed: 10, jump: 10 }
+		},
+		CAP
+	),
+	medal: item(
+		'HYPER BURNING MAX',
+		{ itemLevel: 200, total: { str: 6, dex: 6, int: 6, luk: 6, att: 6, matt: 6 } },
+		CAP
+	),
+	heart: item(
+		'Fairy Heart',
+		{
+			itemLevel: 100,
+			starforce: 8,
+			total: { str: 19, dex: 19, int: 19, luk: 19, maxHp: 100 },
+			potential: { grade: 'unique', lines: ['STR : +9%', 'Max MP : +6%', 'Max MP : +6%'] }
+		},
+		`${CAP} Rank 5.`
+	)
+	// android: NOT CAPTURED — no photograph of the android slot.
+	// totems: confirmed EMPTY in the equipment window.
 };
 
-// Invented to be plausible for the gear above. `displayed.combatPower` is the
-// ONE number the user gave: "~19k cp", read as 19,000,000 (19,000 is impossible
-// at level 272 — it would be a level ~50 character). The calibration panel will
-// show computed-vs-displayed, which is exactly how a wrong reading surfaces.
+// Read straight off the Character Info window (IMG_7957). The hover tooltips
+// that decompose each stat into base / % / %-not-applied were NOT photographed,
+// so each triple carries the displayed TOTAL as `base` with no percent or flat
+// component: `total = floor(base * 1) + 0` holds, and nothing is invented.
 const lutorenStatWindow = {
-	capturedAt: new Date().toISOString(),
-	str: { base: 6250, percent: 148, flat: 1850 },
-	dex: { base: 920, percent: 148, flat: 420 },
-	int: { base: 4, flat: 60 },
-	luk: { base: 4, flat: 60 },
-	attack: { base: 795, percent: 44, flat: 32 },
-	magicAttack: { base: 320, percent: 44 },
-	damagePercent: 62,
-	bossDamagePercent: 186,
-	finalDamagePercent: 28,
-	ignoreDefensePercent: 78,
-	criticalRatePercent: 100,
-	criticalDamagePercent: 52,
-	arcaneForce: 660,
-	sacredForce: 0,
-	displayed: { combatPower: 19_000_000 }
+	capturedAt: '2026-09-06T19:49:00.000Z',
+	str: { base: 29216 },
+	dex: { base: 3882 },
+	int: { base: 2462 },
+	luk: { base: 2404 },
+	attack: { base: 1772 },
+	magicAttack: { base: 478 },
+	damagePercent: 102,
+	bossDamagePercent: 316,
+	finalDamagePercent: 162.27,
+	ignoreDefensePercent: 93.14,
+	normalEnemyDamagePercent: 17,
+	criticalRatePercent: 82,
+	criticalDamagePercent: 86.5,
+	arcaneForce: 1230,
+	sacredForce: 210,
+	displayed: { rangeMax: 14_736_287, combatPower: 19_547_691 }
 };
 
 /* -------------------------------------------------------------------------- */
@@ -429,12 +627,25 @@ await seed(
 		level: 272,
 		world: 'Kronos',
 		symbols: {
-			arcane: { vanishingJourney: 8, chuchu: 8, lachelein: 7, arcana: 6, morass: 5, esfera: 4 }
+			// Levels read off IMG_7958 / IMG_7959. The REGION LABELS were not legible
+			// in the photos — these follow the standard left-to-right UI order and are
+			// the one unconfirmed part of this capture.
+			arcane: {
+				vanishingJourney: 20,
+				chuchu: 18,
+				lachelein: 16,
+				arcana: 16,
+				morass: 15,
+				esfera: 16
+			},
+			sacred: { cernium: 6, hotelArcus: 6, odium: 6 }
 		},
 		notes:
 			'Identity from the GMS rankings API (rank 52897 weekly, worldID 45 = Kronos). ' +
-			'Gear dictated from memory 2026-09-06; every stat number is an invented placeholder ' +
-			'pending screenshots. Only displayed.combatPower (~19M) came from the user.'
+			'Gear and stats CAPTURED from 44 screenshots on 2026-09-06 — see ' +
+			'docs/capture/2026-09-06-lutoren.md. Legion 9083 (Legendary III, artifact 39); ' +
+			'hyper stats and legion/artifact bonuses are already inside the stat-window ' +
+			'totals and are recorded in the capture doc, not re-modelled here.'
 	},
 	lutorenStatWindow,
 	lutorenGear
