@@ -22,16 +22,16 @@ Research backing every decision lives in `docs/research/` (`formulas.md`, `exist
 
 ## 2. Decisions that shape everything
 
-| Decision | Choice | Why |
-|---|---|---|
-| Source of truth for totals | **Stat window numbers** (Character Info UI + hover tooltips), not bottom-up from gear | Class passives/buffs contribute FD/IED/BD/CD ranges that cannot be reconstructed from equipment (formulas.md §4.0). Everything unknowable cancels in a ratio. |
-| Role of the gear model | Provides **deltas** for candidate upgrades, tracking/history, and a consistency check against the stat window | Star force / flame / potential tables tell us exactly what changes when a slot is upgraded. |
-| Gain metric | `gain = D(after)/D(before) − 1` where `D` is the boss damage index at a chosen target (PDR, level, force) | formulas.md §3.1. Closed-form "1% IED = N stat" tables are wrong away from the current state. |
-| Combat Power | Computed and shown as a **checksum** next to the displayed value, never used to rank | CP omits IED, crit rate, level, force (formulas.md §2.6). |
-| Persistence | JSON files under `data/` with append-only snapshots | Tiny user count; agent-friendly; diffable. No DB. |
-| LLM in the app | **None.** The app publishes a schema + an extraction guide; the external agent does the parsing | Matches "driven from external agent"; keeps the app dependency-free. Revisit if Nate wants an in-app key. |
-| Stack | SvelteKit 2 / Svelte 5 runes / TS / zod 4 / vitest / adapter-node, plain scoped CSS | Already scaffolded. |
-| Region assumptions | GMS 2026 **Heroic only**: 30★ star force, potential level breakpoint 151, Heroic cube prices 12M/22M, Heroic crystal values | `formulas.md` §4A. Regular servers are out of scope — no server-type field exists. |
+| Decision                   | Choice                                                                                                                      | Why                                                                                                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source of truth for totals | **Stat window numbers** (Character Info UI + hover tooltips), not bottom-up from gear                                       | Class passives/buffs contribute FD/IED/BD/CD ranges that cannot be reconstructed from equipment (formulas.md §4.0). Everything unknowable cancels in a ratio. |
+| Role of the gear model     | Provides **deltas** for candidate upgrades, tracking/history, and a consistency check against the stat window               | Star force / flame / potential tables tell us exactly what changes when a slot is upgraded.                                                                   |
+| Gain metric                | `gain = D(after)/D(before) − 1` where `D` is the boss damage index at a chosen target (PDR, level, force)                   | formulas.md §3.1. Closed-form "1% IED = N stat" tables are wrong away from the current state.                                                                 |
+| Combat Power               | Computed and shown as a **checksum** next to the displayed value, never used to rank                                        | CP omits IED, crit rate, level, force (formulas.md §2.6).                                                                                                     |
+| Persistence                | JSON files under `data/` with append-only snapshots                                                                         | Tiny user count; agent-friendly; diffable. No DB.                                                                                                             |
+| LLM in the app             | **None.** The app publishes a schema + an extraction guide; the external agent does the parsing                             | Matches "driven from external agent"; keeps the app dependency-free. Revisit if Nate wants an in-app key.                                                     |
+| Stack                      | SvelteKit 2 / Svelte 5 runes / TS / zod 4 / vitest / adapter-node, plain scoped CSS                                         | Already scaffolded.                                                                                                                                           |
+| Region assumptions         | GMS 2026 **Heroic only**: 30★ star force, potential level breakpoint 151, Heroic cube prices 12M/22M, Heroic crystal values | `formulas.md` §4A. Regular servers are out of scope — no server-type field exists.                                                                            |
 
 ## 3. Domain model (zod schemas in `src/lib/schema/`)
 
@@ -148,15 +148,15 @@ the boss table.
 
 Each candidate = `{ id, kind, label, slot?, delta, cost?: { mesos?: number; days?: number; note } , confidence }`.
 
-| kind | Generated from | Delta source | Cost |
-|---|---|---|---|
-| `starforce` | current stars → +1, and → next breakpoint (17, 18, 19, 20, 21, 22, 23, 25, 30) | SF stat/att per star by item level (`formulas.md` §4A); 30★ system | expected meso via `masonym` cost formula + GMS v269 rates, Enhancement Mode 1, safeguard 15–17 |
-| `flame` | current flame block → a target tier per stat (e.g. T5/T6/T7 main, att) | flame formulas by item level | flames in days/mesos: unknown → `confidence: low`, cost omitted |
-| `potential` | current grade/lines → next grade, or "3 useful lines" at same grade | potential line tables by category & level bracket | Heroic cube price × expected cubes (rough; `low` confidence) |
-| `bonusPotential` | same | bonus pot tables | same |
-| `symbol` | each arcane/sacred region level → +1 (and max) | symbol stat tables | days at the daily quest rate |
-| `hyperStat` | reallocation suggestions: +1 level in each damage hyper | hyper tables | hyper points |
-| `stat-line` (diagnostic) | +1 ATT, +1% boss, +1% FD, +1% crit dmg, +10 main, +1 IED line 30/35/40 | direct | none — "worth" table |
+| kind                     | Generated from                                                                 | Delta source                                                       | Cost                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `starforce`              | current stars → +1, and → next breakpoint (17, 18, 19, 20, 21, 22, 23, 25, 30) | SF stat/att per star by item level (`formulas.md` §4A); 30★ system | expected meso via `masonym` cost formula + GMS v269 rates, Enhancement Mode 1, safeguard 15–17 |
+| `flame`                  | current flame block → a target tier per stat (e.g. T5/T6/T7 main, att)         | flame formulas by item level                                       | flames in days/mesos: unknown → `confidence: low`, cost omitted                                |
+| `potential`              | current grade/lines → next grade, or "3 useful lines" at same grade            | potential line tables by category & level bracket                  | Heroic cube price × expected cubes (rough; `low` confidence)                                   |
+| `bonusPotential`         | same                                                                           | bonus pot tables                                                   | same                                                                                           |
+| `symbol`                 | each arcane/sacred region level → +1 (and max)                                 | symbol stat tables                                                 | days at the daily quest rate                                                                   |
+| `hyperStat`              | reallocation suggestions: +1 level in each damage hyper                        | hyper tables                                                       | hyper points                                                                                   |
+| `stat-line` (diagnostic) | +1 ATT, +1% boss, +1% FD, +1% crit dmg, +10 main, +1 IED line 30/35/40         | direct                                                             | none — "worth" table                                                                           |
 
 Ranking output: `gainPct`, `gainPerBillionMeso` (when mesos known), `gainPerDay` (when days known),
 grouped by slot with the best-of-slot highlighted.
@@ -170,19 +170,19 @@ grouped by slot with the best-of-slot highlighted.
 
 ## 7. API (`src/routes/api/`) — JSON, no auth (optional `MAPLE_TOKEN` env → bearer check)
 
-| Method & path | Purpose |
-|---|---|
-| `GET /api/docs` | Markdown guide for agents: schema, workflow, screenshot extraction instructions, validation identities |
-| `GET /api/schema` | JSON Schema (zod `toJSONSchema`) for Character/Item/StatWindow |
-| `GET /api/ref/classes` · `/api/ref/bosses` · `/api/ref/slots` · `/api/ref/potential-lines` | Reference data |
-| `GET /api/characters` · `POST /api/characters` | List / create (`{ id?, name, classId, level, world }`) |
-| `GET /api/characters/:id` · `PUT` · `PATCH` · `DELETE` | Full doc; replace; merge-patch; delete |
-| `PUT /api/characters/:id/equipment/:slot` · `DELETE` | Upsert / remove one item (returns validation warnings) |
-| `PUT /api/characters/:id/stat-window` | Replace stat window |
-| `GET /api/characters/:id/analysis?target=grandis|arcane|<bossId>` | Full analysis (stats, indexes, checksums, residual, ranked upgrades, boss board when available) |
-| `POST /api/analyze` | Stateless: `{ character, target? }` → analysis |
-| `POST /api/characters/:id/what-if` | `{ deltas: Delta[] , target? }` → joint gain |
-| `GET /api/characters/:id/history` · `/history/:ts` | Snapshots |
+| Method & path                                                                              | Purpose                                                                                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `GET /api/docs`                                                                            | Markdown guide for agents: schema, workflow, screenshot extraction instructions, validation identities |
+| `GET /api/schema`                                                                          | JSON Schema (zod `toJSONSchema`) for Character/Item/StatWindow                                         |
+| `GET /api/ref/classes` · `/api/ref/bosses` · `/api/ref/slots` · `/api/ref/potential-lines` | Reference data                                                                                         |
+| `GET /api/characters` · `POST /api/characters`                                             | List / create (`{ id?, name, classId, level, world }`)                                                 |
+| `GET /api/characters/:id` · `PUT` · `PATCH` · `DELETE`                                     | Full doc; replace; merge-patch; delete                                                                 |
+| `PUT /api/characters/:id/equipment/:slot` · `DELETE`                                       | Upsert / remove one item (returns validation warnings)                                                 |
+| `PUT /api/characters/:id/stat-window`                                                      | Replace stat window                                                                                    |
+| `GET /api/characters/:id/analysis?target=grandis                                           | arcane                                                                                                 | <bossId>` | Full analysis (stats, indexes, checksums, residual, ranked upgrades, boss board when available) |
+| `POST /api/analyze`                                                                        | Stateless: `{ character, target? }` → analysis                                                         |
+| `POST /api/characters/:id/what-if`                                                         | `{ deltas: Delta[] , target? }` → joint gain                                                           |
+| `GET /api/characters/:id/history` · `/history/:ts`                                         | Snapshots                                                                                              |
 
 Every write response includes `warnings: string[]`. Errors are `{ error, issues? }` with 400/404.
 
@@ -202,6 +202,7 @@ level, HP (GMS, corrected), PDR, force type/req, time limit, party max, reset, c
 CMS CP gates (solo total + per-party-size floor).
 
 Axes:
+
 - **Carried**: entry level OK; force penalty not crippling (Arcane ≥ 70% ratio, Sacred ≥ −20);
   can deal 5% of total HP within the time limit at an estimated DPM; CP ≥ per-member floor (advisory).
 - **Party (2–3 / 6)**: your share of HP (`HP / n`) clearable in the time limit at estimated DPM ×
@@ -241,6 +242,7 @@ floors) and labels DPM-based verdicts as `uncalibrated`.
 ## 12. Remaining open questions
 
 None blocking. Things I'll decide as they come up and flag if they turn out to matter:
+
 - ~~Whether the Ren weapon constant in the research is current.~~ **Settled 2026-09-06 by
   measurement, not by sourcing.** The weapon constant does not cancel in the displayed-range
   formula, so it can be solved against a real capture: Lutoren's in-game max range of 14,736,287
@@ -257,7 +259,79 @@ None blocking. Things I'll decide as they come up and flag if they turn out to m
 - **Combat Power reads high (31.4M computed vs 19.5M displayed on Lutoren).** Not a bug in the
   formula: CP excludes skill-sourced stat, and a captured stat window is buffed, so the innate
   contributions cannot be subtracted without per-class skill data. It is deliberately an upper
-  bound and is never used to rank. The *range* checksum (0.002%) is the one that validates inputs.
+  bound and is never used to rank. The _range_ checksum (0.002%) is the one that validates inputs.
 - **Cube gains are upper estimates.** The lines a goal does not name are random in reality but are
   modelled as keeping your current best. Every such row says so.
 - **Hat cooldown lines score zero** because the damage index models one hit with no rotation.
+
+## 14. Progression paths (supersedes the `starforce` and `set` rows of §5)
+
+Added 2026-09-06 after Nate rejected the previous model outright. Two critiques, one root cause.
+
+**The critiques.** (a) The tool offered three-lining a pair of throwaway earrings that will always be
+replaced by Superior Gollux. (b) It offered `14★ → 30★` on the weapon at 2,275 trillion mesos —
+"30 star is a thing of myth", and "no one would ever star absolab to 22 stars, arcanes come too fast."
+
+**The wrong fix, which we started and abandoned.** Mark gear transient vs terminal and suppress or
+discount investment in the transient. Nate: _"Supressing is wrong - any progress tracker needs to
+lead you through the progression. You CANT get arcanes without gearing up your CRA/fafnir gear +
+absos - you won't have the range to kill the bosses."_ Investment in stepping-stone gear is
+**required**, not wasted. Suppressing it tells the user not to build the exact gear that unlocks the
+next tier. A tracker that does this is worse than useless — it stalls you permanently.
+
+**The root cause.** The model has no concept of a _path_. It sees a bag of equipped items and asks
+"what is the highest-gain change to this bag?", with the theoretical game cap as the only ceiling.
+Real progression is a sequence of stages per slot, each with a **stopping point** — the investment
+level at which you stop and move to the next stage — and each gated on **boss access**, which is
+gated on range, which is what the previous stage bought you. Nate: _"This is a core concept to maple
+and progression as a whole, without this we literally can never have accurate data."_
+
+### 14.1 Model
+
+Data (`src/lib/data/gear-progression.ts`, agent-owned) expresses per slot an ordered list of stages,
+not a boolean flag. A boolean cannot express any of the below and was the shape our first brief
+wrongly asked for.
+
+- **Stage** = the item tier occupying a slot (CRA → AbsoLab → Arcane → Eternal, and the parallel
+  accessory lines). Stages are ordered; some slots have exactly one path, some have real branches.
+  Branches must record the condition that selects them (funding, boss access, class, event
+  availability), never an unqualified menu.
+- **Stopping point** = per stage, the prescribed star / potential tier / flame level at which
+  investment stops. This is the core datum. It is a community-consensus number with a source, not
+  a derivation — the reason to stop at N★ on AbsoLab is that Arcane arrives before N+1★ pays back,
+  which is an empirical claim about drop pace, not something our damage engine can compute.
+- **Gate** = which boss drops the stage's gear, and the range/stat needed to kill it. This is what
+  makes a path a path rather than a list. `bosses.json` has HP, PDR and an advisory `cpGate` but
+  **no drop table** — the boss→gear link is a genuine gap the research must fill.
+
+### 14.2 What this changes in `candidates.ts`
+
+1. **Star targets come from the stage, not from `STAR_BREAKPOINTS`.** Today `max` is the theoretical
+   cap (`caps.maxStarforce ?? starforce.maxStars(...)`) and the breakpoint list is a flat global
+   `[17…30]` applied to every item regardless of tier. The theoretical cap stays as a hard filter;
+   the _offered_ targets are capped at the stage's stopping point. 30★ leaves the default surface.
+2. **Over-cap targets are explained, never silently dropped.** A suppressed target must say why —
+   "AbsoLab stops at N★ on this path because Arcane arrives first" — so the user can disagree with
+   the prescription. Silent omission is indistinguishable from a bug, and this tool has already
+   shipped one ranking bug that looked exactly like an opinion.
+3. **A new `acquisition` candidate kind.** Every generator today only _improves an equipped item_.
+   The path requires the tool to say "your next step is to obtain X", which no kind can express.
+   `set` is the closest and it is too vague to act on — it says "equip 2 more pieces" without naming
+   the piece or where it drops. `acquisition` names the item, the boss, and the gate.
+4. **Ranking must not compare across stages naively.** A stepping stone's value is not its own damage
+   delta — it is that it unlocks the gate. Pricing it purely on damage-per-meso reproduces critique
+   (a) in a new form. Open question, deliberately not resolved here: whether gate-unlocking value is
+   modelled as a bonus term or whether path order simply overrides ranking within a slot.
+
+### 14.3 Out of scope, permanently
+
+**Pitched Boss gear never appears as a ranked upgrade.** Nate: _"don't you dare start putting pitched
+in the list of upgrades, it can take 1-2 years to even see one drop."_ It may be documented as a
+terminal endpoint that exists, marked out of scope, ideally with drop rates justifying the exclusion.
+
+### 14.4 Status
+
+Design only. `gear-progression.ts` does not exist yet; a research agent owns it and the four
+progression guides Nate supplied. **No stage boundary, stopping point, or gate threshold may be
+invented to unblock this** — the project's hardest standing rule is "don't guess at things - do
+research", and every number in §14 is exactly the kind of number that would be tempting to guess.

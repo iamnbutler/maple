@@ -37,7 +37,7 @@ the *strategy* layer: which of those lines are worth pursuing, and when to stop.
 
 ---
 
-## 0. Executive summary — the six facts that kill "three useful legendary lines"
+## 0. Executive summary — the eight facts that kill "three useful legendary lines"
 
 1. **On a Legendary item, only the *first* line is guaranteed prime.** With the best cube in
    Heroic (Bright Cube) the 2nd line is prime 20% of the time and the 3rd line 5% of the time, so
@@ -81,6 +81,20 @@ the *strategy* layer: which of those lines are worth pursuing, and when to stop.
    <https://github.com/brendonmay/brendonmay.github.io/blob/master/cubingCalculator/updateDesiredStatsOptions.js> ·
    <https://raw.githubusercontent.com/Francesco149/cubecalc/main/src/textfile.py>
 
+7. **The community's own words for the milestones are `2L` → `fake 3L` → `real 3L` → `double prime`
+   → `triple prime`**, and they map exactly onto the arithmetic (§1.5). "Fake 3L" — three lines, one
+   of them %All Stat — is `30%` on 151+ gear; "real 3L" is `33%`. The gap between them is ~5–6× in
+   cubes, and a widely-held position is to *sit on fake 3L* until you can afford to skip straight to
+   double prime (§2.3).
+   <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kctfjbx/>
+
+8. **Three independent checks say the model in §7 is right.** It reproduces brendonmay's calculator
+   engine to the digit on all eight WSE targets (§3.2b); its 2L-crit-damage glove figure (469 cubes
+   ≈ 10.3B) matches the community's reported 387–400 cubes ≈ 8–10B; its triple-crit figure
+   (2.93T) matches the community's independently-derived 2.3–3T; and its drop/meso hybrid figures
+   (Bright 4.39B / Glowing 5.57B) match a community derivation of 4.4B / 5.568B almost exactly
+   (§3.4b, §3.4c).
+
 The practical consequences for the tracker:
 
 - **Recommend "add one more line of category X", never "roll three of X".** The third line costs
@@ -89,6 +103,10 @@ The practical consequences for the tracker:
 - **Hard-block the impossible targets**: any Boss line on an emblem; 3 Boss / 3 IED / 3 Drop lines
   anywhere; any potential at all on pocket, medal, android, totem, or a non-potential badge.
 - **Never introduce a stat-equivalence constant** (§5.7) — compute `measureGain` per candidate.
+- **Quote the 75th percentile as the budget, not the mean** — the community's own rule, and the
+  distributions are heavily right-tailed (§3.4b).
+- **Gate every candidate on item permanence.** The single most repeated rule in Reboot threads is
+  *don't cube gear you will replace* (§2.2b).
 
 ---
 
@@ -155,7 +173,7 @@ from StrategyWiki. Community stopping points are cited separately.
 | **bottom** | %main stat | 2L stat (~38 cubes ≈ 0.8B) | 3L stat (1,102 ≈ 24B) |
 | **overall** | %main stat (uses the Top/Overall pool) | as top | as top |
 | **shoes** | %main stat | 2L stat (~40 cubes ≈ 0.9B) | 3L stat (1,218 ≈ 27B) |
-| **gloves** | **Critical Damage%** (only slot that has it), else %main stat | **1 crit-damage line** + anything (~9 cubes ≈ **0.2B**). The Reboot Guide: *"Most people settle for 1L Crit dmg with other suboptimal potentials, such as a DSE/DSE line or a Main Stat % line."* | 2L crit damage (469 ≈ **10.3B**) — the Guide: *"If you can get 2L Crit Damage you are godly"*. 3L crit damage (133,100 ≈ **2,928B**) — *"go to the lottery or you're a hacker"* |
+| **gloves** | **Critical Damage%** (only slot that has it), else %main stat | **1 crit-damage line** + anything (~9 cubes ≈ **0.2B**). The Reboot Guide: *"Most people settle for 1L Crit dmg with other suboptimal potentials, such as a DSE/DSE line or a Main Stat % line."* | 2L crit damage (469 ≈ **10.3B**; players report 387–400 Bright cubes ≈ 8–10B) — *"If you can get 2L Crit Damage you are godly"*. 2L crit + 1L stat ≈ **68B** derived / *"~50b"* reported. 3L crit damage (133,100 ≈ **2,928B**; players independently derive **2.3–3T**) — *"go to the lottery or you're a hacker"* |
 | **cape** | %main stat | 2L stat (~35 cubes ≈ 0.8B) | 3L stat (970 ≈ 21B) |
 | **shoulder** | %main stat | 2L stat (~35 cubes ≈ 0.8B) — cheapest of the armour slots | 3L stat (970 ≈ 21B) |
 | **belt** | %main stat | 2L stat (~35 cubes ≈ 0.8B) | 3L stat (970 ≈ 21B) |
@@ -822,6 +840,82 @@ Assumes Epic starting point, Bright for tier-ups (670M/item), then the per-slot 
 numbers above are expectations from published rates, not survey data. Do not present them as
 "what players spend"; present them as "what this target costs on average".
 
+### 3.4b Player-reported costs, and how they compare to the model
+
+This is the closest thing to observational data that exists. All figures are r/Maplestory reports,
+i.e. small samples and recall, but they are useful as a sanity check on §3.2 — and the agreement is
+close enough to be reassuring.
+
+| Target | Community report | This model (§3.2) |
+|---|---|---|
+| **Unique → Legendary tier-up rate** | **4.8%** per Bright cube, community sample ≈ 5,800 cubes (a 249-cube personal sample gave 2.81%) — <https://www.reddit.com/r/Maplestory/comments/10xn3do/250_bright_black_cube_tierup_results/> | 4.7% (`formulas.md` §4A.3.5) → **agrees** |
+| Unique → Legendary spend | *"on average you should be able to tier up unique to legendary within one batch of 50 bright cubes aka ~1B+ mesos"* — <https://www.reddit.com/r/Maplestory/comments/1fe50uq/legendary_cubing_reboot/lmksr2s/>; tails of *"140-150 blacks IIRC so bit above 3b"*, *"My record is 234"*, *"188 glowing cubes (2.2B)"* | 21.3 Bright ≈ 0.47B mean; 95th percentile ≈ 64 cubes ≈ 1.4B. **Reported spends run high** — treat the tail as fat |
+| Average 2L (any slot) | **~0.5B** (from the cubing calculator) — <https://www.reddit.com/r/Maplestory/comments/1s4wjuq/ctene_mules_cubing_breakpoint/> | 0.4–0.6B with Glowing → **agrees** |
+| Average 3L | **~7B** — same source | 3.0–3.9B "fake 3L", 11–22B "real 3L" with Glowing → **brackets it** |
+| 3L emblem | *"50b with brights vs 28b with glowing"* — <https://www.reddit.com/r/Maplestory/comments/1knrs2m/comparison_guide_for_how_much_starforcing_and/msn71xr/> | 3,306 Bright ≈ 73B / 3,195 Glowing ≈ 38B → same **direction and ratio**, ~1.4× higher |
+| **2L crit damage gloves** | **387–400 Bright cubes ≈ 8–10B** — <https://www.reddit.com/r/Maplestory/comments/1coonjr/2_line_crit_damage_glove/l3flb89/>, <https://www.reddit.com/r/Maplestory/comments/1coonjr/2_line_crit_damage_glove/l3fn8ov/> | **469 cubes ≈ 10.3B** → agrees; the gap is the MSEA 9.09% vs KMS 10% crit-damage prime rate |
+| 2L crit + 1L stat | **"~50b"**, with reports of *"105B"* and *"my current eternal glove cost 54B just to see 2L crit once"* — <https://www.reddit.com/r/Maplestory/comments/1lnksxg/two_line_crit_damage/n0g90ae/>, <https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oabma0w/> | 3,081 cubes ≈ **68B** (crit + crit + stat-or-allstat) → same order |
+| **3L crit damage** | *"Triple crit is a true jackpot pot. **On the order of a trillion mesos**"* → *"**Tripe crit is 2.3T average.**"* — <https://www.reddit.com/r/Maplestory/comments/1lnksxg/two_line_crit_damage/n0g90ae/>, <https://www.reddit.com/r/Maplestory/comments/1lnksxg/two_line_crit_damage/n0hkoam/>; independently in 2021, *"avg cost of 3L crit = **3 trillion meso**"* — <https://www.reddit.com/r/Maplestory/comments/nxqgrz/did_nexon_remove_the_possibility_of_3l_crit/h1gfij7/> | **2,928B ≈ 2.9T** → **agrees to within the sources' own spread** |
+| Double-prime stat, accessories | *"on avg like 55b~"* — <https://www.reddit.com/r/Maplestory/comments/1jltvj5/crafting_drop_gear_when_double_prime_for_2b_is_it/mk6imvh/>; *"you may not see one for 20-50b and maybe even more"* — <https://www.reddit.com/r/Maplestory/comments/1lnksxg/two_line_crit_damage/n0g4apm/> | not modelled separately; consistent with the `36%+` row of §3.2c (4,155 cubes ≈ 93B) |
+| Flames, for context | *"10b+ on each item"* — <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kcu3mxj/> | out of scope |
+
+**Variance is the headline, not the mean.** On 2L crit gloves alone the reports span *"I got 2l crit
+dmg in 30 brights cubes"* against *"I'm at 1800 black cubes and have not hit"* → *"I finally hit
+after 3000 black cubes"* and *"I have spent 35 bil in black cubes and not seen 2L Crit dmg"*
+(<https://www.reddit.com/r/Maplestory/comments/1coonjr/2_line_crit_damage_glove/>).
+The community's own budgeting rule handles this explicitly:
+
+> *"Personally I look at 75 percentile, not average or median, since over saving for bad luck means
+> you'll more likely get your desired result."*
+> — <https://www.reddit.com/r/Maplestory/comments/1fe50uq/legendary_cubing_reboot/lmkqr2n/>
+> · *"add a 20% bad luck tax on the average and thats how much you will spend"* —
+> <https://www.reddit.com/r/Maplestory/comments/1knrs2m/comparison_guide_for_how_much_starforcing_and/msm756m/>
+
+**Tracker rule: show the 75th percentile (≈ 1.39 / p) as the headline budget**, with the mean and
+p90 available. Never show a bare mean.
+
+The whole community defers to one tool for these numbers —
+<https://brendonmay.github.io/cubingCalculator/> — cited in essentially every cost thread. §3.2b
+verifies this file's model against it.
+
+### 3.4c Drop / meso gear (Heroic-specific)
+
+Caps: **+100% Mesos Obtained (5 lines × 20%) and +200% Item Drop Rate (10 lines × 20%)** from
+potential (<https://www.reddit.com/r/Maplestory/comments/1b9r22e/question_with_glowing_cube_vs_bright_cube_and_few/ktxhpbk/>,
+confirmed by <https://strategywiki.org/wiki/MapleStory/Potential_System>). Drop/meso lines are
+prime-only, and Item Drop Rate is capped at 2 lines per item.
+
+The community's own derivation for a **hybrid** (one meso line + one drop line on the same
+accessory), at 12M/22M:
+
+| cube | median | average |
+|---|---|---|
+| Glowing | 3.864B | **5.568B** |
+| Bright | 3.058B | **4.4B** |
+
+> *"This makes bright cubes the more cost efficient choice for double priming."*
+> — <https://www.reddit.com/r/Maplestory/comments/1crpn6s/double_prime_for_dropmeso_gear/>
+
+**This model independently reproduces those figures**: ≥2 lines of (meso or drop) on one accessory
+is **200 Bright cubes ≈ 4.39B** vs **464 Glowing ≈ 5.57B** — matching 4.4B / 5.568B almost exactly.
+That is a second independent validation of §7.
+
+Cross-checks from <https://www.reddit.com/r/Maplestory/comments/1e4riyn/when_is_it_not_worth_going_for_hybrid_lines/>:
+*"The typical player will see one in 2.5b"*, *"It's an average of 22-23b to hit 9 x of double mesos
+or drop"*, *"3.6b for a hybrid… that's 167 glowing cubes"*.
+
+Progression advice: single lines first, hybrids much later —
+> *"Just cube and keep whatever you get tbh. If you have some extra rings/accessories just cube
+> until you get a line of either meso or drop and then move onto the next piece. That's the cheapest
+> way at least… You can worry about hybrid lines later."*
+> — <https://www.reddit.com/r/Maplestory/comments/13grpp1/cubing_order/jk1xwhd/>
+> · *"you don't need max drop asap. missing 20% is fine, getting the double prime can be expensive"*
+> — <https://www.reddit.com/r/Maplestory/comments/1sos7e4/drop_gear_cubing/ogv62d5/>
+
+Drop/meso gear is explicitly **exempted** from the "don't overspend on cubing" advice
+(<https://www.reddit.com/r/Maplestory/comments/145hvqc/whats_the_most_youve_spent_cubing_from_unique_to/jnlj29p/>),
+because the lines pay for themselves in farm rate.
+
 ### 3.5 Events that move the numbers
 
 - **Double Miracle Time (DMT)** doubles rank-up chance (and, historically, allows a double rank-up
@@ -1311,7 +1405,10 @@ Community shorthand for the same rule: *"Glowing is cheaper for 30+. Bright is c
 7. `matt` for magician weapons, `att` otherwise — never both, and never offer both to the user.
 8. `crit_rate` candidates only while the character's stat-window crit rate is below 100% — except
    for archers (Wind Archer), where Vicious Shot reads past the cap (§5.0).
-9. Never propose anything above Epic on an item flagged as a transfer-hammer donor.
+9. Gate on `item.permanence`: **`disposable`** (CRA before Absolab, Pensalir, transition
+   accessories) → nothing above Epic; **`transitional`** (Absolab, Arcane weapon/emblem) → cap at
+   "fake 3L" / 2L ATT; **`permanent`** (class secondary/PNO, pitched, eternals, Slime Ring) → the
+   full ladder. Never propose anything above Epic on a transfer-hammer donor. (§2.2b)
 10. Rank the third line of any category *after* the second line of every other slot.
 11. `cooldown` candidates only when the character's `cooldownHat` flag is set. Default it **on for
     Ren and Wind Archer**, **off for Battle Mage and Night Walker** (their own guides say no), and
@@ -1321,17 +1418,20 @@ Community shorthand for the same rule: *"Glowing is cheaper for 30+. Bright is c
 **Default target set** (the "good enough" column of §1.3). The tracker can render this directly as
 an in-game **Auto Enhancement** target list (<https://maplestorywiki.net/w/Potential>):
 
-| slot | default target | next rung |
-|---|---|---|
-| weapon, secondary | 2 lines ATT% (MATT% for magicians) | 2 ATT + 1 Boss (weapon/secondary) |
-| emblem | 2 lines ATT% | 3 lines ATT%, else 2 ATT + 1 IED |
-| hat | `21%+` main stat (≈ 2 lines) | `24%+`, or `−2s + 2L stat` if the cooldown flag is on |
-| top/overall, bottom, shoes, cape, shoulder, belt | `21%+` main stat | `24%+` |
-| gloves | 1 Critical Damage line + 1 %main stat | 2 Critical Damage lines |
-| heart, badge | `21%+` main stat | `24%+` |
-| pendant/ring/earring/face/eye — bossing set | `21%+` main stat | `24%+` |
-| pendant/ring/earring/face/eye — farming set | 1 Meso Obtained line each, to the +100% cap | add Drop lines to the +200% cap |
-| pocket, medal, android, totem | *no candidate* | — |
+| slot | default target | next rung | terminal (permanent items only) |
+|---|---|---|---|
+| weapon, secondary | **2L ATT%** (MATT% for magicians) | "3L usable" — 2 ATT + 1 Boss | 3L ATT, then double prime |
+| emblem | **2L ATT%** | 2 ATT + 1 IED | 3L ATT (cheapest 3L-ATT slot) |
+| gloves | **1L Crit Damage + 1L stat** | **2L Crit Damage** — ranked *above* fake-3L armor | 2L Crit Damage + 1L stat |
+| hat | **`21%+`** (2L stat) | **`30%`** ("fake 3L") | `33%` ("real 3L"), or `−2s + 2L stat` if the cooldown flag is on |
+| top/overall, bottom, shoes, cape, shoulder, belt | **`21%+`** | **`30%`** ("fake 3L") | `33%` ("real 3L") |
+| heart, badge | **`21%+`** | `30%` | `33%` |
+| pendant/ring/earring/face/eye — bossing set | **`21%+`** | `30%` | `33%` |
+| pendant/ring/earring/face/eye — farming set | 1 Meso **or** Drop line per item, to the +100% / +200% caps | hybrid (meso + drop on one item) — Bright, ~200 cubes ≈ 4.4B | — |
+| pocket, medal, android, totem | *no candidate* | — | — |
+
+`%` figures are for item level 151+ (all current Heroic endgame gear); subtract 3 for lv 71–150
+gear. See §1.5 for the vocabulary and §1.4 for the arithmetic.
 
 **Whole-WSE view.** Present weapon + secondary + emblem as one **9-line budget** with an
 `att / boss / ied` split, not three independent goals, and show the current split against the
@@ -1421,7 +1521,12 @@ stat (STR *or* DEX *or* INT *or* LUK); StrategyWiki lists all four at the same r
 
 | Claim | Status |
 |---|---|
-| **Reddit / r/Maplestory consensus on anything** | **UNVERIFIED — inaccessible.** reddit.com, old.reddit.com, the JSON API and every Redlib mirror return 403/410 from this environment, and the WebSearch domain filter returns nothing usable. **No claim in this file is Reddit-sourced.** Community positions come instead from the two most-cited long-form guides, two class-Discord guides (buffhero.win, the Battle Mage Grimoire), first-party patch notes, and KMS class reviews. If Reddit consensus matters, it needs a manual pass. |
+| **Reddit retrieval method** | **PARTIAL.** reddit.com, old.reddit.com, the JSON API and every mirror are 403/410 from this environment. The r/Maplestory threads cited were retrieved as post+comment JSON from the **Arctic Shift archive** (`arctic-shift.photon-reddit.com`); permalinks and quotes are verbatim but the rendered pages were never seen, and vote counts/edits could not be re-verified. |
+| A canonical *"tier everything to Unique before pushing anything to Legendary"* rule | **UNVERIFIED as a named convention.** Only one budget heuristic supports it — *"with only 5 bil you should prob just 2L uniq everything before spending half your money on one legendary equip"* (<https://www.reddit.com/r/Maplestory/comments/145hvqc/whats_the_most_youve_spent_cubing_from_unique_to/jnl4hky/>). Present it as a budget rule, not a convention. |
+| A genuine *"%stat vs ATT%"* controversy | **Does not exist.** What exists is a settled slot split: armor/accessories = %main stat, W/S/E = ATT%/Boss/IED. No thread argues the two against each other. |
+| Whether the Glowing Cube destroys the old potential | **DISPUTED** — the wiki says only Bright lets you choose; players describe both as offering a keep step (§2.3). Not load-bearing for any recommendation here. |
+| Community stat-equivalence rules of thumb | Quoted for context only, **not** endorsed: *"Very roughly, 8% crit is about the same as 30% stat"* (<https://www.reddit.com/r/Maplestory/comments/1lnksxg/two_line_crit_damage/n0fxjkh/>) and *"each % [crit damage] is about 3% stat"* (<https://www.reddit.com/r/Maplestory/comments/1f7bguq/should_i_keep_the_23_str_or_keep_cubing_for/ll67t4v/>). The tracker computes this properly — do not hard-code either. |
+| KMS **auto-cubing** feature in the pipeline | Flagged as a possible economics change: <https://www.reddit.com/r/Maplestory/comments/1rti0y9/auto_cubing_feature_in_action_coming_to_kms/>. GMS impact **UNVERIFIED**. |
 | **Ren benefits disproportionately from cooldown-reduction hats** | **Mechanically well-founded, community-UNVERIFIED.** Ren's damage loop is Wish Unending at a 20s cooldown with no Cooldown Cutter hyper, so a −2s line is +11% casts and −4s is +25% (§5.2). But Ren is a 2025 class with no public class guide — Grandis Library links only the Ren Discord (<http://discord.gg/52rC3geGqC>), which is not indexable. Treat as a per-character flag with the derivation shown, not as a fact. |
 | Whether GMS renormalises job-restricted line pools | **UNVERIFIED.** See the §7 caveat. Would make WSE targets ~2.5–3× cheaper. Largest single source of error. |
 | Whether GMS has a cube **pity** system (guaranteed tier-up after N failures, as KMS documents) | **UNVERIFIED.** No calculator models it. If GMS has it, all tier-up costs here are overestimates. |
@@ -1478,6 +1583,25 @@ used.
 | appleflash WSE optimiser notes — PDR targets | <https://www.appleflash.net/wse.html> |
 | Per-slot cubing summary (Reboot), DMT | <https://thedigitalcrowns.com/maplestory-dmt-cubing-guide-reboot/> |
 | Cube names/prices and per-slot special lines, dated 2024-03-11 | <https://www.digitaltq.com/maplestory-potential-guide> |
+
+**r/Maplestory threads (via the Arctic Shift archive)**
+
+| Topic | Thread |
+|---|---|
+| **The 2026 meso-efficiency ladder; per-slot done-states; permanence policy** | <https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/> |
+| **"fake 3L" vs "real 3L"; double-prime discouragement; 27%→30% "don't bother"** | <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/> |
+| **Glowing vs Bright rubric ("30+ glowing, 33+ bright")** | <https://www.reddit.com/r/Maplestory/comments/12mlhfi/glowing_cube_vs_bright_cube_for_ranking_up/> |
+| **2L crit-damage glove costs (387–400 bright ≈ 8–10B) and variance** | <https://www.reddit.com/r/Maplestory/comments/1coonjr/2_line_crit_damage_glove/> · <https://www.reddit.com/r/Maplestory/comments/1lnksxg/two_line_crit_damage/> |
+| **3L crit ≈ 2.3–3T** | <https://www.reddit.com/r/Maplestory/comments/1lnksxg/two_line_crit_damage/n0hkoam/> · <https://www.reddit.com/r/Maplestory/comments/nxqgrz/did_nexon_remove_the_possibility_of_3l_crit/h1gfij7/> |
+| **Unique→Legendary tier-up rate, 5.8k-cube sample (4.8%)** | <https://www.reddit.com/r/Maplestory/comments/10xn3do/250_bright_black_cube_tierup_results/> |
+| Unique→Legendary spends | <https://www.reddit.com/r/Maplestory/comments/145hvqc/whats_the_most_youve_spent_cubing_from_unique_to/> · <https://www.reddit.com/r/Maplestory/comments/1fe50uq/legendary_cubing_reboot/> |
+| **Drop/meso hybrid economics (bright 4.4B vs glowing 5.568B)** | <https://www.reddit.com/r/Maplestory/comments/1crpn6s/double_prime_for_dropmeso_gear/> · <https://www.reddit.com/r/Maplestory/comments/1e4riyn/when_is_it_not_worth_going_for_hybrid_lines/> · <https://www.reddit.com/r/Maplestory/comments/1sos7e4/drop_gear_cubing/> |
+| Cube-vs-Star-Force ordering | <https://www.reddit.com/r/Maplestory/comments/13grpp1/cubing_order/> · <https://www.reddit.com/r/Maplestory/comments/13j9dsw/progression_of_starforce_and_cubing/> · <https://www.reddit.com/r/Maplestory/comments/1pbu9q4/gear_progression_after_sf_change/> |
+| Don't cube replaceable gear | <https://www.reddit.com/r/Maplestory/comments/1msjykl/cubing_priority/> · <https://www.reddit.com/r/Maplestory/comments/1q07t0w/what_exactly_is_the_meta_gear_progression/> · <https://www.reddit.com/r/Maplestory/comments/1qrs7gz/eternal_armor_progression_questions/> |
+| Bossing-mule stopping points | <https://www.reddit.com/r/Maplestory/comments/18gpkyq/what_equipment_is_good_to_aim_for_when_it_comes/> · <https://www.reddit.com/r/Maplestory/comments/1s4wjuq/ctene_mules_cubing_breakpoint/> |
+| Budgeting at the 75th percentile; community cost spreadsheet | <https://www.reddit.com/r/Maplestory/comments/1knrs2m/comparison_guide_for_how_much_starforcing_and/> |
+| No Bonus Potential in Heroic | <https://www.reddit.com/r/Maplestory/comments/1eskv24/serious_question_what_are_your_thought_of_bonus/> · <https://www.reddit.com/r/Maplestory/comments/10xfl9j/psa_dont_redeem_the_new_cube_fragments_for/> |
+| Secondary must carry IED for 300% PDR (older but structural) | <https://www.reddit.com/r/Maplestory/comments/vncdyq/reboot_destiny_main_220235_ultimate_guide/> |
 
 **Calculators (the cost model, and the preset lists that reveal what players chase)**
 
