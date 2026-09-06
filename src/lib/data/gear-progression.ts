@@ -227,6 +227,27 @@ export interface SlotPath {
 // Reusing these keeps the "why" text identical everywhere the same reasoning
 // applies, and keeps this file readable. Each cites the research section.
 
+/**
+ * The one-sentence reason 22 stars is the ceiling, appended to every stage that
+ * stops there.
+ *
+ * ⚠️ It is deliberately NOT "stars 23+ grant no class stat, so 22 is the ceiling".
+ * That conclusion does not follow. Main stat does freeze at 22
+ * (`starforce.LAST_STAT_STAR`), but ATT keeps climbing — armour at item level 160
+ * gains +19 / +21 / +23 ATT at 23 / 24 / 25 — and on weapons the gain ACCELERATES
+ * there (+13 at 22, then +31 / +32 / +33; see `WEAPON_ATT_JUMP_AT_23`). Nate:
+ * "The value of upper star force values is they start giving atk." Saying the band
+ * is worthless is wrong, and it reaches users through `stop.why`.
+ *
+ * The cap is real, but it rests on COST and RISK. Kept in one constant so the two
+ * dozen stages that stop at 22 cannot drift apart on the reason.
+ */
+const WHY_22_IS_THE_CEILING =
+	' Stop at 22 — not because the band above is worthless (main stat freezes there but ATT ' +
+	'keeps climbing), but because Safeguard ends at 17 and the expected cost per further star ' +
+	'is not recoverable: 22 to 30 runs ~2.4e7 attempts and ~1.1e6 destroyed copies. No guide ' +
+	'recommends going past 22.';
+
 /** UG P1: "Get all items except magnus cape, boots, and belt 10 star max". */
 const STOP_STARTER_ACCESSORY: StopPoint = {
 	stars: 10,
@@ -281,10 +302,8 @@ const STOP_17_THEN_22_LEGENDARY: StopPoint = {
 	why:
 		'You keep this for a long time, so it earns Legendary potential and real flames. ' +
 		'Take it to 17 first (Safeguard-protected), then push 21-22 on a Star Force event ' +
-		'with backups. 22 is the practical ceiling on COST, not because the band above it ' +
-		'is worthless: main stat does freeze at 22, but ATT keeps climbing. What stops you ' +
-		'is that Safeguard ends at 17 and the expected cost per further star is not ' +
-		'recoverable — 22 to 30 runs ~2.4e7 attempts and ~1.1e6 destroyed copies.',
+		'with backups.' +
+		WHY_22_IS_THE_CEILING,
 	sources: [
 		'research §4.2, §4.3 — UG Phase 2/3; DTQ mid 17 / end 22; UG Phase 4 "22 star everything"; starforce.ts STAR_RATES + TRACE_RECOVERY'
 	]
@@ -734,7 +753,8 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 						'UG: "Arcane items should all be 17 stars first, then 3 Line Legendary with 23%+ ' +
 						'Stat each" — stars before cubes at the tier transition, then push 21-22 on an ' +
 						'event. DTQ: this gear "is quite easy to get, so getting it to 22 Star should be ' +
-						'the priority as soon as possible."',
+						'the priority as soon as possible."' +
+						WHY_22_IS_THE_CEILING,
 					sources: ['research §4.3 — UG Phase 3; DTQ end-game table 22 Stars']
 				},
 				movesOnWhen:
@@ -844,7 +864,8 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 						'The keeper. Part of the Superior Gollux 4-set (+30% Boss Damage, +30% IED). ' +
 						'17 stars now, 22 on an event once you have Hellux backups. UG: cube to Legendary ' +
 						'instead of Unique only "if you are getting consistent Hellux carries" — otherwise ' +
-						'stay Epic/Unique and transfer-hammer a Reinforced belt or Pink Bean belt in.',
+						'stay Epic/Unique and transfer-hammer a Reinforced belt or Pink Bean belt in.' +
+						WHY_22_IS_THE_CEILING,
 					sources: [
 						'research §3 — UG Phase 2; DTQ mid 17 / end 22; sets.json Superior Gollux Set 4-set (screenshot-verified)'
 					]
@@ -897,7 +918,8 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					flames: 'invest',
 					why:
 						'Pitched Boss Set — a long-term goal, never a ranked upgrade. If one does drop, ' +
-						'UG: pitched items are "only really worth using if they\'re 22star in most cases".',
+						'UG: pitched items are "only really worth using if they\'re 22star in most cases".' +
+						WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — UG Phase 4; DTQ end-game table']
 				}
 			}
@@ -965,7 +987,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'invest',
-					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.',
+					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.' + WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Berserked']
 				}
 			},
@@ -984,7 +1006,9 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'invest',
-					why: 'Brilliant Boss Set (the community "Radiant"/Grandis set) — long-term goal only.',
+					why:
+						'Brilliant Boss Set (the community "Radiant"/Grandis set) — long-term goal only.' +
+						WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Brilliant_Boss_Set']
 				}
 			}
@@ -1103,7 +1127,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'invest',
-					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.',
+					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.' + WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Magic_Eyepatch']
 				}
 			}
@@ -1149,7 +1173,8 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					flames: 'invest',
 					why:
 						'Fourth piece of the Superior Gollux 4-set (+30% Boss Damage, +30% IED). ' +
-						'17 now, 22 on an event with backups.',
+						'17 now, 22 on an event with backups.' +
+						WHY_22_IS_THE_CEILING,
 					sources: ['research §3 — UG Phase 3 "Gollux - Superior 4 set"; DTQ mid 17 / end 22']
 				}
 			},
@@ -1169,7 +1194,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'invest',
-					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.',
+					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.' + WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Source_of_Suffering']
 				}
 			}
@@ -1249,7 +1274,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'invest',
-					why: 'Brilliant Boss Set — long-term goal only.',
+					why: 'Brilliant Boss Set — long-term goal only.' + WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Brilliant_Boss_Set']
 				}
 			}
@@ -1331,7 +1356,8 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 						'Gollux set counts, Dawn Guardian Angel Ring + Twilight Mark give the Dawn 2-set ' +
 						"(+10% Boss Damage), and Kanna's Treasure and the Meister Ring are pure stat " +
 						"sticks. All are 30-star capable and UG names 21-22 stars on Kanna's Treasure " +
-						'and the Meister Ring by name. Rings never take flames.',
+						'and the Meister Ring by name. Rings never take flames.' +
+						WHY_22_IS_THE_CEILING,
 					sources: [
 						'research §3 — UG Phase 3 "21-22 star Kanna\'s Treasure & Meister ring"; DTQ mid/end tables'
 					]
@@ -1353,7 +1379,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'not-applicable',
-					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.',
+					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.' + WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Endless_Terror']
 				}
 			},
@@ -1374,7 +1400,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'not-applicable',
-					why: 'Brilliant Boss Set — long-term goal only.',
+					why: 'Brilliant Boss Set — long-term goal only.' + WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Brilliant_Boss_Set']
 				}
 			}
@@ -1424,7 +1450,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					]
 				},
 				movesOnWhen:
-					'Never, mechanically — but a ladder ring (Gollux, Kanna\'s Treasure, Meister, ' +
+					"Never, mechanically — but a ladder ring (Gollux, Kanna's Treasure, Meister, " +
 					'Dawn Guardian Angel) outscales it once you have four of them, because those ' +
 					'take star force and these do not.'
 			}
@@ -1490,7 +1516,8 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					why:
 						'Superior Gollux 4-set piece (+30% Boss Damage, +30% IED). 17 now, 22 on event ' +
 						'with Hellux backups; UG allows Legendary here instead of Unique once Hellux ' +
-						'carries are consistent.',
+						'carries are consistent.' +
+						WHY_22_IS_THE_CEILING,
 					sources: ['research §3 — UG Phase 2; DTQ mid 17 / end 22']
 				}
 			},
@@ -1510,7 +1537,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					starsOnEvent: 22,
 					potential: 'legendary',
 					flames: 'invest',
-					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.',
+					why: 'Pitched Boss Set — long-term goal, never a ranked upgrade.' + WHY_22_IS_THE_CEILING,
 					sources: ['research §6 — https://maplestorywiki.net/w/Dreamy_Belt']
 				}
 			}

@@ -15,6 +15,7 @@ import {
 	SLOT_PATHS,
 	STAR_CLIMB_COST,
 	THEORETICAL_MAX_STAR,
+	WEAPON_ATT_JUMP_AT_23,
 	gateRequirements,
 	getStage,
 	isOutOfScope,
@@ -27,7 +28,7 @@ import {
 	stopPointForItem,
 	type PathStage
 } from './gear-progression';
-import { findByName } from './items';
+import { capabilities, findByName } from './items';
 import { getBoss } from './bosses';
 import * as starforce from './starforce';
 
@@ -712,21 +713,15 @@ describe('seeded characters resolve end to end', () => {
 	};
 
 	/**
-	 * Individual items that are correctly not on a path. Event and exclusive-scroll
-	 * rings take no ordinary star force at all — `items/rules.ts` classifies them as
-	 * `exclusive-scroll-only` or `no-upgrade-slots`.
+	 * Individual items that are correctly not on a path.
+	 *
+	 * Event and exclusive-scroll rings USED to live here; they now have a real
+	 * stage (`ring-event`) with a stopping point, because falling through to
+	 * `unknown` is what let a 30%+ Legendary cube goal onto the board without any
+	 * prescribed target behind it. Keep this list empty if you can — a name here is
+	 * a name the tracker will say nothing about.
 	 */
-	const ITEMS_NOT_ON_A_PATH = new Set(
-		[
-			'Ring of Restraint',
-			'Heroic Awake Ring (Lv. 4)',
-			'Awake Ring',
-			'Vengeful Ring',
-			'Cosmos Ring',
-			'Eternal Flame Ring',
-			"Libae's Prototype R Ring"
-		].map((n) => n.toLowerCase())
-	);
+	const ITEMS_NOT_ON_A_PATH = new Set<string>([]);
 
 	const dir = join(process.cwd(), 'data', 'characters');
 	let files: string[] = [];
@@ -775,6 +770,16 @@ describe('seeded characters resolve end to end', () => {
 				expect(['over-invested', 'impossible', 'above-global-cap']).toContain(verdict.verdict);
 			});
 
+			// An allow-list that has rotted is worse than no allow-list: it hides exactly
+			// the regression it was added to catch.
+			it('keeps the item allow-list minimal', () => {
+				const stale = [...ITEMS_NOT_ON_A_PATH].filter((n) => stageForItem(n, 'ring') !== undefined);
+				expect(
+					stale,
+					'these now resolve to a stage — remove them from ITEMS_NOT_ON_A_PATH'
+				).toEqual([]);
+			});
+
 			it('never leaves a star-forced item both unmatched and uncapped', () => {
 				for (const [slotKey, item] of equipment) {
 					if (item.starforce === undefined) continue;
@@ -790,4 +795,150 @@ describe('seeded characters resolve end to end', () => {
 			});
 		});
 	}
+});
+
+/* -------------------------------------------------------------------------- */
+/* The 22-star cap rests on COST, not on the band being worthless              */
+/* -------------------------------------------------------------------------- */
+
+describe('the reason for the 22-star cap is stated correctly', () => {
+	// Nate: "The value of upper star force values is they start giving atk."
+	// Main stat freezes at 22; ATT does not. Saying "23+ grants no class stat, so
+	// 22 is the ceiling" reads as "the band is worthless", which is false and shows
+	// up in user-facing notes. The cap is real but it rests on cost and risk.
+	it('confirms main stat freezes at 22 while ATT keeps climbing (armour)', () => {
+		const at = (stars: number) =>
+			starforce.cumulativeStarStats({ itemLevel: 160, kind: 'armor', stars });
+
+		// Class stat freezes at 22 — this half of the old rationale was true.
+		expect(at(23).stat).toBe(at(22).stat);
+		expect(at(25).stat).toBe(at(22).stat);
+		expect(at(22).stat).toBeGreaterThan(0);
+
+		// ...but ATT does not freeze, which is why the conclusion did not follow.
+		expect(at(23).att).toBeGreaterThan(at(22).att);
+		expect(at(25).att).toBeGreaterThan(at(23).att);
+		expect(at(23).att - at(22).att).toBe(19);
+		expect(at(25).att - at(24).att).toBe(23);
+	});
+
+	it('records the weapon ATT jump at 23, and that it accelerates there', () => {
+		const delta = (stars: number) =>
+			starforce.cumulativeStarStats({ itemLevel: 150, kind: 'weapon', stars }).att -
+			starforce.cumulativeStarStats({ itemLevel: 150, kind: 'weapon', stars: stars - 1 }).att;
+
+		for (const row of WEAPON_ATT_JUMP_AT_23.weaponAttDeltaLv150) {
+			expect(delta(row.star), `weapon ${row.star}★`).toBe(row.att);
+		}
+		// The jump is the point: +13 at 22 becomes +31 at 23.
+		expect(delta(23)).toBeGreaterThan(delta(22) * 2);
+
+		// And it is much larger than the armour gain over the same band.
+		const armourDelta = (stars: number) =>
+			starforce.cumulativeStarStats({ itemLevel: 160, kind: 'armor', stars }).att -
+			starforce.cumulativeStarStats({ itemLevel: 160, kind: 'armor', stars: stars - 1 }).att;
+		for (const row of WEAPON_ATT_JUMP_AT_23.armourAttDeltaLv160) {
+			expect(armourDelta(row.star), `armour ${row.star}★`).toBe(row.att);
+		}
+		expect(delta(23)).toBeGreaterThan(armourDelta(23));
+	});
+
+	it('does not turn the weapon jump into a recommendation', () => {
+		// No guide recommends it, and the weapon you finish on is locked at 22.
+		expect(WEAPON_ATT_JUMP_AT_23.recommendedByAnySource).toBe(false);
+		expect(WEAPON_ATT_JUMP_AT_23.reachableOnTerminalWeapon).toBe(false);
+
+		// The mechanical half: Genesis is granted at a fixed 22★ and takes no enhancement.
+		const genesis = capabilities({ name: 'Genesis Bow', slot: 'weapon' });
+		expect(genesis.fixedStarforce).toBe(22);
+		expect(genesis.canStarforce).toBe(false);
+
+		// So no weapon stage prescribes past 22 either.
+		for (const stage of ALL_STAGES) {
+			expect(stage.stop.starsOnEvent ?? 0, stage.id).toBeLessThanOrEqual(PRESCRIBED_MAX_STAR);
+		}
+	});
+
+	// The wording itself, because this text is user-facing.
+	it('never justifies the cap by claiming the band above 22 is worthless', () => {
+		const texts = ALL_STAGES.map((s) => `${s.id}: ${s.stop.why}`);
+		for (const text of texts) {
+			// The exact claim that was wrong: "no class stat ... so 22 is the ceiling".
+			expect(text).not.toMatch(/no class stat[^.]*\bso\b[^.]*ceiling/i);
+		}
+	});
+
+	it('justifies every 22-star stopping point by cost or risk', () => {
+		const capped = ALL_STAGES.filter(
+			(s) =>
+				s.stop.starsOnEvent === PRESCRIBED_MAX_STAR &&
+				// The Genesis weapon is a different case entirely: it is GRANTED at 22 and
+				// takes no enhancement, so there is no climb to justify stopping.
+				s.maxStars !== PRESCRIBED_MAX_STAR
+		);
+		expect(capped.length).toBeGreaterThan(3);
+		const silent = capped
+			.filter((s) => !/safeguard|cost|attempts|destroyed copies|risk/i.test(s.stop.why))
+			.map((s) => s.id);
+		expect(silent, 'these stop at 22 without saying why 22 is the ceiling').toEqual([]);
+	});
+
+	it('says the same thing in the unknown-item message', () => {
+		const why = starTargetVerdict('Pot Lid of Questionable Provenance', 30).why!;
+		expect(why).toMatch(/ATT keeps climbing/i);
+		expect(why).toMatch(/Safeguard/i);
+		expect(why).toMatch(/destroyed copies/i);
+	});
+});
+
+describe('event and exclusive-scroll rings have a stopping point', () => {
+	it.each([
+		'Eternal Flame Ring',
+		'Ring of Restraint',
+		"Libae's Prototype R Ring",
+		'Awake Ring',
+		'Cosmos Ring',
+		'Vengeful Ring'
+	])('%s resolves to the event-ring stage', (name) => {
+		expect(stageForItem(name, 'ring')?.id).toBe('ring-event-only');
+	});
+
+	it('prescribes cubing but no star force, because the catalogue forbids it', () => {
+		const stage = stageForItem('Eternal Flame Ring', 'ring')!;
+		// Absent, not 0 — "not applicable" and "zero" are different facts.
+		expect(stage.stop.stars).toBeUndefined();
+		expect(stage.stop.potential).toBe('legendary');
+		expect(stage.stop.flames).toBe('not-applicable');
+		expect(capabilities({ name: 'Eternal Flame Ring', slot: 'ring' }).canStarforce).toBe(false);
+		expect(capabilities({ name: 'Eternal Flame Ring', slot: 'ring' }).canPotential).toBe(true);
+	});
+
+	it('cannot swallow a ladder ring, because every one of those IS star-forceable', () => {
+		for (const name of [
+			'Superior Gollux Ring',
+			'Reinforced Gollux Ring',
+			"Kanna's Treasure",
+			'Meister Ring',
+			'Dawn Guardian Angel Ring',
+			'Guardian Angel Ring',
+			'Silver Blossom Ring',
+			'Endless Terror'
+		]) {
+			expect(capabilities({ name, slot: 'ring' }).canStarforce, name).toBe(true);
+			expect(stageForItem(name, 'ring')?.id, name).not.toBe('ring-event-only');
+		}
+	});
+
+	it('does not claim an item the catalogue has never heard of', () => {
+		// `capabilities` degrades permissively for unknown names; the matcher must
+		// require a positive "known, and cannot be star forced" answer.
+		expect(stageForItem('Ring of Total Fabrication', 'ring')).toBeUndefined();
+	});
+
+	it('restricts the capability matcher to rings', () => {
+		for (const stage of ALL_STAGES) {
+			if (!stage.match?.nonStarforceable) continue;
+			expect(stage.match.slots).toEqual(['ring']);
+		}
+	});
 });

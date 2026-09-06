@@ -1250,6 +1250,9 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 
 		const group = potentialLines.poolGroupForSlot(slot);
 		if (group && item.itemLevel !== undefined && source.grade !== 'rare') {
+			// Captured once: the narrowing above does not survive into the closures
+			// passed to goalContribution below.
+			const itemLevel = item.itemLevel;
 			for (const goal of slotGoals(group, cls, item.itemLevel)) {
 				// A rung past the prescribed main-stat % is over-investment in gear
 				// this stage is going to hand off. Reported, not silently dropped.
@@ -1392,9 +1395,9 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 									group,
 									source.grade,
 									[k as potentialLines.PoolLineKind],
-									item.itemLevel
+									itemLevel
 								)
-							: lineValueForKind(k, source.grade, item.itemLevel!, category, slot)
+							: lineValueForKind(k, source.grade, itemLevel, category, slot)
 				);
 				if (!contribution) continue;
 

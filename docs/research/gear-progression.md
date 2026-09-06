@@ -302,6 +302,17 @@ gated and later become drop gear.
 **Rings never take flames** (`REPO` `rules.ts` `flame-ineligible-slot`; `DTQ`: _"Some item slots
 cannot gain bonus stats: Emblem, Badge, Medal, Secondary, Shoulder, Rings"_). Stars + cubes only.
 
+**Event and exclusive-scroll rings are a separate, parallel path.** `Eternal Flame Ring`,
+`Ring of Restraint`, `Libae's Prototype R Ring` and the Awake / Vengeful / Cosmos line take **no
+star force at all** — the catalogue blocks it with `no-upgrade-slots`, or `exclusive-scroll-only`
+for the rings that only accept their own enhancement currency (`REPO` `items/rules.ts`). They do
+take potential. So their stopping point is "**cube to Legendary, and that is the whole job**", which
+is also what `UG` prescribes: _"definitely get 2-3 on your character for damage at first, then
+eventually to re-utilize as drop gear"_, and _"Items must be Legendary to get meso or drop rate."_
+There are ~130 such rings in the v270 catalogue and no naming convention unites them, so the data
+module matches them on the **capability** (`nonStarforceable`) rather than by name. Every ring on
+the damage ladder is star-forceable, so the two cannot collide.
+
 ### Belt — one path
 
 1. `Cracked` → `Solid` → `Reinforced Engraved Gollux Belt` (Lv 120/130/140), or `Golden Clover
@@ -362,13 +373,30 @@ Their _targets_ are still current; their _mechanics_ are not.
 
 ### 4.2 Why 22★ is the ceiling and 30★ is mythical
 
-**Mechanical reason.** `REPO` `starforce.ts` `LAST_STAT_STAR = 22`:
+**First, a correction to a tempting-but-wrong argument.** It is true that main stat stops at 22 —
+`REPO` `starforce.ts` `LAST_STAT_STAR = 22`:
 
 > "Class stat granted per star for stars 16-22 (all slot types…). **Stars 23-30 grant no class
 > stat.**" — `formulas.md` §4A §1.4, from
 > [Star Force Enhancement/Stat Tables](https://maplestorywiki.net/w/Star_Force_Enhancement/Stat_Tables)
 
-A Lv 200 armour piece gains **+15 main stat per star** at 16–22★ and **0** at 23–30★.
+**But "no class stat above 22" does NOT mean "the band above 22 is worthless", and the tracker must
+not say that it does.** ATT keeps climbing, and ATT is the most valuable stat in the game. Read off
+`REPO` `starforce.cumulativeStarStats`, armour at item level 160:
+
+| Star | Main stat  | ATT     | ATT gained |
+| ---- | ---------- | ------- | ---------- |
+| 22★  | 131        | 92      | —          |
+| 23★  | 131 (flat) | **111** | **+19**    |
+| 24★  | 131 (flat) | **132** | **+21**    |
+| 25★  | 131 (flat) | **155** | **+23**    |
+
+Nate put it directly: _"The value of upper star force values is they start giving atk."_
+
+So the 22★ cap is real, but it rests on **cost and risk**, not on the band being empty: Safeguard
+ends at 17, every attempt from 18 up can destroy the item, and the expected cost per further star
+stops being recoverable. That is the argument below, and it is the wording the data module's
+`stop.why` strings now carry (`WHY_22_IS_THE_CEILING`).
 
 **Probabilistic reason.** From `REPO` `STAR_RATES` (per attempt; Enhancement Mode 1, no Star Catch,
 safeguard unavailable above 17★):
@@ -406,10 +434,40 @@ expectation.** 30★ exists in GMS; it is not a goal, and the tracker must never
 candidate. 22★ is the real ceiling, and even that costs ~196 attempts and ~8 booms from 17★ —
 which is why every guide treats 22★ as a _late_ activity done with backups, on events.
 
-**The one real exception:** weapons get a discontinuity at 23★ — `REPO` `WEAPON_ATT_DELTA_16_25`
-jumps from +12/+13/+14/+17 at 22★ to **+30/+31/+32/+34** at 23★. It is the only mechanical reason
-anyone looks past 22★, and at 1.13 expected booms per success it is a lottery. No guide
-recommends it.
+**The weapon case, which is genuinely different.** On weapons the ATT gain does not merely continue
+past 22 — it **accelerates**, and exactly at the 23 boundary. From `REPO`
+`starforce.cumulativeStarStats`, weapon at item level 150:
+
+| Star | ATT gained |
+| ---- | ---------- |
+| 20★  | +11        |
+| 21★  | +12        |
+| 22★  | +13        |
+| 23★  | **+31**    |
+| 24★  | **+32**    |
+| 25★  | **+33**    |
+
+Against armour's +19/+21/+23 over the same band, that is a real discontinuity, and it is the one
+place where "past 22" is lucrative rather than merely non-zero. It is still not a recommendation,
+for two independent reasons:
+
+1. **No source recommends it — there is no dissent to record.** Searched across all three guides:
+   `UG` Phase 4 says _"22 star everything (other than pitched)"_ and its only "23" is _"23%+ Stat"_
+   (potential, not stars); `DTQ`'s end-game star column reads 22 in every row; `GL`'s _"max. 25
+   stars"_ is its stale pre-revamp cap, not advice. I looked specifically for a guide arguing that
+   a final, non-replaceable weapon is the exception worth pushing, and **found none**. There is no
+   `disputed` branch here because nobody disputes it.
+2. **On the weapon you actually finish with, it is unreachable.** The terminal GMS Heroic weapon is
+   the **Genesis weapon, granted at a fixed 22★ that cannot be enhanced at all** (`REPO`
+   `items/rules.ts` `liberated-weapon-fixed-star`;
+   [wiki](https://maplestorywiki.net/w/Genesis_Weapon)). The only weapon that can pass 22★ is a
+   Destiny stage-2, and that caps at **25★, not 30★** (`items/rules.ts` `destiny-stage-ambiguous`).
+   So buying the jump means buying it on an Arcane or CRA weapon you are about to throw away — at
+   1.13 expected destroyed copies per successful 22→23 attempt.
+
+Recorded in the data module as `WEAPON_ATT_JUMP_AT_23`, with
+`recommendedByAnySource: false` and `reachableOnTerminalWeapon: false`, so the distinction is
+preserved rather than flattened into "23+ is worthless".
 
 **Why 17★ is the universal mid-tier number.** Safeguard exists at 15★, 16★, 17★ only, converts
 destruction to maintain, and costs +200% base (`REPO` `SAFEGUARD_STARS`,
@@ -752,3 +810,7 @@ not necessarily a mistake.
    measure different things (comfortable clear vs published floor).
 10. **Meso / day cost of any of this.** Out of scope here; `starforce.ts` owns the meso model and
     no guide publishes flame or cube counts.
+11. **Whether the weapon 23★ ATT jump is worth chasing on a final weapon.** Searched for a guide
+    arguing the exception and **found none** (§4.2) — so this is a documented ABSENCE of a source,
+    not a disagreement, and it is not recorded as `disputed`. The cap stands. If a source turns up
+    later, `WEAPON_ATT_JUMP_AT_23.recommendedByAnySource` is where it goes.
