@@ -293,7 +293,11 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 				// Returned only for items MISSING from the ladder, above the global
 				// 22-star ceiling. Failing closed here means a future name-matching
 				// gap produces no recommendation rather than a 30★ one — stars 23+
-				// grant no class stat on any item, laddered or not.
+				// grant no class STAT on any item, laddered or not. Note that ATT does
+				// keep climbing past 22 (armour 92 -> 111 -> 155 at 22/23/25★), and ATT
+				// is the most valuable stat in the game — so this cap rests on COST, not
+				// on the band being worthless. Above 22 there is no Safeguard and the
+				// climb to 30 runs ~2.4e7 attempts / ~1.1e6 destroyed copies.
 				verdict.verdict === 'above-global-cap'
 			) {
 				overInvested.push(`${to}★`);

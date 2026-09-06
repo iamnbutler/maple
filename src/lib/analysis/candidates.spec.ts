@@ -43,7 +43,9 @@ describe('star force candidates', () => {
 		expect(targets).toContain(18);
 		// Breakpoints are offered up to the PLAN, not the mechanical cap. The
 		// fixture's cape sits on a ladder stage that stops at 22 on event, so 23,
-		// 25 and 30 are correctly absent — stars 23+ grant no class stat at all.
+		// 25 and 30 are correctly absent. Stars 23+ grant no class STAT, though ATT
+		// does keep climbing there — the cap is a cost judgment, not a claim that
+		// the band is worthless.
 		const plan = gearProgression.starTargetVerdict(windArcherFixture().equipment.cape!.name, 30);
 		const ceiling = plan.known ? (plan.onEvent ?? plan.prescribed ?? 30) : 30;
 		expect(Math.max(...targets)).toBeLessThanOrEqual(ceiling);
@@ -79,7 +81,8 @@ describe('star force candidates', () => {
 		expect(statStep.delta.mainFlat).toBe(statStep.delta.subFlat);
 	});
 
-	// Stars 23-30 grant no class stat at all, and 22 -> 30 costs ~2.4e7 attempts
+	// Stars 23-30 grant no class stat (ATT does keep climbing), and 22 -> 30
+	// costs ~2.4e7 attempts
 	// and ~1.1e6 destroyed copies. Nate: "30 star is a thing of myth (no one will
 	// ever see)". A laddered item must not be offered one.
 	it('never offers 30★ on an item the progression ladder covers', () => {
