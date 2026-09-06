@@ -176,6 +176,85 @@ const STAT_BLOCK_LABELS: [keyof import('$lib/schema').StatBlock, string, boolean
 ];
 
 /** A `StatBlock` as ordered `{ label, value }` pairs, skipping absent fields. */
+/**
+ * One stat line rendered the way the game renders it: a total, then the
+ * parenthesised decomposition.
+ *
+ * The component ORDER is `(base +starforce +flame)`, which was established by
+ * comparing captured tooltips against `starforce.cumulativeStarStats` — the
+ * middle number reproduces the star-force table exactly on every item checked
+ * (Royal Warrior Helm 17★ stat 62 / ATT 19 / HP 255, Fafnir sword 14★, Superior
+ * Gollux belt 18★, Daybreak 16★, Dominator 17★). See
+ * docs/capture/2026-09-06-lutoren.md. Scroll upgrades are folded into `base`,
+ * matching `ItemSchema`.
+ *
+ * A component is only shown when the capture recorded one; an item with just a
+ * total renders as a bare total rather than an invented split.
+ */
+export type StatPartKind = 'base' | 'star' | 'scroll' | 'flame' | 'exceptional';
+
+/** Render order, and the order the game prints them in. */
+const STAT_PART_ORDER: StatPartKind[] = ['base', 'star', 'scroll', 'flame', 'exceptional'];
+
+export interface StatPart {
+	kind: StatPartKind;
+	value: number;
+	/** `40` for the leading base, `+62` for every component after it. */
+	text: string;
+}
+
+export interface StatRow {
+	label: string;
+	/** The big leading number, e.g. `+142`. */
+	total: string;
+	/** Empty when no decomposition was captured. */
+	parts: StatPart[];
+	/** True when the parts do not sum to the total — a transcription check. */
+	inconsistent: boolean;
+}
+
+type AnyItem = {
+	total?: import('$lib/schema').StatBlock;
+	base?: import('$lib/schema').StatBlock;
+	star?: import('$lib/schema').StatBlock;
+	scroll?: import('$lib/schema').StatBlock;
+	flame?: import('$lib/schema').StatBlock;
+	exceptional?: import('$lib/schema').StatBlock;
+};
+
+export function statBreakdown(item: AnyItem | undefined): StatRow[] {
+	if (!item) return [];
+	const rows: StatRow[] = [];
+
+	for (const [key, label, isPercent] of STAT_BLOCK_LABELS) {
+		const parts: StatPart[] = [];
+		for (const kind of STAT_PART_ORDER) {
+			const value = item[kind]?.[key];
+			if (value === undefined) continue;
+			const lead = parts.length === 0;
+			const sign = value < 0 ? '' : lead ? '' : '+';
+			parts.push({ kind, value, text: `${sign}${value}${isPercent ? '%' : ''}` });
+		}
+
+		const total = item.total?.[key];
+		if (total === undefined && parts.length === 0) continue;
+
+		const summed = parts.reduce((n, p) => n + p.value, 0);
+		const shown = total ?? summed;
+		const sign = shown >= 0 ? '+' : '';
+
+		rows.push({
+			label,
+			total: `${sign}${shown}${isPercent ? '%' : ''}`,
+			// A single component carries no information the total does not.
+			parts: parts.length > 1 ? parts : [],
+			inconsistent: total !== undefined && parts.length > 1 && summed !== total
+		});
+	}
+
+	return rows;
+}
+
 export function statEntries(
 	block: import('$lib/schema').StatBlock | undefined
 ): { label: string; value: string }[] {

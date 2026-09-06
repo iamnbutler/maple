@@ -5,8 +5,11 @@
 // `$lib/data/symbols`, which use their own region ids (`chu_chu_island`,
 // `arcus`, `shangri_la`); the two vocabularies are reconciled here.
 //
-// Note the naming: the schema and the research call the Grandis pool "Sacred",
-// the in-game window calls it "Authentic". The tab label follows the game.
+// Naming: GMS calls the Grandis pool "Sacred" everywhere — the equipment window
+// tab reads SACRED, the panel header SACRED EQUIPMENT / SAC, and the stat window
+// SACRED POWER (confirmed against a client screenshot, IMG_7959 / IMG_7957 in
+// docs/capture/2026-09-06-lutoren.md). "Authentic" is the KMS/MSEA name and must
+// not reach the UI.
 
 import {
 	ARCANE_MAX_LEVEL,
@@ -43,7 +46,7 @@ export interface SymbolTile {
 	level: number | null;
 	maxLevel: number;
 	maxed: boolean;
-	/** Arcane / Authentic force this symbol contributes at its current level. */
+	/** Arcane / Sacred power this symbol contributes at its current level. */
 	force: number;
 	/** Main stat contributed. Grand Sacred symbols give none. */
 	stat: number;
@@ -55,7 +58,7 @@ export interface SymbolTile {
 }
 
 export interface SymbolPool {
-	id: 'arcane' | 'authentic';
+	id: 'arcane' | 'sacred';
 	label: string;
 	forceLabel: string;
 	tiles: SymbolTile[];
@@ -155,14 +158,14 @@ function summarize(
 export function arcanePool(symbols: Symbols | undefined): SymbolPool {
 	const levels = symbols?.arcane ?? {};
 	const tiles = ARCANE_SLOTS.map((region) => arcaneTile(region, levels[region] ?? null));
-	return summarize('arcane', 'Arcane', 'Arcane Force', tiles);
+	return summarize('arcane', 'Arcane', 'Arcane Power', tiles);
 }
 
 /**
- * The Authentic pool: the six Sacred regions, plus Tallahart and anything in
+ * The Sacred pool: the six Sacred regions, plus Tallahart and anything in
  * `symbols.grandis`, which feed the same force pool but grant no main stat.
  */
-export function authenticPool(symbols: Symbols | undefined): SymbolPool {
+export function sacredPool(symbols: Symbols | undefined): SymbolPool {
 	const levels = symbols?.sacred ?? {};
 	const tiles: SymbolTile[] = [];
 
@@ -187,5 +190,5 @@ export function authenticPool(symbols: Symbols | undefined): SymbolPool {
 		tiles.push(sacredTile(key, name, level, true));
 	}
 
-	return summarize('authentic', 'Authentic', 'Authentic Force', tiles);
+	return summarize('sacred', 'Sacred', 'Sacred Power', tiles);
 }

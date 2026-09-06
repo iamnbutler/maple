@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { Symbols } from '$lib/schema';
 	import { int } from '$lib/ui/format';
-	import { arcanePool, authenticPool, type SymbolPool } from '$lib/ui/symbols';
+	import { arcanePool, sacredPool, type SymbolPool } from '$lib/ui/symbols';
 
 	let { symbols, characterId }: { symbols?: Symbols; characterId?: string } = $props();
 
-	const pools = $derived([arcanePool(symbols), authenticPool(symbols)]);
+	const pools = $derived([arcanePool(symbols), sacredPool(symbols)]);
 
-	let active = $state<'arcane' | 'authentic'>('arcane');
+	let active = $state<'arcane' | 'sacred'>('arcane');
 
 	// Land on whichever pool actually has data, without fighting a manual choice.
 	let touched = $state(false);

@@ -16,7 +16,17 @@
 
 	let { data } = $props();
 
-	let selected = $state<Slot | null>(null);
+	// The open item panel lives in the URL (`?slot=weapon`) so a particular item
+	// can be linked to, reloaded, and screenshotted.
+	const selected = $derived((page.url.searchParams.get('slot') as Slot | null) ?? null);
+
+	function selectSlot(slot: Slot | null) {
+		const params = new URLSearchParams(page.url.searchParams);
+		if (slot === null) params.delete('slot');
+		else params.set('slot', slot);
+		const query = params.toString();
+		void goto(query ? `?${query}` : page.url.pathname, { keepFocus: true, noScroll: true });
+	}
 
 	const character = $derived(data.character);
 	const analysis = $derived(data.analysis);
@@ -78,7 +88,7 @@
 				<EquipmentGrid
 					equipment={character.equipment ?? {}}
 					{selected}
-					onselect={(slot) => (selected = selected === slot ? null : slot)}
+					onselect={(slot) => selectSlot(selected === slot ? null : slot)}
 				/>
 				<div class="legend">
 					<span class="key" style:--c="var(--grade-rare)">rare</span>
@@ -102,7 +112,7 @@
 					item={character.equipment?.[selected]}
 					readOnly={data.demo}
 					onsaved={() => invalidateAll()}
-					onclose={() => (selected = null)}
+					onclose={() => selectSlot(null)}
 				/>
 			{/key}
 		{/if}

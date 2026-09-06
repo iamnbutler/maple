@@ -7,7 +7,7 @@
 	import { CATEGORY_BY_SLOT, type Item, type Slot } from '$lib/schema/item';
 	import { int, stars } from '$lib/ui/format';
 	import { resolveIconUrl } from '$lib/ui/icons';
-	import { GRADE_COLORS, GRADE_LABELS, SLOT_LABELS, statEntries } from '$lib/ui/slots';
+	import { GRADE_COLORS, GRADE_LABELS, SLOT_LABELS, statBreakdown } from '$lib/ui/slots';
 
 	import ItemIcon from './ItemIcon.svelte';
 
@@ -99,12 +99,10 @@
 		}
 	}
 
-	const totals = $derived(statEntries(item?.total));
-	const breakdown = $derived(
-		(['base', 'flame', 'scroll', 'star', 'exceptional'] as const)
-			.map((key) => ({ key, entries: statEntries(item?.[key]) }))
-			.filter((row) => row.entries.length > 0)
-	);
+	// One list, rendered the way the in-game tooltip does it:
+	//   STR  +142 (40 +62 +40)
+	// rather than four separate per-component tables.
+	const statRows = $derived(statBreakdown(item));
 </script>
 
 <aside class="panel">
@@ -129,23 +127,31 @@
 				{#if item.superior}<span class="star">Superior</span>{/if}
 			</div>
 
-			{#if totals.length}
-				<h3>Total</h3>
+			{#if statRows.length}
 				<ul class="stats total">
-					{#each totals as entry (entry.label)}
-						<li><span>{entry.label}</span><span class="num">{entry.value}</span></li>
+					{#each statRows as row (row.label)}
+						<li>
+							<span>{row.label}</span>
+							<span class="num">
+								<span class="tot">{row.total}</span>
+								{#if row.parts.length}
+									<span
+										class="parts"
+										class:bad={row.inconsistent}
+										title={row.inconsistent
+											? 'the captured components do not sum to the total'
+											: 'base + star force + flame'}
+									>
+										{#each row.parts as part (part.kind)}
+											<span class="p {part.kind}">{part.text}</span>
+										{/each}
+									</span>
+								{/if}
+							</span>
+						</li>
 					{/each}
 				</ul>
 			{/if}
-
-			{#each breakdown as row (row.key)}
-				<h3>{row.key}</h3>
-				<ul class="stats">
-					{#each row.entries as entry (entry.label)}
-						<li><span>{entry.label}</span><span class="num">{entry.value}</span></li>
-					{/each}
-				</ul>
-			{/each}
 
 			{#each [{ key: 'potential', pot: item.potential }, { key: 'bonusPotential', pot: item.bonusPotential }] as block (block.key)}
 				{#if block.pot}
@@ -340,6 +346,44 @@
 		color: var(--text-dim);
 		border-bottom: 1px solid var(--line-soft);
 		padding: 1px 0;
+	}
+
+	/* The in-game decomposition: base is plain, star force cyan, flames green —
+	   the same reading order the tooltip uses. */
+	.parts {
+		margin-left: 0.35em;
+		font-size: 0.9em;
+	}
+	/* Whitespace between the components comes from here rather than from the
+	   markup, so the each-block stays free of separator logic. */
+	.parts .p + .p {
+		margin-left: 0.3em;
+	}
+	/* Brackets as pseudo-elements, so the markup can stay formatted without
+	   leaking whitespace inside the parentheses. */
+	.parts::before {
+		content: '(';
+		color: var(--dim);
+	}
+	.parts::after {
+		content: ')';
+		color: var(--dim);
+	}
+	.parts .p.base {
+		color: var(--dim);
+	}
+	.parts .p.star {
+		color: #6fc5e0;
+	}
+	.parts .p.scroll,
+	.parts .p.flame {
+		color: #74c26a;
+	}
+	.parts .p.exceptional {
+		color: #d6a13c;
+	}
+	.parts.bad {
+		text-decoration: underline wavy var(--bad, #c46);
 	}
 
 	.stats.total li {

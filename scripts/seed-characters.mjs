@@ -74,6 +74,9 @@ const lutorenGear = {
 	weapon: item(
 		'Fafnir Soaring Sword',
 		{
+			base: { str: 40, dex: 40, att: 171 },
+			star: { str: 37, dex: 37, maxHp: 230, maxMp: 230, att: 62 },
+			flame: { str: 48, att: 42 },
 			itemLevel: 150,
 			starforce: 14,
 			setName: 'Root Abyss Set (Warrior)',
@@ -98,6 +101,9 @@ const lutorenGear = {
 	hat: item(
 		'Royal Warrior Helm',
 		{
+			base: { str: 40, dex: 40, maxHp: 360, att: 2 },
+			star: { str: 62, dex: 62, maxHp: 255, att: 19, matt: 19 },
+			flame: { str: 40, dex: 32, att: 6 },
 			itemLevel: 150,
 			starforce: 17,
 			setName: 'Root Abyss Set (Warrior)',
@@ -123,6 +129,9 @@ const lutorenGear = {
 	top: item(
 		'Eagle Eye Warrior Armor',
 		{
+			base: { str: 30, dex: 30, def: 210, att: 2 },
+			star: { str: 31, dex: 31, maxHp: 180, def: 176 },
+			flame: { str: 20, dex: 36, att: 5 },
 			itemLevel: 150,
 			starforce: 12,
 			setName: 'Root Abyss Set (Warrior)',
@@ -134,6 +143,9 @@ const lutorenGear = {
 	bottom: item(
 		'Trixter Warrior Pants',
 		{
+			base: { str: 30, dex: 30, def: 210, att: 2 },
+			star: { str: 31, dex: 31, maxHp: 180, maxMp: 2700, def: 176 },
+			flame: { str: 16, dex: 16, att: 6 },
 			itemLevel: 150,
 			starforce: 12,
 			setName: 'Root Abyss Set (Warrior)',
@@ -154,6 +166,9 @@ const lutorenGear = {
 	cape: item(
 		'AbsoLab Knight Cape',
 		{
+			base: { str: 15, dex: 15, int: 15, def: 250, att: 2 },
+			star: { str: 34, dex: 34, maxHp: 205, def: 229, att: 4 },
+			flame: { str: 25, int: 25, def: 45 },
 			itemLevel: 160,
 			starforce: 13,
 			setName: 'AbsoLab Set (Warrior)',
@@ -175,6 +190,9 @@ const lutorenGear = {
 	gloves: item(
 		'AbsoLab Knight Gloves',
 		{
+			base: { str: 20, dex: 20, def: 150, att: 5 },
+			star: { str: 37, dex: 37, def: 156, att: 6 },
+			flame: { str: 36, dex: 70, luk: 25, att: 7 },
 			itemLevel: 160,
 			starforce: 14,
 			setName: 'AbsoLab Set (Warrior)',
@@ -189,6 +207,9 @@ const lutorenGear = {
 	shoes: item(
 		'AbsoLab Knight Shoes',
 		{
+			base: { str: 20, dex: 20, def: 150, att: 5, speed: 10, jump: 7 },
+			star: { str: 34, dex: 34, def: 141, att: 6, speed: 14, jump: 14 },
+			flame: { str: 79, int: 25 },
 			itemLevel: 160,
 			starforce: 13,
 			setName: 'AbsoLab Set (Warrior)',
@@ -200,6 +221,8 @@ const lutorenGear = {
 	shoulder: item(
 		'Royal Black Metal Shoulder',
 		{
+			base: { str: 10, dex: 10, int: 10, luk: 10, def: 100 },
+			star: { str: 31, dex: 31, int: 31, luk: 31, maxHp: 180, def: 88 },
 			itemLevel: 120,
 			starforce: 12,
 			setName: 'Boss Accessory Set',
@@ -235,6 +258,9 @@ const lutorenGear = {
 	pendant1: item(
 		'Daybreak Pendant',
 		{
+			base: { str: 8, dex: 8, int: 8, luk: 8, def: 100, att: 2, matt: 2 },
+			star: { str: 49, dex: 49, int: 49, luk: 49, maxHp: 255, def: 130, att: 8, matt: 8 },
+			flame: { str: 24, dex: 88, luk: 16, att: 6 },
 			itemLevel: 140,
 			starforce: 16,
 			setName: 'Dawn Boss Set',
@@ -256,6 +282,9 @@ const lutorenGear = {
 	pendant2: item(
 		'Dominator Pendant',
 		{
+			base: { str: 20, dex: 20, int: 20, luk: 20, def: 100, att: 3, matt: 3 },
+			star: { str: 58, dex: 58, int: 58, luk: 58, maxHp: 255, def: 142, att: 17, matt: 17 },
+			flame: { str: 60, int: 40, luk: 20 },
 			itemLevel: 140,
 			starforce: 17,
 			setName: 'Boss Accessory Set',
@@ -289,6 +318,8 @@ const lutorenGear = {
 	ring2: item(
 		'Dawn Guardian Angel Ring',
 		{
+			base: { str: 5, dex: 5, int: 5, luk: 5, maxHp: 200 },
+			star: { str: 37, dex: 37, int: 37, luk: 37, maxHp: 230, def: 15 },
 			itemLevel: 160,
 			starforce: 14,
 			setName: 'Dawn Boss Set',
@@ -328,6 +359,9 @@ const lutorenGear = {
 	earrings: item(
 		"Will o' the Wisps",
 		{
+			base: { str: 7, dex: 7, int: 7, luk: 7, def: 100, att: 2, matt: 2 },
+			star: { str: 37, dex: 37, int: 37, luk: 37, def: 108, att: 5, speed: 5 },
+			flame: { str: 49 },
 			itemLevel: 130,
 			starforce: 14,
 			setName: 'Boss Accessory Set',
@@ -354,6 +388,9 @@ const lutorenGear = {
 	face: item(
 		'Condensed Power Crystal',
 		{
+			base: { str: 5, dex: 5, int: 5, luk: 5, def: 100, att: 5, matt: 5 },
+			star: { str: 25, dex: 25, int: 25, luk: 25, maxMp: 1650, def: 70, att: 4 },
+			flame: { str: 30 },
 			itemLevel: 110,
 			starforce: 10,
 			setName: 'Boss Accessory Set',
@@ -375,6 +412,9 @@ const lutorenGear = {
 	eye: item(
 		'Aquatic Letter Eye Accessory',
 		{
+			base: { str: 6, dex: 6, int: 6, luk: 6, def: 100, att: 1, matt: 1 },
+			star: { str: 19, dex: 19, int: 19, luk: 19, def: 53, speed: 5 },
+			flame: { str: 42, dex: 18 },
 			itemLevel: 100,
 			starforce: 8,
 			setName: 'Boss Accessory Set',
@@ -399,6 +439,19 @@ const lutorenGear = {
 	belt: item(
 		'Superior Engraved Gollux Belt',
 		{
+			base: {
+				str: 60,
+				dex: 60,
+				int: 60,
+				luk: 60,
+				maxHp: 200,
+				maxMp: 200,
+				def: 100,
+				att: 35,
+				matt: 35
+			},
+			star: { str: 73, dex: 73, int: 73, luk: 73, maxHp: 255, def: 155, att: 30, matt: 30 },
+			flame: { str: 16, int: 12, luk: 12 },
 			itemLevel: 150,
 			starforce: 18,
 			setName: 'Superior Gollux Set',
@@ -424,6 +477,8 @@ const lutorenGear = {
 	pocket: item(
 		'Pink Holy Cup',
 		{
+			base: { str: 5, dex: 5, int: 5, luk: 5, maxHp: 50, maxMp: 50, att: 5, matt: 5 },
+			flame: { str: 36, dex: 32, int: 20, luk: 16 },
 			itemLevel: 140,
 			setName: 'Boss Accessory Set',
 			total: {
@@ -458,6 +513,8 @@ const lutorenGear = {
 	heart: item(
 		'Fairy Heart',
 		{
+			base: { maxHp: 100 },
+			star: { str: 19, dex: 19, int: 19, luk: 19 },
 			itemLevel: 100,
 			starforce: 8,
 			total: { str: 19, dex: 19, int: 19, luk: 19, maxHp: 100 },
