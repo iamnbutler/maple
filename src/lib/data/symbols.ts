@@ -32,12 +32,7 @@
 /* -------------------------------------------------------------------------- */
 
 export type ArcaneRegion =
-	| 'vanishing_journey'
-	| 'chu_chu_island'
-	| 'lachelein'
-	| 'arcana'
-	| 'morass'
-	| 'esfera';
+	'vanishing_journey' | 'chu_chu_island' | 'lachelein' | 'arcana' | 'morass' | 'esfera';
 
 export const ARCANE_MAX_LEVEL = 20;
 
@@ -162,7 +157,8 @@ export function arcaneMesoToNextLevel(level: number, region: ArcaneRegion): numb
 /** Cumulative meso to take one Arcane Symbol from level 1 to `level`. */
 export function arcaneMesoToReach(level: number, region: ArcaneRegion): number {
 	let total = 0;
-	for (let l = 1; l < Math.min(level, ARCANE_MAX_LEVEL); l++) total += arcaneMesoToNextLevel(l, region);
+	for (let l = 1; l < Math.min(level, ARCANE_MAX_LEVEL); l++)
+		total += arcaneMesoToNextLevel(l, region);
 	return total;
 }
 
@@ -280,7 +276,14 @@ export const SACRED_REGIONS: Record<
  */
 export const GRAND_SACRED_REGIONS: Record<
 	GrandSacredRegion,
-	{ name: string; unlockLevel: number; mesoBase: number; dailyQuest: string; maxLevelBoss: string; dailyCoupons: number }
+	{
+		name: string;
+		unlockLevel: number;
+		mesoBase: number;
+		dailyQuest: string;
+		maxLevelBoss: string;
+		dailyCoupons: number;
+	}
 > = {
 	tallahart: {
 		name: 'Tallahart',
@@ -342,7 +345,10 @@ export function sacredSymbolsToReach(level: number): number {
  * (float math mis-computes Cernium 5→6 and 10→11 by 100,000).
  * formulas.md §4B §3 B.3.
  */
-export function sacredMesoToNextLevel(level: number, region: SacredRegion | GrandSacredRegion): number {
+export function sacredMesoToNextLevel(
+	level: number,
+	region: SacredRegion | GrandSacredRegion
+): number {
 	const symbols = sacredSymbolsToNextLevel(level);
 	if (symbols === 0) return 0;
 	const base =
@@ -355,7 +361,8 @@ export function sacredMesoToNextLevel(level: number, region: SacredRegion | Gran
 
 export function sacredMesoToReach(level: number, region: SacredRegion | GrandSacredRegion): number {
 	let total = 0;
-	for (let l = 1; l < Math.min(level, SACRED_MAX_LEVEL); l++) total += sacredMesoToNextLevel(l, region);
+	for (let l = 1; l < Math.min(level, SACRED_MAX_LEVEL); l++)
+		total += sacredMesoToNextLevel(l, region);
 	return total;
 }
 
@@ -471,7 +478,9 @@ export function arcaneSymbolsPerWeek(region: ArcaneRegion, opts: SymbolRateOptio
 	const rates = SYMBOL_RATE_SETS[opts.rateSet ?? DEFAULT_SYMBOL_RATE_SET];
 	const hasSideArea = ARCANE_REGIONS[region].dailyCouponsBeforeSideArea !== undefined;
 	const daily =
-		hasSideArea && opts.sideAreaUnlocked === false ? rates.arcaneDailyBeforeSideArea : rates.arcaneDaily;
+		hasSideArea && opts.sideAreaUnlocked === false
+			? rates.arcaneDailyBeforeSideArea
+			: rates.arcaneDaily;
 	const weekly =
 		opts.includeWeekly === false ? 0 : rates.arcaneWeeklyPerClear * rates.arcaneWeeklyClears;
 	return daily * 7 + weekly;

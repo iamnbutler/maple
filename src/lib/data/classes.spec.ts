@@ -61,20 +61,21 @@ describe('priority classes', () => {
 		expect(ren.weaponVariants).toBeUndefined();
 	});
 
-	it('Hero — 1H 1.34 vs 2H 1.44', () => {
+	it('Hero — two-handed only, 1.44, STR/DEX', () => {
 		const hero = getClass('hero');
-		// §1.5: "1.44 | Hero with 2H Sword / 2H Axe";
-		//       "1.34 | Hero with 1H Sword/1H Axe"
-		expect(hero.weaponVariants).toEqual({ '1h': 1.34, '2h': 1.44 });
-		expect(hero.weaponConstant).toBe(1.44); // default = the 2H constant
-		expect(hero.weaponVariants?.['1h']).toBe(1.34);
+		// §1.5: "1.44 | Hero with 2H Sword / 2H Axe". Hero is modelled as
+		// two-handed only, so the constant resolves to 1.44 with no variant
+		// argument and no variant machinery at all.
+		expect(hero.weaponConstant).toBe(1.44);
+		expect(hero.weaponVariants).toBeUndefined();
+		expect(hero.jobType).toBe('warrior');
 		expect(hero.primary).toEqual(['str']);
 		expect(hero.secondary).toEqual(['dex']);
+		expect(hero.usesMagicAttack).toBe(false);
 		expect(hero.masteryPercent).toBe(90); // §4.0 Hero 90-91%
 		// The weapon-type table agrees once the Hero override is applied.
 		expect(weaponConstantFor('two-handed-sword', 'hero')).toBe(1.44);
-		expect(weaponConstantFor('one-handed-sword', 'hero')).toBe(1.34);
-		expect(weaponConstantFor('one-handed-axe', 'hero')).toBe(1.34);
+		expect(weaponConstantFor('two-handed-axe', 'hero')).toBe(1.44);
 		expect(weaponConstantFor('two-handed-sword')).toBe(1.34); // non-Hero base
 	});
 

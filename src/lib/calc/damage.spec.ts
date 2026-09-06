@@ -151,10 +151,16 @@ describe('displayedRange (formulas.md §1.13)', () => {
 		);
 	});
 
-	it('applies the weapon variant a Hero is actually holding', () => {
+	it("uses the class's weapon constant, which for Hero is 1.44 (2H only)", () => {
 		const hero: CalcInput = { ...WIND_ARCHER, classId: 'hero' };
-		const twoHanded = displayedRange(hero); // class default is the 2H constant
-		const oneHanded = displayedRange({ ...hero, weaponConstantOverride: 1.34 });
-		expect(twoHanded.upperActual / oneHanded.upperActual).toBeCloseTo(1.44 / 1.34, 4);
+		// Hero primary STR / secondary DEX => 4*2100 + 41000 = 49400.
+		expect(displayedRange(hero).upperActual).toBe(Math.round((1.44 * 49_400 * 1200) / 100));
+	});
+
+	it('honours an explicit weaponConstantOverride (Paladin 1H vs 2H)', () => {
+		const paladin: CalcInput = { ...WIND_ARCHER, classId: 'paladin' };
+		const twoHanded = displayedRange(paladin); // class default is the 2H constant, 1.34
+		const oneHanded = displayedRange({ ...paladin, weaponConstantOverride: 1.24 });
+		expect(twoHanded.upperActual / oneHanded.upperActual).toBeCloseTo(1.34 / 1.24, 4);
 	});
 });

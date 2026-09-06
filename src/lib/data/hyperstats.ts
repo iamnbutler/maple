@@ -49,10 +49,34 @@ export interface HyperStatSpec {
 
 /** All 17 hyper stats. formulas.md §4B §1.1, §1.4, §1.5. */
 export const HYPER_STATS: Record<HyperStatKey, HyperStatSpec> = {
-	str: { key: 'str', label: 'STR', maxLevel: 15, unit: 'flat', note: 'final stat — not affected by %STR / %All Stat' },
-	dex: { key: 'dex', label: 'DEX', maxLevel: 15, unit: 'flat', note: 'final stat — not affected by %DEX / %All Stat' },
-	int: { key: 'int', label: 'INT', maxLevel: 15, unit: 'flat', note: 'final stat — not affected by %INT / %All Stat' },
-	luk: { key: 'luk', label: 'LUK', maxLevel: 15, unit: 'flat', note: 'final stat — not affected by %LUK / %All Stat' },
+	str: {
+		key: 'str',
+		label: 'STR',
+		maxLevel: 15,
+		unit: 'flat',
+		note: 'final stat — not affected by %STR / %All Stat'
+	},
+	dex: {
+		key: 'dex',
+		label: 'DEX',
+		maxLevel: 15,
+		unit: 'flat',
+		note: 'final stat — not affected by %DEX / %All Stat'
+	},
+	int: {
+		key: 'int',
+		label: 'INT',
+		maxLevel: 15,
+		unit: 'flat',
+		note: 'final stat — not affected by %INT / %All Stat'
+	},
+	luk: {
+		key: 'luk',
+		label: 'LUK',
+		maxLevel: 15,
+		unit: 'flat',
+		note: 'final stat — not affected by %LUK / %All Stat'
+	},
 	maxHpPercent: { key: 'maxHpPercent', label: 'Max HP %', maxLevel: 15, unit: 'percent' },
 	maxMpPercent: { key: 'maxMpPercent', label: 'Max MP %', maxLevel: 15, unit: 'percent' },
 	dfTf: {
@@ -63,7 +87,12 @@ export const HYPER_STATS: Record<HyperStatKey, HyperStatSpec> = {
 		note: 'Demon Slayer, Kanna, Kinesis, Zero only. Renamed from "Maximum DF/TF/PP" in the CROWN update.'
 	},
 	criticalRate: { key: 'criticalRate', label: 'Critical Rate', maxLevel: 15, unit: 'percent' },
-	criticalDamage: { key: 'criticalDamage', label: 'Critical Damage', maxLevel: 15, unit: 'percent' },
+	criticalDamage: {
+		key: 'criticalDamage',
+		label: 'Critical Damage',
+		maxLevel: 15,
+		unit: 'percent'
+	},
 	ignoreDefense: {
 		key: 'ignoreDefense',
 		label: 'Ignore Enemy DEF',
@@ -72,8 +101,18 @@ export const HYPER_STATS: Record<HyperStatKey, HyperStatSpec> = {
 		note: 'nominal IED; stacks multiplicatively — see HYPER_IED_EFFECTIVE_MARGINAL'
 	},
 	damage: { key: 'damage', label: 'Damage', maxLevel: 15, unit: 'percent' },
-	bossDamage: { key: 'bossDamage', label: 'Damage to Boss Monsters', maxLevel: 15, unit: 'percent' },
-	normalDamage: { key: 'normalDamage', label: 'Damage to Normal Monsters', maxLevel: 15, unit: 'percent' },
+	bossDamage: {
+		key: 'bossDamage',
+		label: 'Damage to Boss Monsters',
+		maxLevel: 15,
+		unit: 'percent'
+	},
+	normalDamage: {
+		key: 'normalDamage',
+		label: 'Damage to Normal Monsters',
+		maxLevel: 15,
+		unit: 'percent'
+	},
 	statusResistance: {
 		key: 'statusResistance',
 		label: 'Abnormal Status Resistance',
@@ -116,7 +155,9 @@ export const HYPER_STAT_PRESETS = 3;
  * StrategyWiki, the KMS simulator source and codingace's embedded data all agree
  * on the curve below. formulas.md §4B §1.2.
  */
-export const HYPER_STAT_LEVEL_COST = [0, 1, 2, 4, 8, 10, 15, 20, 25, 30, 35, 50, 65, 80, 95, 110] as const;
+export const HYPER_STAT_LEVEL_COST = [
+	0, 1, 2, 4, 8, 10, 15, 20, 25, 30, 35, 50, 65, 80, 95, 110
+] as const;
 
 /** Cumulative point cost to reach each level from 0. Level 15 = 550. */
 export const HYPER_STAT_CUMULATIVE_COST = [

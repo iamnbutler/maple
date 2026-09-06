@@ -55,8 +55,11 @@ const CLASS_LIST: ClassDef[] = [
 	// Explorers (formulas.md §4.1)
 	// ------------------------------------------------------------------
 	{
-		// §1.5: "1.44 | Hero with 2H Sword / 2H Axe", "1.34 | Hero with 1H Sword/1H Axe".
-		// Default to the 2H constant; `weaponVariants` carries both.
+		// §1.5: "1.44 | Hero with 2H Sword / 2H Axe".
+		// This tracker models Hero as two-handed only, so there is no variant
+		// toggle: the constant IS 1.44. (§1.5 also lists 1.34 for a Hero holding
+		// a 1H Sword/Axe; that path is out of scope and deliberately absent, so
+		// nothing can accidentally resolve Hero to the 1H value.)
 		id: 'hero',
 		name: 'Hero',
 		jobType: 'warrior',
@@ -64,7 +67,6 @@ const CLASS_LIST: ClassDef[] = [
 		secondary: ['dex'],
 		usesMagicAttack: false,
 		weaponConstant: 1.44,
-		weaponVariants: { '1h': 1.34, '2h': 1.44 },
 		masteryPercent: 90 // §4.0 Hero 90-91%
 	},
 	{

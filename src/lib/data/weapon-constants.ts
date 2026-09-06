@@ -116,9 +116,9 @@ export const WEAPON_CONSTANTS: Record<WeaponType, number> = {
  * cross-checked against the job-keyed table).
  */
 export const WEAPON_CONSTANT_OVERRIDES: Record<string, Partial<Record<WeaponType, number>>> = {
+	// Hero is modelled as two-handed only (see src/lib/data/classes.ts), so only
+	// the 2H rows are carried here; §1.5's 1H Hero value of 1.34 is out of scope.
 	hero: {
-		'one-handed-axe': 1.34,
-		'one-handed-sword': 1.34,
 		'two-handed-sword': 1.44,
 		'two-handed-axe': 1.44
 	},

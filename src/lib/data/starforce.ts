@@ -35,19 +35,12 @@
 export type StarForceKind = 'armor' | 'weapon' | 'glove' | 'badge' | 'superior';
 
 /** Item-level bracket key used by the 16★-30★ tables. */
-export type StarForceLevelBracket = '128-137' | '138-149' | '150-159' | '160-199' | '200-249' | '250';
+export type StarForceLevelBracket =
+	'128-137' | '138-149' | '150-159' | '160-199' | '200-249' | '250';
 
 /** Item-level bracket key used by the Superior (Tyrant/Nova/Elite Heliseum) tables. */
 export type SuperiorLevelBracket =
-	| '0-77'
-	| '78-87'
-	| '88-97'
-	| '98-107'
-	| '108-117'
-	| '118-127'
-	| '128-137'
-	| '138-149'
-	| '150+';
+	'0-77' | '78-87' | '88-97' | '98-107' | '108-117' | '118-127' | '128-137' | '138-149' | '150+';
 
 /**
  * Max Star Force by item level (non-Superior).
@@ -97,8 +90,10 @@ export const MAX_STAR_EXCEPTIONS = [
 
 /** Max Star Force for an item level. `superior` selects the Tyrant/Nova/Heliseum table. */
 export function maxStars(itemLevel: number, superior = false): number {
-	const table = superior ? MAX_STARS_BY_LEVEL_SUPERIOR : MAX_STARS_BY_LEVEL;
-	let result = table[0].maxStars;
+	const table: readonly { readonly minLevel: number; readonly maxStars: number }[] = superior
+		? MAX_STARS_BY_LEVEL_SUPERIOR
+		: MAX_STARS_BY_LEVEL;
+	let result: number = table[0].maxStars;
 	for (const row of table) if (itemLevel >= row.minLevel) result = row.maxStars;
 	return result;
 }
@@ -161,9 +156,7 @@ export const SHOES_SPEED_JUMP_CUMULATIVE = [
  * Cumulative ATT/MATT gloves earn from stars 5-15, kept on top of the 16★+ table.
  * formulas.md §4A §1.3 ("Gloves ATT/MATT" column) and the §1.4 note.
  */
-export const GLOVE_SUB15_ATT_CUMULATIVE = [
-	0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7
-] as const;
+export const GLOVE_SUB15_ATT_CUMULATIVE = [0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7] as const;
 
 /** DEF gain per star, as a percentage of the item's visible DEF, at every star 1-30. */
 export const DEF_PERCENT_PER_STAR = 5;
@@ -342,7 +335,17 @@ export interface StarStatArgs {
 }
 
 function emptyStats(): StarStats {
-	return { stat: 0, allStat: 0, att: 0, matt: 0, maxHp: 0, maxMp: 0, speed: 0, jump: 0, defPercent: 0 };
+	return {
+		stat: 0,
+		allStat: 0,
+		att: 0,
+		matt: 0,
+		maxHp: 0,
+		maxMp: 0,
+		speed: 0,
+		jump: 0,
+		defPercent: 0
+	};
 }
 
 function requireBracket(itemLevel: number): StarForceLevelBracket {
@@ -700,7 +703,9 @@ function resolveMode(star: number, opts: StarforceOptions): EnhancementModeSpec 
 		);
 	}
 	if (mode === 4 && star < 18) {
-		throw new Error('Enhancement Mode 4 is not available for 15★→17★ (it would duplicate Safeguard).');
+		throw new Error(
+			'Enhancement Mode 4 is not available for 15★→17★ (it would duplicate Safeguard).'
+		);
 	}
 	if (!opts.allowUnverifiedEnhancementModes) {
 		throw new Error(
@@ -766,7 +771,16 @@ export function starRates(star: number, opts: StarforceOptions = {}): StarRates 
  * level and enhancement level" without publishing a formula.
  */
 export const STARFORCE_COST_DIVISORS: Record<number, number> = {
-	0: 25, 1: 25, 2: 25, 3: 25, 4: 25, 5: 25, 6: 25, 7: 25, 8: 25, 9: 25,
+	0: 25,
+	1: 25,
+	2: 25,
+	3: 25,
+	4: 25,
+	5: 25,
+	6: 25,
+	7: 25,
+	8: 25,
+	9: 25,
 	10: 400,
 	11: 220,
 	12: 150,
@@ -779,7 +793,14 @@ export const STARFORCE_COST_DIVISORS: Record<number, number> = {
 	19: 45,
 	20: 200,
 	21: 125,
-	22: 200, 23: 200, 24: 200, 25: 200, 26: 200, 27: 200, 28: 200, 29: 200
+	22: 200,
+	23: 200,
+	24: 200,
+	25: 200,
+	26: 200,
+	27: 200,
+	28: 200,
+	29: 200
 };
 
 /** MVP / VIP discounts on the base meso cost (never on the Safeguard surcharge). */
@@ -792,7 +813,8 @@ export const MVP_DISCOUNTS = [
 /** The raw formula cost of one `star → star + 1` attempt, before any modifier. */
 export function starforceBaseCost(itemLevel: number, star: number): number {
 	const divisor = STARFORCE_COST_DIVISORS[star];
-	if (divisor === undefined) throw new Error(`No cost row for ${star}★ → ${star + 1}★ (valid: 0-29).`);
+	if (divisor === undefined)
+		throw new Error(`No cost row for ${star}★ → ${star + 1}★ (valid: 0-29).`);
 	const l = Math.floor(itemLevel / 10) * 10;
 	const factor = star < 10 ? star + 1 : Math.pow(star + 1, 2.7);
 	const raw = 1000 + Math.round((Math.pow(l, 3) * factor) / divisor);
@@ -806,7 +828,11 @@ export function starforceBaseCost(itemLevel: number, star: number): number {
  * - Safeguard adds +200% of the *undiscounted* base cost (triple total).
  * - Enhancement Mode multiplies the base cost (mode 1 = ×1).
  */
-export function starforceCost(itemLevel: number, star: number, opts: StarforceOptions = {}): number {
+export function starforceCost(
+	itemLevel: number,
+	star: number,
+	opts: StarforceOptions = {}
+): number {
 	const base = starforceBaseCost(itemLevel, star);
 	const mode = opts.enhancementMode ?? 1;
 	const modeMultiplier = mode === 1 ? 1 : resolveMode(star, opts).costMultiplier;
@@ -878,7 +904,9 @@ export function expectedCostToReach(
 			if (Math.abs(m[row][col]) > Math.abs(m[pivot][col])) pivot = row;
 		}
 		if (Math.abs(m[pivot][col]) < 1e-12) {
-			throw new Error(`Singular star-force expectation system at ${stars[col]}★ (unreachable target?).`);
+			throw new Error(
+				`Singular star-force expectation system at ${stars[col]}★ (unreachable target?).`
+			);
 		}
 		[m[col], m[pivot]] = [m[pivot], m[col]];
 		const p = m[col][col];

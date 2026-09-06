@@ -49,7 +49,9 @@ describe('stars 1-15 (item-level independent)', () => {
 	it('matches the published cumulative class-stat column', () => {
 		const cumulative = [0, 2, 4, 6, 8, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40];
 		for (let s = 0; s <= 15; s++) {
-			expect(cumulativeStarStats({ itemLevel: 160, stars: s, kind: 'armor' }).stat).toBe(cumulative[s]);
+			expect(cumulativeStarStats({ itemLevel: 160, stars: s, kind: 'armor' }).stat).toBe(
+				cumulative[s]
+			);
 		}
 	});
 
@@ -129,13 +131,15 @@ describe('stars 16-30 — weapons', () => {
 		[200, 25, 207] // wiki renders 102 here; a typo the research corrects
 	];
 	it.each(cases)('item level %i at %i★ gives +%i ATT', (itemLevel, stars, expected) => {
-		expect(cumulativeStarStats({ itemLevel, stars, kind: 'weapon', baseAttack: 0 }).att).toBe(expected);
+		expect(cumulativeStarStats({ itemLevel, stars, kind: 'weapon', baseAttack: 0 }).att).toBe(
+			expected
+		);
 	});
 
 	it('refuses to guess stars 26-30 unless the caller opts in', () => {
-		expect(() => cumulativeStarStats({ itemLevel: 160, stars: 30, kind: 'weapon', baseAttack: 0 })).toThrow(
-			/undocumented/
-		);
+		expect(() =>
+			cumulativeStarStats({ itemLevel: 160, stars: 30, kind: 'weapon', baseAttack: 0 })
+		).toThrow(/undocumented/);
 		const unverified = cumulativeStarStats({
 			itemLevel: 160,
 			stars: 30,
@@ -243,17 +247,18 @@ describe('meso cost', () => {
 	});
 
 	it('refuses Enhancement Modes 2-4 without an explicit opt-in', () => {
-		expect(() => starforceCost(160, 18, { enhancementMode: 4 })).toThrow(/allowUnverifiedEnhancementModes/);
-		expect(() => starforceCost(160, 16, { enhancementMode: 4, allowUnverifiedEnhancementModes: true })).toThrow(
-			/not available for 15★→17★/
+		expect(() => starforceCost(160, 18, { enhancementMode: 4 })).toThrow(
+			/allowUnverifiedEnhancementModes/
 		);
+		expect(() =>
+			starforceCost(160, 16, { enhancementMode: 4, allowUnverifiedEnhancementModes: true })
+		).toThrow(/not available for 15★→17★/);
 		expect(() =>
 			starforceCost(160, 18, { enhancementMode: 2, allowUnverifiedEnhancementModes: true })
 		).toThrow(/published no rates/);
-		expect(starforceCost(160, 18, { enhancementMode: 4, allowUnverifiedEnhancementModes: true })).toBeCloseTo(
-			starforceBaseCost(160, 18) * 6.5,
-			6
-		);
+		expect(
+			starforceCost(160, 18, { enhancementMode: 4, allowUnverifiedEnhancementModes: true })
+		).toBeCloseTo(starforceBaseCost(160, 18) * 6.5, 6);
 	});
 });
 

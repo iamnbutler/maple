@@ -145,7 +145,8 @@ export const FLAME_TIER_PROBABILITIES_ADVANTAGED = {
  * formulas.md §4A §2.5.
  */
 export const UNVERIFIED_ABYSSAL_FLAME_DISTRIBUTION = {
-	description: 'lowest tier 3; very rarely tier 5 (5-7 on flame advantage); 3% chance of highest tier',
+	description:
+		'lowest tier 3; very rarely tier 5 (5-7 on flame advantage); 3% chance of highest tier',
 	highestTierChance: 0.03
 } as const;
 
@@ -191,12 +192,27 @@ export const FLAME_ADVANTAGED = {
 
 /**
  * Single main stat (STR/DEX/INT/LUK) and flat DEF.
- * `value = tier × (min(⌊itemLevel / 20⌋, 11) + 1)` — the tier-1 value steps up by
- * 1 every 20 item levels, capped at 12 from item level 230.
- * formulas.md §4A §2.6 "Single main stat".
+ *
+ * ⚠️ INTERNAL CONFLICT IN THE RESEARCH. formulas.md §4A §2.6 gives the closed form
+ * `value = tier × (min(⌊itemLevel / 20⌋, 11) + 1)` *and* a table whose last two rows
+ * are `200-229 → +11/tier` and `230+ → +12/tier`. The two disagree for item levels
+ * **220-229**: the formula yields 12, the table yields 11. We follow the **table**,
+ * because the research states the table is identical on both MapleStory Wiki and
+ * StrategyWiki (two independent sources) while the closed form is a paraphrase of one
+ * of them. Sources: https://maplestorywiki.net/w/Bonus_Stats/Stat_Tables ·
+ * https://strategywiki.org/wiki/MapleStory/Bonus_Stats
+ *
+ * The per-tier step is therefore `⌊level/20⌋ + 1` up to level 199, 11 for 200-229,
+ * and 12 from 230.
  */
 export function flameSingleStat(itemLevel: number, tier: FlameTier): number {
-	return tier * (Math.min(Math.floor(itemLevel / 20), 11) + 1);
+	return tier * flameSingleStatPerTier(itemLevel);
+}
+
+/** Per-tier step of the single-stat/DEF table at an item level. */
+export function flameSingleStatPerTier(itemLevel: number): number {
+	if (itemLevel < 200) return Math.floor(itemLevel / 20) + 1;
+	return itemLevel < 230 ? 11 : 12;
 }
 
 /** Flat DEF uses the same table as a single main stat. formulas.md §4A §2.6. */
@@ -414,7 +430,8 @@ export function flameScore(
 	classPrimary: FlameStatKey | FlameClassStats,
 	weights: Partial<FlameScoreWeights> = {}
 ): number {
-	const spec: FlameClassStats = typeof classPrimary === 'string' ? { main: classPrimary } : classPrimary;
+	const spec: FlameClassStats =
+		typeof classPrimary === 'string' ? { main: classPrimary } : classPrimary;
 	const secondary = spec.secondary ?? DEFAULT_SECONDARY_STATS[spec.main];
 	const w: FlameScoreWeights = { ...DEFAULT_FLAME_SCORE_WEIGHTS, ...weights };
 

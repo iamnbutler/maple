@@ -1,18 +1,24 @@
 // Static reference data re-exports live here.
 //
 // Every table in this directory is transcribed from `docs/research/formulas.md`
-// and carries an inline citation (section + source URL). Values that no public
+// (and `docs/research/bosses.md` for the boss tables) and carries an inline
+// citation: research section plus the original source URL. Values that no public
 // source documents are exported behind an `UNVERIFIED_*` name and require an
-// explicit opt-in to use.
+// explicit opt-in to use. See README.md for the module → source table.
 //
-// WORLD SCOPE: Heroic (Reboot) only — see src/lib/data/README.md.
+// WORLD SCOPE: Heroic (Reboot) only.
 
+// Namespaced access, e.g. `data.starforce.maxStars(...)`.
 export * as starforce from './starforce';
 export * as flames from './flames';
 export * as potential from './potential';
 export * as symbols from './symbols';
 export * as hyperstats from './hyperstats';
+export * as classes from './classes';
+export * as weaponConstants from './weapon-constants';
+export * as bosses from './bosses';
 
+// Flat re-exports of the gear-system tables.
 export * from './starforce';
 export * from './flames';
 export * from './potential';

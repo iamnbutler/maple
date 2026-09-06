@@ -89,7 +89,9 @@ describe('attack flames', () => {
 	];
 	it.each(normal)('non-flame-advantage weapon at level %i', (level, expected) => {
 		const tiers: FlameTier[] = [1, 2, 3, 4, 5];
-		const actual = tiers.map((t) => Number(flameWeaponAttackMultiplier(level, t, false).toFixed(4)));
+		const actual = tiers.map((t) =>
+			Number(flameWeaponAttackMultiplier(level, t, false).toFixed(4))
+		);
 		expect(actual).toEqual(expected);
 	});
 
@@ -162,14 +164,14 @@ describe('flame types and probabilities', () => {
 
 	it('has line-count and tier distributions that sum to 1', () => {
 		for (const dist of Object.values(FLAME_LINE_COUNT_PROBABILITIES)) {
-			const total = Object.values(dist).reduce((a, b) => a + b, 0);
+			const total = (Object.values(dist) as number[]).reduce((a, b) => a + b, 0);
 			expect(total).toBeCloseTo(1, 10);
 		}
 		for (const dist of Object.values(FLAME_TIER_PROBABILITIES_NORMAL)) {
-			expect(Object.values(dist).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
+			expect((Object.values(dist) as number[]).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
 		}
 		for (const dist of Object.values(FLAME_TIER_PROBABILITIES_ADVANTAGED)) {
-			expect(Object.values(dist).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
+			expect((Object.values(dist) as number[]).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
 		}
 	});
 
@@ -208,13 +210,19 @@ describe('flameScore', () => {
 	it('supports the other two conventions', () => {
 		const block = { str: 44, int: 85, luk: 30, allStatPct: 3 };
 		// StrategyWiki: main 85, no secondary (LUK is not DEX), All Stat ×15
-		expect(flameScore(block, 'int', FLAME_SCORE_CONVENTIONS.strategywiki)).toBe(85 + 30 * 0.1 + 3 * 15);
+		expect(flameScore(block, 'int', FLAME_SCORE_CONVENTIONS.strategywiki)).toBe(
+			85 + 30 * 0.1 + 3 * 15
+		);
 		expect(flameScore({ att: 7 }, 'str', FLAME_SCORE_CONVENTIONS.gmsUpgradeTracker)).toBe(21);
 	});
 
 	it('uses Xenon weights when supplied', () => {
 		expect(
-			flameScore({ str: 10, dex: 10, luk: 10, att: 5 }, { main: 'str', secondary: ['dex', 'luk'] }, XENON_FLAME_SCORE_WEIGHTS)
+			flameScore(
+				{ str: 10, dex: 10, luk: 10, att: 5 },
+				{ main: 'str', secondary: ['dex', 'luk'] },
+				XENON_FLAME_SCORE_WEIGHTS
+			)
 		).toBe(10 + 10 + 10 + 5 * 8);
 	});
 });

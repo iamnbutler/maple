@@ -26,25 +26,11 @@
 export type PotentialGrade = 'rare' | 'epic' | 'unique' | 'legendary';
 
 export type PotentialCategory =
-	| 'weapon'
-	| 'secondary'
-	| 'emblem'
-	| 'armor'
-	| 'accessory'
-	| 'heart'
-	| 'badge';
+	'weapon' | 'secondary' | 'emblem' | 'armor' | 'accessory' | 'heart' | 'badge';
 
 /** Slot detail, only needed for the slot-specific lines (hat cooldown, glove crit damage). */
 export type PotentialSlot =
-	| 'hat'
-	| 'top'
-	| 'bottom'
-	| 'overall'
-	| 'gloves'
-	| 'shoes'
-	| 'cape'
-	| 'belt'
-	| 'shoulder';
+	'hat' | 'top' | 'bottom' | 'overall' | 'gloves' | 'shoes' | 'cape' | 'belt' | 'shoulder';
 
 export type PotentialLineKind =
 	| 'stat_pct'
@@ -114,9 +100,12 @@ export const POTENTIAL_PERCENT_SCALE = [
 /** The GMS/TMS item-level breakpoint for the top row of the percentage scale. */
 export const GMS_POTENTIAL_LEVEL_BREAKPOINT = 151;
 
-function scaleRow(itemLevel: number) {
-	let row = POTENTIAL_PERCENT_SCALE[0];
-	for (const candidate of POTENTIAL_PERCENT_SCALE) if (itemLevel >= candidate.minLevel) row = candidate;
+type PercentScaleRow = (typeof POTENTIAL_PERCENT_SCALE)[number];
+
+function scaleRow(itemLevel: number): PercentScaleRow {
+	let row: PercentScaleRow = POTENTIAL_PERCENT_SCALE[0];
+	for (const candidate of POTENTIAL_PERCENT_SCALE)
+		if (itemLevel >= candidate.minLevel) row = candidate;
 	return row;
 }
 
@@ -197,7 +186,11 @@ export const BONUS_POTENTIAL_MESO_DROP_LEGENDARY = [
 ] as const;
 
 /** Bonus Potential Critical Damage, Legendary prime: +1% (Lv70+, 1 in 31.5). formulas.md §4A §3.6. */
-export const BONUS_POTENTIAL_CRIT_DAMAGE = { value: 1, minItemLevel: 70, chance: 0.031746 } as const;
+export const BONUS_POTENTIAL_CRIT_DAMAGE = {
+	value: 1,
+	minItemLevel: 70,
+	chance: 0.031746
+} as const;
 
 /** Bonus Potential weapon specials — far weaker than regular potential. formulas.md §4A §3.6. */
 export const BONUS_POTENTIAL_WEAPON_SPECIALS = {
@@ -209,7 +202,7 @@ function bracketValue(
 	table: readonly { readonly minLevel: number; readonly value: number }[],
 	itemLevel: number
 ): number {
-	let value = table[0].value;
+	let value: number = table[0].value;
 	for (const row of table) if (itemLevel >= row.minLevel) value = row.value;
 	return value;
 }
@@ -226,11 +219,29 @@ function bracketValue(
  */
 export const BOSS_DAMAGE_LINES: Partial<Record<PotentialGrade, readonly PotentialLineOption[]>> = {
 	unique: [
-		{ value: 30, minItemLevel: 100, initialChance: 0.06667, inGameCubeChance: 0.06667, cashCubeChance: 0.06977 }
+		{
+			value: 30,
+			minItemLevel: 100,
+			initialChance: 0.06667,
+			inGameCubeChance: 0.06667,
+			cashCubeChance: 0.06977
+		}
 	],
 	legendary: [
-		{ value: 35, minItemLevel: 100, initialChance: 0.08, inGameCubeChance: 0.1111, cashCubeChance: 0.09756 },
-		{ value: 40, minItemLevel: 100, initialChance: 0.04, inGameCubeChance: 0.02778, cashCubeChance: 0.04878 }
+		{
+			value: 35,
+			minItemLevel: 100,
+			initialChance: 0.08,
+			inGameCubeChance: 0.1111,
+			cashCubeChance: 0.09756
+		},
+		{
+			value: 40,
+			minItemLevel: 100,
+			initialChance: 0.04,
+			inGameCubeChance: 0.02778,
+			cashCubeChance: 0.04878
+		}
 	]
 };
 
@@ -241,11 +252,29 @@ export const BOSS_DAMAGE_LINES: Partial<Record<PotentialGrade, readonly Potentia
  */
 export const IED_LINES: Partial<Record<PotentialGrade, readonly PotentialLineOption[]>> = {
 	unique: [
-		{ value: 30, minItemLevel: 50, initialChance: 0.06667, inGameCubeChance: 0.06667, cashCubeChance: 0.06977 }
+		{
+			value: 30,
+			minItemLevel: 50,
+			initialChance: 0.06667,
+			inGameCubeChance: 0.06667,
+			cashCubeChance: 0.06977
+		}
 	],
 	legendary: [
-		{ value: 35, minItemLevel: 50, initialChance: 0.04, inGameCubeChance: 0.05556, cashCubeChance: 0.04878 },
-		{ value: 40, minItemLevel: 100, initialChance: 0.04, inGameCubeChance: 0.02778, cashCubeChance: 0.04878 }
+		{
+			value: 35,
+			minItemLevel: 50,
+			initialChance: 0.04,
+			inGameCubeChance: 0.05556,
+			cashCubeChance: 0.04878
+		},
+		{
+			value: 40,
+			minItemLevel: 100,
+			initialChance: 0.04,
+			inGameCubeChance: 0.02778,
+			cashCubeChance: 0.04878
+		}
 	]
 };
 
@@ -343,7 +372,13 @@ export function lineValues(
 
 	if (PERCENT_SCALE_KINDS.includes(kind)) {
 		// %ATT / %MATT / crit rate / damage% only exist on weapon-like items.
-		if ((kind === 'att_pct' || kind === 'matt_pct' || kind === 'damage_pct' || kind === 'crit_rate') && !weaponLike) {
+		if (
+			(kind === 'att_pct' ||
+				kind === 'matt_pct' ||
+				kind === 'damage_pct' ||
+				kind === 'crit_rate') &&
+			!weaponLike
+		) {
 			return [];
 		}
 		return [{ value: scaleRow(itemLevel)[grade] }];
@@ -374,7 +409,11 @@ export function lineValues(
 		if (category !== 'armor' || grade !== 'legendary') return [];
 		const out: PotentialLineOption[] = [];
 		if (opts.slot === 'hat' && itemLevel >= COOLDOWN_LINES.minusTwoSeconds.minItemLevel) {
-			out.push({ value: COOLDOWN_LINES.minusTwoSeconds.value, minItemLevel: 120, note: 'hat only' });
+			out.push({
+				value: COOLDOWN_LINES.minusTwoSeconds.value,
+				minItemLevel: 120,
+				note: 'hat only'
+			});
 		}
 		if (itemLevel >= COOLDOWN_LINES.minusOneSecond.minItemLevel) {
 			out.push({ value: COOLDOWN_LINES.minusOneSecond.value, minItemLevel: 70 });
@@ -424,12 +463,14 @@ function bonusLineValues(
 			return below ? [{ value: scaleRow(itemLevel)[below] }] : [];
 		}
 		if (kind === 'boss') {
-			if (grade !== 'legendary' || itemLevel < BONUS_POTENTIAL_WEAPON_SPECIALS.boss.minItemLevel) return [];
+			if (grade !== 'legendary' || itemLevel < BONUS_POTENTIAL_WEAPON_SPECIALS.boss.minItemLevel)
+				return [];
 			const spec = BONUS_POTENTIAL_WEAPON_SPECIALS.boss;
 			return [{ value: spec.value, initialChance: spec.chance, minItemLevel: spec.minItemLevel }];
 		}
 		if (kind === 'ied') {
-			if (grade !== 'legendary' || itemLevel < BONUS_POTENTIAL_WEAPON_SPECIALS.ied.minItemLevel) return [];
+			if (grade !== 'legendary' || itemLevel < BONUS_POTENTIAL_WEAPON_SPECIALS.ied.minItemLevel)
+				return [];
 			const spec = BONUS_POTENTIAL_WEAPON_SPECIALS.ied;
 			return [{ value: spec.value, initialChance: spec.chance, minItemLevel: spec.minItemLevel }];
 		}
@@ -438,20 +479,23 @@ function bonusLineValues(
 
 	// Armor / accessories / heart / badge.
 	if (kind === 'stat_pct') {
-		let row = BONUS_POTENTIAL_STAT_SCALE[0];
-		for (const candidate of BONUS_POTENTIAL_STAT_SCALE) if (itemLevel >= candidate.minLevel) row = candidate;
+		let row: (typeof BONUS_POTENTIAL_STAT_SCALE)[number] = BONUS_POTENTIAL_STAT_SCALE[0];
+		for (const candidate of BONUS_POTENTIAL_STAT_SCALE)
+			if (itemLevel >= candidate.minLevel) row = candidate;
 		return [{ value: row[grade] }];
 	}
 	if (kind === 'hp_pct') {
-		let row = BONUS_POTENTIAL_HP_SCALE[0];
-		for (const candidate of BONUS_POTENTIAL_HP_SCALE) if (itemLevel >= candidate.minLevel) row = candidate;
+		let row: (typeof BONUS_POTENTIAL_HP_SCALE)[number] = BONUS_POTENTIAL_HP_SCALE[0];
+		for (const candidate of BONUS_POTENTIAL_HP_SCALE)
+			if (itemLevel >= candidate.minLevel) row = candidate;
 		return [{ value: row[grade] }];
 	}
 	if (kind === 'all_stat_pct') {
 		const below = rankBelow(grade);
 		if (!below) return [];
-		let row = BONUS_POTENTIAL_STAT_SCALE[0];
-		for (const candidate of BONUS_POTENTIAL_STAT_SCALE) if (itemLevel >= candidate.minLevel) row = candidate;
+		let row: (typeof BONUS_POTENTIAL_STAT_SCALE)[number] = BONUS_POTENTIAL_STAT_SCALE[0];
+		for (const candidate of BONUS_POTENTIAL_STAT_SCALE)
+			if (itemLevel >= candidate.minLevel) row = candidate;
 		return [{ value: row[below] }];
 	}
 	if (kind === 'stat_flat') {
@@ -460,7 +504,12 @@ function bonusLineValues(
 	}
 	if (kind === 'att_flat' || kind === 'matt_flat') {
 		if (grade !== 'legendary') return [];
-		return [{ value: bracketValue(BONUS_POTENTIAL_FLAT_ATT_LEGENDARY, itemLevel), note: 'up to 3 per item' }];
+		return [
+			{
+				value: bracketValue(BONUS_POTENTIAL_FLAT_ATT_LEGENDARY, itemLevel),
+				note: 'up to 3 per item'
+			}
+		];
 	}
 	if (kind === 'meso' || kind === 'drop') {
 		if (grade !== 'legendary') return [];
@@ -469,7 +518,12 @@ function bonusLineValues(
 	if (kind === 'crit_dmg') {
 		if (grade !== 'legendary' || itemLevel < BONUS_POTENTIAL_CRIT_DAMAGE.minItemLevel) return [];
 		// +1% Critical Damage is a general armor/accessory bonus-potential line.
-		return [{ value: BONUS_POTENTIAL_CRIT_DAMAGE.value, initialChance: BONUS_POTENTIAL_CRIT_DAMAGE.chance }];
+		return [
+			{
+				value: BONUS_POTENTIAL_CRIT_DAMAGE.value,
+				initialChance: BONUS_POTENTIAL_CRIT_DAMAGE.chance
+			}
+		];
 	}
 	return [];
 }
@@ -600,7 +654,12 @@ export const CUBES = {
 	mystical: { oldName: 'Occult / Suspicious Cube', maxGrade: 'epic', source: 'in-game' },
 	hard: { oldName: "Master Craftsman's / Yellow Cube", maxGrade: 'unique', source: 'in-game' },
 	solid: { oldName: "Meister's / Purple Cube", maxGrade: 'legendary', source: 'in-game' },
-	glowing: { oldName: 'RED Cube', maxGrade: 'legendary', source: 'cash', heroicMesoPrice: 12_000_000 },
+	glowing: {
+		oldName: 'RED Cube',
+		maxGrade: 'legendary',
+		source: 'cash',
+		heroicMesoPrice: 12_000_000
+	},
 	bright: {
 		oldName: 'Black Cube',
 		maxGrade: 'legendary',
