@@ -316,7 +316,7 @@ describe('generateCandidates', () => {
 		// one of those generators refuses to treat absent data as zero — so none
 		// of them contributes. Each reports WHY in `notes` instead.
 		expect(new Set(candidates.map((c) => c.kind))).toEqual(
-			new Set(['starforce', 'flame', 'potential', 'symbol', 'hyper-stat'])
+			new Set(['acquisition', 'starforce', 'flame', 'potential', 'symbol', 'hyper-stat'])
 		);
 		expect(new Set(candidates.map((c) => c.id)).size).toBe(candidates.length);
 	});

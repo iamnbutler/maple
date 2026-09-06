@@ -314,10 +314,11 @@ wrongly asked for.
    "AbsoLab stops at N★ on this path because Arcane arrives first" — so the user can disagree with
    the prescription. Silent omission is indistinguishable from a bug, and this tool has already
    shipped one ranking bug that looked exactly like an opinion.
-3. **A new `acquisition` candidate kind.** Every generator today only _improves an equipped item_.
-   The path requires the tool to say "your next step is to obtain X", which no kind can express.
-   `set` is the closest and it is too vague to act on — it says "equip 2 more pieces" without naming
-   the piece or where it drops. `acquisition` names the item, the boss, and the gate.
+3. **A new `acquisition` candidate kind.** ✅ SHIPPED — `src/lib/analysis/acquisition.ts`.
+   Every other generator only _improves an equipped item_. The path requires the tool to say "your
+   next step is to obtain X", which no other kind can express. `set` is the closest and it is too
+   vague to act on — it says "equip 2 more pieces" without naming the piece or where it drops.
+   `acquisition` names the item, the boss, and the gate. See §14.5 for the two rules it rests on.
 4. **Ranking must not compare across stages naively.** A stepping stone's value is not its own damage
    delta — it is that it unlocks the gate. Pricing it purely on damage-per-meso reproduces critique
    (a) in a new form. Open question, deliberately not resolved here: whether gate-unlocking value is
@@ -331,7 +332,109 @@ terminal endpoint that exists, marked out of scope, ideally with drop rates just
 
 ### 14.4 Status
 
-Design only. `gear-progression.ts` does not exist yet; a research agent owns it and the four
-progression guides Nate supplied. **No stage boundary, stopping point, or gate threshold may be
-invented to unblock this** — the project's hardest standing rule is "don't guess at things - do
-research", and every number in §14 is exactly the kind of number that would be tempting to guess.
+Shipped. `src/lib/data/gear-progression.ts` carries the paths, stopping points and gates, sourced
+from the four progression guides Nate supplied (`docs/research/gear-progression.md`). Items 1 and 2
+of §14.2 landed with it; item 3 landed as §14.5; item 4 is still open. **No stage boundary, stopping
+point, or gate threshold may be invented to unblock this** — the project's hardest standing rule is
+"don't guess at things - do research", and every number in §14 is exactly the kind of number that
+would be tempting to guess.
+
+## 14.5 Acquisition candidates (implements §14.2 item 3)
+
+Added 2026-09-06. Nate: _"we are missing actually obtaining new gear in the upgrade paths — in our
+Ren's example, getting absolab shoulder, sup gollux earring, ring, pendant, etc. We may need to
+frame it as obtain + n star force or n potential or whatever so the score doesn't go down. The big
+thing is we have to consider set bonuses gained and lost."_
+
+### 14.5.1 Obtain PLUS invest, never obtain alone
+
+A freshly farmed AbsoLab shoulder is 0★ with no potential and no flame. Against a 12★ Royal Black
+Metal Shoulder that is a straight **downgrade**, so a bare-swap candidate scores negative — and
+`rank.ts` drops everything at or below zero. The single most important action on the whole
+progression path would vanish from the board without a word.
+
+So the unit of advice is the piece **taken to that stage's prescribed stopping point**: N★, the
+planned potential grade, the planned flame band, all read from `gear-progression.ts`. The row is a
+real bounded action with a real price. The interim dip is reported in the candidate's `notes`, not
+hidden.
+
+This also means acquisition is the one generator whose gain and cost are both **bundles**. The cost
+note itemises what is inside — star force from N★, the cube chain, the flames — and says plainly
+that the piece itself has no meso price because it is a boss drop or a coin grind.
+
+### 14.5.2 Set effects move in both directions
+
+Replacing a Dominator Pendant with a Superior Gollux Pendant does not just add a Gollux piece — it
+**removes** a Boss Accessory piece, and if that drops the count under a threshold the character
+loses the whole effect. `setProgress` could never express this: it only ever counts up.
+
+`sets.setChangesForSwap` computes both ends from the equipped counts and `sets.setChangesToDelta`
+folds them into the candidate's `Delta`. A lost IED source goes to `iedRemove`, never to a negative
+`iedAdd` — IED composes rather than sums, so losing a 30% source means dividing it back out.
+
+Two honest limits, both stated on the affected rows:
+
+- Candidates are scored **independently** (`rank.ts`), so the Superior Gollux 4-set — the single
+  largest accessory jump on the path, +30% Boss Damage and +30% IED — never shows its payoff on the
+  row that buys the first Gollux piece. Those rows carry a note pointing at what-if.
+- Sets flagged `partial` in `sets.json` came only from the item manifest, which omits boss damage
+  and IED, so those rows **understate** themselves.
+
+### 14.5.3 Transfer Hammer decides the cost, and reproduces the guides
+
+Rules from the MapleSEA official wiki (<https://www.maplesea.com/wiki/Equipment/ToddsHammer>): over
+level 100 the receiving item must be **1 to 10 levels above** the extracting one; star force
+**decreases by 1**; potential above Epic **drops to Epic**; only the same equipment category
+transfers.
+
+Encoding that rule made the model reproduce the research on its own, without a special case:
+
+| Swap                                    | Level gap | Hammers? | What the guides say                 |
+| --------------------------------------- | --------- | -------- | ----------------------------------- |
+| CRA (150) → AbsoLab (160)               | 10        | yes      | "fodder the CRA into Abso weapon"   |
+| Dominator (140) → Superior Gollux (150) | 10        | yes      | "keep spare Dominator pendants"     |
+| Royal Black Metal (120) → AbsoLab (160) | 40        | no       | —                                   |
+| AbsoLab (160) → Arcane Umbra (200)      | 40        | no       | AbsoLab is _replaced_, not foddered |
+
+It is also why the ladder stops stepping-stone gear at Epic: the hammer destroys anything above it.
+A hammerable route starts the receiving item at `stars - 1` **and** at Epic, so it skips both the
+0★ climb and the rank-up chain — which is exactly where most of the meso price lives.
+
+⚠️ Sources disagree on the low-level exception (MapleSEA says the 1-to-20 band applies at level 99
+and below; a StrategyWiki summary says 119). Every item on this ladder is level 120+, where both
+readings agree, so the stricter text is used and the disagreement cannot change an answer.
+
+### 14.5.4 What it deliberately will not do
+
+- **Never Pitched or Brilliant** (`stage.outOfScope`), per §14.3.
+- **Never fills an empty slot with a concrete stage.** The ladder is ordered by tier and nothing in
+  the data says which rung a bare slot starts at — that depends on boss access. Empty slots get one
+  note naming the paths instead of a guessed candidate.
+- **Never compares against an uncaptured item.** A missing `total` block is UNKNOWN, not zero;
+  treating it as zero would value the swap as though the character were wearing nothing.
+- **Never offers an item the character already wears elsewhere.** The ladder is per slot family and
+  does not know `pendant1` is already a Daybreak Pendant, so the generator walks forward past any
+  stage already worn.
+- **Never offers an item the class cannot equip.** The job bitmask alone is too coarse: every
+  explorer-archer Princess No secondary is `reqJob: 4`, so a Wind Archer (a bowman who holds a
+  Jewel) matched a Magic Arrow. Weapons and secondaries are additionally filtered by the catalogue's
+  `weaponType` against `CLASS_WEAPONS`.
+
+### 14.5.5 What it needed from the data
+
+`catalogue.json` now carries each item's **clean base stats** (`base`, in `schema.StatBlock` shape)
+and its `reqJob` bitmask, from the pinned mapledoro v270 manifest. This is the one field a captured
+tooltip can never supply — a tooltip only exists for gear you already own — and without it there is
+no way to value a piece you do not have. Cost: 1.2 MB → 1.43 MB.
+
+**Known gap.** The v270 manifest has no All Stat % or Damage % field on ANY equip, while current
+tooltips for several boss accessories print `All Stats: +5%`. An acquisition replacing such an item
+therefore shows a spurious `allStatPct: -5` and **understates** the incoming piece. Every affected
+row says so. Fixing it needs a newer dump than maplestory.io serves.
+
+### 14.5.6 Open question, deliberately unresolved
+
+§14.2 item 4 still stands: **ranking does not model gate-unlocking value.** A stepping stone's worth
+is partly that it unlocks the next boss, and pricing it purely on damage-per-meso understates it.
+Acquisitions are `feasibility: 'grind'` and reach the board through `rank.ts`'s per-kind reservation
+rather than by out-competing a cube reroll on gain-per-meso. That is a placement, not a model.
