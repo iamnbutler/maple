@@ -12,6 +12,7 @@
 //   * mesos are raw integers, not millions.
 
 import type { CalcInput, Delta, Target } from '$lib/calc/types';
+import type { SetProgress } from './sets';
 
 /* -------------------------------------------------------------------------- */
 /* Targets                                                                     */
@@ -157,7 +158,15 @@ export interface Calibration {
 /* -------------------------------------------------------------------------- */
 
 export type UpgradeKind =
-	'starforce' | 'flame' | 'potential' | 'bonus-potential' | 'symbol' | 'hyper-stat' | 'stat-line';
+	| 'starforce'
+	| 'flame'
+	| 'potential'
+	| 'bonus-potential'
+	| 'symbol'
+	| 'hyper-stat'
+	| 'stat-line'
+	/** Crossing an equipment-set piece-count threshold. */
+	| 'set';
 
 /** What an upgrade costs. Any field may be absent when we cannot source it. */
 export interface UpgradeCost {
@@ -330,6 +339,8 @@ export interface Analysis {
 	calibration: Calibration;
 	upgrades: RankedUpgrade[];
 	statWorth: StatWorth[];
+	/** Set membership and how close each set is to its next threshold. */
+	sets?: SetProgress[];
 	bossBoard?: BossBoard;
 	/** The CalcInput the analysis ran on — lets the UI show its work. */
 	input: CalcInput;

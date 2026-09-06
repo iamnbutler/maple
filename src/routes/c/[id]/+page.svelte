@@ -9,6 +9,7 @@
 	import ItemPanel from '$lib/components/ItemPanel.svelte';
 	import Section from '$lib/components/Section.svelte';
 	import StatWorthTable from '$lib/components/StatWorthTable.svelte';
+	import SetPanel from '$lib/components/SetPanel.svelte';
 	import SymbolPanel from '$lib/components/SymbolPanel.svelte';
 	import UpgradeTable from '$lib/components/UpgradeTable.svelte';
 	import type { Slot } from '$lib/schema';
@@ -125,6 +126,15 @@
 	</Section>
 
 	<div class="two">
+		{#if analysis.sets?.length}
+			<Section
+				title="Set effects"
+				subtitle="already in your stat window — shown because crossing a threshold is invisible per-item"
+			>
+				<SetPanel sets={analysis.sets} />
+			</Section>
+		{/if}
+
 		<Section title="Stat worth" subtitle="marginal value at the current configuration">
 			<StatWorthTable rows={analysis.statWorth} />
 		</Section>

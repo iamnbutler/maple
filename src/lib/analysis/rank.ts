@@ -112,5 +112,48 @@ export function rankCandidates(
 		return a.id.localeCompare(b.id);
 	});
 
-	return scored.slice(0, Math.max(0, topN));
+	// Truncation must not silently delete an entire SYSTEM. Candidates with no
+	// meso price sort behind every priced one, so a plain `slice` dropped all four
+	// set-threshold candidates — including "Boss Accessory 7 -> 9 pieces", a flat
+	// Boss Damage +10%. Every kind that made the cut at all gets one RESERVED
+	// slot, taken from the tail rather than added on top, so `topN` still means
+	// topN. When topN is smaller than the number of kinds, the better-ranked kinds
+	// win, which is the same order the caller would have got anyway.
+	const limit = Math.max(0, topN);
+	if (scored.length <= limit) return scored;
+
+	const kept = scored.slice(0, limit);
+	const keptKinds = new Set(kept.map((u) => u.kind));
+	const missing: RankedUpgrade[] = [];
+	for (const upgrade of scored.slice(limit)) {
+		if (keptKinds.has(upgrade.kind) || missing.some((m) => m.kind === upgrade.kind)) continue;
+		missing.push(upgrade);
+	}
+	if (missing.length === 0) return kept;
+
+	// Drop from the tail, but never drop the last remaining example of a kind.
+	const result = [...kept];
+	for (const rescue of missing) {
+		let dropIndex = -1;
+		for (let i = result.length - 1; i >= 0; i--) {
+			const count = result.filter((u) => u.kind === result[i].kind).length;
+			if (count > 1) {
+				dropIndex = i;
+				break;
+			}
+		}
+		if (dropIndex === -1) break;
+		result.splice(dropIndex, 1);
+		result.push(rescue);
+	}
+
+	return result.sort((a, b) => {
+		const bucketDiff = bucketOf(a) - bucketOf(b);
+		if (bucketDiff !== 0) return bucketDiff;
+		const keyDiff = sortKey(b) - sortKey(a);
+		if (keyDiff !== 0) return keyDiff;
+		const gainDiff = b.gainPercent - a.gainPercent;
+		if (gainDiff !== 0) return gainDiff;
+		return a.id.localeCompare(b.id);
+	});
 }

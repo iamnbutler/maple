@@ -161,3 +161,40 @@ describe('ceilings never outrank achievable actions', () => {
 		expect(only.feasibility).toBe('ceiling');
 	});
 });
+
+describe('topN never deletes an entire system', () => {
+	// Unpriced candidates sort behind every meso-priced one, so a plain slice at
+	// topN was dropping all four set-threshold candidates — including a flat Boss
+	// Damage +10% from completing an accessory set.
+	it('reserves a slot for a kind that would otherwise be cut, without exceeding topN', () => {
+		const priced = Array.from({ length: 10 }, (_, i) =>
+			candidate({
+				id: `sf${i}`,
+				kind: 'starforce',
+				delta: { att: 40 - i },
+				cost: { mesos: 100_000_000 }
+			})
+		);
+		const unpriced = candidate({
+			id: 'set-threshold',
+			kind: 'set',
+			delta: { att: 1 },
+			cost: { note: 'not meso-priced' }
+		});
+
+		const ranked = rankCandidates(input, [...priced, unpriced], target, { topN: 5 });
+
+		expect(ranked).toHaveLength(5);
+		expect(ranked.map((u) => u.id)).toContain('set-threshold');
+		// The reserved slot comes out of the tail of the dominant kind.
+		expect(ranked.filter((u) => u.kind === 'starforce')).toHaveLength(4);
+	});
+
+	it('leaves the ordering alone when nothing needs rescuing', () => {
+		const only = Array.from({ length: 4 }, (_, i) =>
+			candidate({ id: `sf${i}`, kind: 'starforce', delta: { att: 40 - i } })
+		);
+		const ranked = rankCandidates(input, only, target, { topN: 2 });
+		expect(ranked.map((u) => u.id)).toEqual(['sf0', 'sf1']);
+	});
+});

@@ -18,6 +18,7 @@ import { generateCandidates } from './candidates';
 import { buildChecksums, combatPowerFor } from './checksums';
 import { residuals, summarizeGear } from './gear';
 import { DEFAULT_TOP_N, rankCandidates } from './rank';
+import { setProgress } from './sets';
 import { statWorth } from './stat-worth';
 import { PRESET_TARGETS, resolveTarget } from './targets';
 import type {
@@ -139,6 +140,7 @@ export function analyze(
 		},
 		upgrades,
 		statWorth: statWorth(input, target),
+		sets: setProgress(character),
 		input
 	};
 

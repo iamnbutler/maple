@@ -27,6 +27,7 @@ import {
 	type SacredRegion
 } from '$lib/schema';
 
+import { setEffectToDelta, setProgress } from './sets';
 import type { Confidence, Feasibility, NamedTarget, UpgradeCost, UpgradeKind } from './types';
 
 /** A scored-in-`rank.ts` proposal. */
@@ -607,6 +608,57 @@ function usefulContribution(
 	return { contribution: out, kinds };
 }
 
+/**
+ * Crossing a set threshold.
+ *
+ * This is the one gear system whose effect does NOT cancel out of a ratio
+ * comparison, and it is invisible in every per-item view: two more Boss
+ * Accessory pieces are worth a flat Boss Damage +10% no matter what those
+ * pieces individually roll. The delta is real and sourced; the COST is not
+ * modelled, because acquiring a specific boss drop is a farming problem rather
+ * than a meso price, so these rank on gain alone.
+ */
+function generateSetCompletion(character: Character): CandidateResult {
+	const cls = getClass(character.classId);
+	const candidates: UpgradeCandidate[] = [];
+	const notes: string[] = [];
+
+	for (const progress of setProgress(character)) {
+		if (progress.next === undefined || !progress.nextEffect) continue;
+		const delta = setEffectToDelta(progress.nextEffect, cls);
+		if (Object.keys(delta).length === 0) continue;
+
+		const missing = progress.missing ?? 0;
+		candidates.push({
+			id: `set:${progress.name}:${progress.next}`,
+			kind: 'set',
+			label: `${progress.name} ${progress.count} → ${progress.next} pieces`,
+			detail:
+				`Equip ${missing} more ${missing === 1 ? 'piece' : 'pieces'} of the ${progress.name} ` +
+				`to unlock its ${progress.next}-set effect.`,
+			delta,
+			cost: {
+				note:
+					`${missing} more ${missing === 1 ? 'piece' : 'pieces'}. Not meso-priced: these are ` +
+					'boss drops, so the cost is farming time rather than a purchase.'
+			},
+			confidence: progress.partial ? 'speculative' : 'sourced',
+			feasibility: 'grind',
+			notes: progress.partial
+				? [
+						`Set effects for ${progress.name} came only from the item manifest, which omits ` +
+							'boss damage and ignore-enemy-defence — this UNDERSTATES the real gain.'
+					]
+				: undefined
+		});
+	}
+
+	if (candidates.length === 0) {
+		notes.push('No set is one threshold away, or no set effect data covers the sets worn.');
+	}
+	return { candidates, notes };
+}
+
 function generatePotential(character: Character, type: 'main' | 'bonus'): CandidateResult {
 	const cls = getClass(character.classId);
 	const candidates: UpgradeCandidate[] = [];
@@ -957,7 +1009,8 @@ const ALL_KINDS: UpgradeKind[] = [
 	'potential',
 	'bonus-potential',
 	'symbol',
-	'hyper-stat'
+	'hyper-stat',
+	'set'
 ];
 
 /**
@@ -990,6 +1043,7 @@ export function generateCandidates(
 	run('bonus-potential', () => generatePotential(character, 'bonus'));
 	run('symbol', () => generateSymbols(character));
 	run('hyper-stat', () => generateHyperStats(character, target));
+	run('set', () => generateSetCompletion(character));
 
 	return { candidates, notes };
 }
