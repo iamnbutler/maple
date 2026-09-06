@@ -738,6 +738,47 @@ interface GoalPart {
  * requirement the probability model prices, and the same number through
  * `addLine` when the contribution is valued. They cannot drift apart.
  */
+/**
+ * The WEAKEST value of `kind` that the pool can actually roll.
+ *
+ * `anyValue` goals price "any line of this kind", so a 30% boss line satisfies
+ * them — but they were being VALUED at the prime (40%). That is the same
+ * cost/gain mismatch that made stat goals 44x too cheap, and it survived in this
+ * corner: "2 lines of boss damage or IED" priced at 197M while being credited
+ * with Boss +40 AND IED +40, which made it the top recommendation on the board.
+ *
+ * Legendary rolls its non-prime lines out of the Unique pool, so both ranks are
+ * searched.
+ */
+function weakestRollableValue(
+	group: potentialLines.PotentialPoolGroup,
+	grade: potential.PotentialGrade,
+	kinds: readonly potentialLines.PoolLineKind[],
+	itemLevel: number
+): number | null {
+	const ranks: potentialLines.PoolRank[] =
+		grade === 'legendary' ? ['legendary', 'unique'] : [grade as potentialLines.PoolRank];
+	let weakest: number | null = null;
+	for (const rank of ranks) {
+		let pool: readonly potentialLines.PoolLine[];
+		try {
+			pool = potentialLines.rollablePool(group, rank, 'inGameCube');
+		} catch {
+			continue;
+		}
+		for (const line of pool) {
+			if (!kinds.includes(line.kind)) continue;
+			if (itemLevel < line.minItemLevel) continue;
+			const value = potentialLines.lineValueAtLevel(line, itemLevel);
+			if (value === null) continue;
+			const magnitude = Math.abs(value);
+			if (magnitude === 0) continue;
+			if (weakest === null || magnitude < weakest) weakest = magnitude;
+		}
+	}
+	return weakest;
+}
+
 function lineValueForKind(
 	kind: potential.PotentialLineKind,
 	grade: potential.PotentialGrade,
@@ -1326,12 +1367,34 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 				// stat goal once vanished from the board without a word.
 				potentialLines.validateTarget(target);
 
+				// An `anyValue` goal is priced as "any line of this kind", so it must be
+				// CREDITED with the weakest such line, not the prime. Anything else
+				// describes a cheaper purchase than the one being valued.
+				const kindsForValue = (
+					Array.isArray(goal.poolKind) ? goal.poolKind : [goal.poolKind]
+				) as readonly potentialLines.PoolLineKind[];
+				const anyValueCredit = goal.anyValue
+					? weakestRollableValue(group, source.grade, kindsForValue, item.itemLevel)
+					: null;
+				if (goal.anyValue && anyValueCredit === null) continue;
+
 				const contribution = goalContribution(
 					goal,
-					value ?? goalLineValue(goal, source.grade, item.itemLevel, category, slot) ?? 0,
+					anyValueCredit ??
+						value ??
+						goalLineValue(goal, source.grade, item.itemLevel, category, slot) ??
+						0,
 					source,
 					cls,
-					(k) => lineValueForKind(k, source.grade, item.itemLevel!, category, slot)
+					(k) =>
+						goal.anyValue
+							? weakestRollableValue(
+									group,
+									source.grade,
+									[k as potentialLines.PoolLineKind],
+									item.itemLevel
+								)
+							: lineValueForKind(k, source.grade, item.itemLevel!, category, slot)
 				);
 				if (!contribution) continue;
 

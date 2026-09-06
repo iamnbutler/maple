@@ -40,7 +40,7 @@
 //  * No new dependencies. Boss data is referenced by id into `bosses.ts` rather
 //    than copied, so it cannot drift.
 
-import { normalizeItemName, resolveByName, type CatalogueSlot } from './items';
+import { capabilities, normalizeItemName, resolveByName, type CatalogueSlot } from './items';
 import { SETS } from './sets';
 import { getBoss, fivePercentHp, forceRequirement, type Boss } from './bosses';
 
@@ -151,6 +151,15 @@ export interface StageMatch {
 	 * matching for armour, because the catalogue already knows set membership.
 	 */
 	sets?: readonly string[];
+	/**
+	 * Claims items the CATALOGUE says cannot be star forced at all. A capability
+	 * is a far better signal than a name for this class — there are ~130 such
+	 * rings and no naming convention unites them ("Eternal Flame Ring",
+	 * "Ring of Restraint", "Libae's Prototype R Ring", "Heroic Awake Ring").
+	 * Every ring on the damage ladder IS star-forceable, so this cannot collide
+	 * with one. Requires a known slot.
+	 */
+	nonStarforceable?: boolean;
 	/**
 	 * Last-resort claim on the whole slot. Only correct where every item in the
 	 * slot gets identical advice — secondaries and emblems, which take no star
@@ -272,9 +281,12 @@ const STOP_17_THEN_22_LEGENDARY: StopPoint = {
 	why:
 		'You keep this for a long time, so it earns Legendary potential and real flames. ' +
 		'Take it to 17 first (Safeguard-protected), then push 21-22 on a Star Force event ' +
-		'with backups. Stars 23+ grant no class stat at all, so 22 is the ceiling.',
+		'with backups. 22 is the practical ceiling on COST, not because the band above it ' +
+		'is worthless: main stat does freeze at 22, but ATT keeps climbing. What stops you ' +
+		'is that Safeguard ends at 17 and the expected cost per further star is not ' +
+		'recoverable — 22 to 30 runs ~2.4e7 attempts and ~1.1e6 destroyed copies.',
 	sources: [
-		'research §4.2, §4.3 — UG Phase 2/3; DTQ mid 17 / end 22; starforce.ts LAST_STAT_STAR = 22'
+		'research §4.2, §4.3 — UG Phase 2/3; DTQ mid 17 / end 22; UG Phase 4 "22 star everything"; starforce.ts STAR_RATES + TRACE_RECOVERY'
 	]
 };
 
@@ -610,10 +622,13 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					usefulLines: 3,
 					flames: 'invest',
 					why:
-						'End of the path. 22 stars is the ceiling: stars 23+ grant no class stat, and ' +
-						'22 -> 30 costs about 24 million attempts and 1.1 million destroyed copies in ' +
-						'expectation. Everything goes in here.',
-					sources: ['research §4.2, §4.3 — DTQ end-game table; starforce.ts LAST_STAT_STAR = 22']
+						'End of the path — everything goes in here. Stop at 22: main stat freezes at 22 ' +
+						'while ATT carries on climbing, so the band above is not worthless, but there is ' +
+						'no Safeguard past 17 and 22 to 30 costs about 24 million attempts and 1.1 ' +
+						'million destroyed copies in expectation. No guide recommends going past 22.',
+					sources: [
+						'research §4.2, §4.3 — DTQ end-game table; UG Phase 4 "22 star everything (other than pitched)"; starforce.ts STAR_RATES + TRACE_RECOVERY'
+					]
 				}
 			}
 		]
@@ -756,8 +771,12 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					potential: 'legendary',
 					usefulLines: 3,
 					flames: 'invest',
-					why: 'End of the path. 22 stars is the ceiling; stars 23+ grant no class stat.',
-					sources: ['research §4.2, §7 — wiki Eternal Knight Cape/Gloves; DTQ end-game table']
+					why:
+						'End of the path. Stop at 22 — main stat freezes there but ATT does not, so the ' +
+						'reason to stop is cost and risk (no Safeguard past 17), not a worthless band.',
+					sources: [
+						'research §4.2, §7 — wiki Eternal Knight Cape/Gloves; DTQ end-game table; UG Phase 4'
+					]
 				},
 				disputed:
 					"DTQ's end-game table keeps Arcane Umbra in these slots. The items exist; whether " +
@@ -1242,7 +1261,10 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 		id: 'ring',
 		slot: 'ring',
 		label: 'Rings (four slots)',
-		kind: 'only',
+		kind: 'default',
+		branchCondition:
+			'The damage/set rings. Event and exclusive-scroll rings are a parallel option — ' +
+			'see the `ring-event` path.',
 		stages: [
 			{
 				id: 'ring-starter',
@@ -1360,6 +1382,54 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 	},
 
 	/* ------------------------------------------------------------------ belt */
+	{
+		id: 'ring-event',
+		slot: 'ring',
+		label: 'Event and exclusive-scroll rings',
+		kind: 'alternative',
+		branchCondition:
+			'A ring the catalogue says takes NO star force — event rings, Awake/Vengeful/Cosmos ' +
+			'rings and the like. They compete for the same four slots as the ladder rings, and ' +
+			'availability is an event, not a boss, so this is a genuinely parallel option.',
+		stages: [
+			{
+				id: 'ring-event-only',
+				name: 'Event / exclusive-scroll ring',
+				nameKind: 'family',
+				examples: [
+					'Eternal Flame Ring',
+					'Ring of Restraint',
+					'Awake Ring',
+					'Vengeful Ring',
+					'Cosmos Ring',
+					"Libae's Prototype R Ring"
+				],
+				tier: 'event',
+				match: { slots: ['ring'], nonStarforceable: true },
+				obtainedFrom: 'Event shops and event questlines; availability varies by patch',
+				stop: {
+					// `stars` deliberately absent: these take no star force at all, and an
+					// absent value must mean "not applicable", never 0.
+					potential: 'legendary',
+					flames: 'not-applicable',
+					why:
+						'These rings take NO star force — the catalogue blocks it (`no-upgrade-slots`, ' +
+						'or `exclusive-scroll-only` for the Awake/Vengeful/Cosmos line, which only ' +
+						'accept their own enhancement currency). Cubing is the only lever, and ' +
+						'Legendary IS the right target: UG says to get 2-3 event rings "for damage at ' +
+						'first, then eventually to re-utilize as drop gear", and drop/meso lines ' +
+						'require Legendary. So cube it and stop — there is nothing else to spend here.',
+					sources: [
+						'research §3, §7.3 — UG general tips ("definitely get 2-3 on your character for damage at first, then eventually to re-utilize as drop gear"; "Items must be Legendary to get meso or drop rate"); items/rules.ts no-upgrade-slots and exclusive-scroll-only'
+					]
+				},
+				movesOnWhen:
+					'Never, mechanically — but a ladder ring (Gollux, Kanna\'s Treasure, Meister, ' +
+					'Dawn Guardian Angel) outscales it once you have four of them, because those ' +
+					'take star force and these do not.'
+			}
+		]
+	},
 	{
 		id: 'belt',
 		slot: 'belt',
@@ -1898,16 +1968,88 @@ export const STAR_CLIMB_COST = [
  */
 export const SAFEGUARD_CEILING = 17;
 
-/** Last star that grants class stat. Mirrors `starforce.ts` LAST_STAT_STAR. */
+/**
+ * Last star that grants CLASS STAT. Mirrors `starforce.ts` LAST_STAT_STAR.
+ *
+ * ⚠️ Read this as "main stat stops here", NOT as "the band above is worthless".
+ * ATT keeps climbing past 22 and ATT is the most valuable stat in the game.
+ * Verified against `starforce.cumulativeStarStats`, armour at item level 160:
+ *   22★ stat 131, att  92
+ *   23★ stat 131, att 111   (+19)
+ *   24★ stat 131, att 132   (+21)
+ *   25★ stat 131, att 155   (+23)
+ * The reason to stop at 22 is cost and risk, not a dead band — see
+ * `PRESCRIBED_MAX_STAR` and `STAR_CLIMB_COST`.
+ */
 export const LAST_STAT_STAR = 22;
+
+/**
+ * The weapon exception, recorded so it is not flattened away.
+ *
+ * On WEAPONS the ATT gain does not merely continue past 22 — it accelerates
+ * sharply, and it does so exactly at the 23 boundary. From
+ * `starforce.WEAPON_ATT_DELTA_16_25`, item level 150: +11 / +12 / +13 at 20 / 21 /
+ * 22, then **+31 / +32 / +33** at 23 / 24 / 25. Armour over the same band gains
+ * +19 / +21 / +23. This is the one place where the band above 22 is genuinely
+ * lucrative rather than merely non-zero.
+ *
+ * It is still NOT a recommendation, for two independent reasons:
+ *
+ *  1. NO SOURCE recommends it. Searched across all three guides: `UG` Phase 4 says
+ *     "22 star everything (other than pitched)" and its only "23" is "23%+ Stat"
+ *     (potential, not stars); `DTQ`'s end-game star column is 22 in every row;
+ *     `GL`'s "max. 25 stars" is its stale pre-2025-revamp cap, not advice. There
+ *     is no branch to record as `disputed` — there is simply no dissent.
+ *  2. On the weapon you actually finish with, it is UNREACHABLE. The terminal GMS
+ *     Heroic weapon is the Genesis weapon, granted at a fixed 22★ that cannot be
+ *     enhanced at all (`items/rules.ts` `liberated-weapon-fixed-star`). The only
+ *     weapon that can pass 22 is a Destiny stage-2, and that caps at 25, not 30
+ *     (`items/rules.ts` `destiny-stage-ambiguous`). So chasing the jump means
+ *     spending it on an Arcane or CRA weapon you are about to throw away — at
+ *     1.13 expected destroyed copies per successful 22→23 attempt.
+ *
+ * Research §4.2 "The one real exception".
+ */
+export const WEAPON_ATT_JUMP_AT_23 = {
+	/** ATT gained per star on a level-150 weapon, 20★ through 25★. */
+	weaponAttDeltaLv150: [
+		{ star: 20, att: 11 },
+		{ star: 21, att: 12 },
+		{ star: 22, att: 13 },
+		{ star: 23, att: 31 },
+		{ star: 24, att: 32 },
+		{ star: 25, att: 33 }
+	],
+	/** ATT gained per star on level-160 armour over the same band, for contrast. */
+	armourAttDeltaLv160: [
+		{ star: 23, att: 19 },
+		{ star: 24, att: 21 },
+		{ star: 25, att: 23 }
+	],
+	recommendedByAnySource: false,
+	reachableOnTerminalWeapon: false,
+	note:
+		'Real and large, but no guide recommends it, and the Genesis weapon — the ' +
+		'weapon you finish on — is locked at a fixed 22★ and cannot be enhanced, so ' +
+		'the jump can only be bought on a weapon you are about to replace.',
+	sources: [
+		'research §4.2 — starforce.ts WEAPON_ATT_DELTA_16_25; items/rules.ts liberated-weapon-fixed-star and destiny-stage-ambiguous; UG Phase 4; DTQ end-game table'
+	]
+} as const;
 
 /** The mechanical cap. Reachable in theory only — see STAR_CLIMB_COST. */
 export const THEORETICAL_MAX_STAR = 30;
 
 /**
  * The highest star the tracker should ever propose as a target, for any item.
- * Research §4.2: stars 23-30 grant no class stat, and 22→30 costs ~2.4e7 attempts
- * and ~1.1e6 destroyed copies in expectation.
+ *
+ * ⚠️ NOT because the band above is worthless. Main stat freezes at 22
+ * (`LAST_STAT_STAR`), but ATT keeps climbing, and on WEAPONS it accelerates
+ * sharply exactly there — see `WEAPON_ATT_JUMP_AT_23`. The cap is a COST and RISK
+ * judgement: Safeguard ends at 17, so every attempt from 18 up can destroy the
+ * item, and 22 -> 30 costs ~2.4e7 attempts and ~1.1e6 destroyed copies in
+ * expectation (`STAR_CLIMB_COST`). No guide in `docs/research/gear-progression.md`
+ * recommends going past 22 in any slot.
  */
 export const PRESCRIBED_MAX_STAR = 22;
 
@@ -2089,13 +2231,22 @@ function catalogueFacts(
 function matcherCandidates(
 	nameNorm: string,
 	sets: readonly string[],
-	kind: 'sets' | 'prefixes' | 'slotFallback'
+	kind: 'sets' | 'prefixes' | 'nonStarforceable' | 'slotFallback',
+	originalName?: string,
+	slot?: GearSlot
 ): PathStage[] {
 	return STAGES.filter((stage) => {
 		const m = stage.match;
 		if (!m) return false;
 		if (kind === 'sets') return (m.sets ?? []).some((want) => sets.some((s) => s.startsWith(want)));
 		if (kind === 'prefixes') return (m.prefixes ?? []).some((p) => hasPrefix(nameNorm, p));
+		if (kind === 'nonStarforceable') {
+			if (m.nonStarforceable !== true || !slot || !originalName) return false;
+			// `capabilities` degrades permissively for an unknown name, so an item the
+			// catalogue has never heard of is NOT claimed here.
+			const cap = capabilities({ name: originalName, slot });
+			return cap.known === true && cap.canStarforce === false;
+		}
 		return m.slotFallback === true;
 	});
 }
@@ -2163,13 +2314,21 @@ export function stageForItem(itemName: string, slot?: GearSlot): PathStage | und
 	}
 
 	const effectiveSlot = slot ?? facts.slot;
+	if (!effectiveSlot) {
+		// Without a slot only an unambiguous set or prefix claim is safe.
+		return (
+			narrow(matcherCandidates(nameNorm, facts.sets, 'sets')) ??
+			narrow(matcherCandidates(nameNorm, facts.sets, 'prefixes'))
+		);
+	}
 	return (
 		narrow(matcherCandidates(nameNorm, facts.sets, 'sets'), effectiveSlot) ??
 		narrow(matcherCandidates(nameNorm, facts.sets, 'prefixes'), effectiveSlot) ??
-		// A slot fallback with no slot would claim every unknown name in the game.
-		(effectiveSlot
-			? narrow(matcherCandidates(nameNorm, facts.sets, 'slotFallback'), effectiveSlot)
-			: undefined)
+		narrow(
+			matcherCandidates(nameNorm, facts.sets, 'nonStarforceable', itemName, effectiveSlot),
+			effectiveSlot
+		) ??
+		narrow(matcherCandidates(nameNorm, facts.sets, 'slotFallback'), effectiveSlot)
 	);
 }
 
@@ -2233,9 +2392,9 @@ export type StarTargetVerdict = {
  * on one of those two.
  *
  * `above-global-cap` is ADDITIVE and only ever returned for an UNKNOWN item. The
- * 22-star ceiling comes from the star table, not from the ladder (stars 23+ grant
- * no class stat; 22 -> 30 costs ~2.4e7 attempts and ~1.1e6 destroyed copies), so
- * it holds for a name we failed to recognise too. Callers that want a name gap to
+ * 22-star ceiling is a cost-and-risk limit rather than a stat one — see
+ * `PRESCRIBED_MAX_STAR` — and it comes from the star table, not from the ladder,
+ * so it holds for a name we failed to recognise too. Callers that want a name gap to
  * fail closed rather than fall through to a 30-star recommendation should treat
  * `above-global-cap` the same as `over-invested`; callers that deliberately keep
  * generating speculative candidates for unlisted items can ignore it.
@@ -2253,10 +2412,11 @@ export function starTargetVerdict(
 					verdict: 'above-global-cap',
 					why:
 						`${targetStars} stars is past the ${PRESCRIBED_MAX_STAR}-star ceiling that applies ` +
-						'to every item in the game: stars 23+ grant no class stat at all, and climbing 22 ' +
-						'to 30 costs roughly 24 million attempts and 1.1 million destroyed copies in ' +
-						'expectation. This item is not in the gear ladder, so there is no stage-specific ' +
-						'stopping point to quote — but the ceiling still applies.'
+						'to every item in the game. Not because the band above is worthless — main stat ' +
+						'freezes at 22 but ATT keeps climbing — but because Safeguard ends at 17 and ' +
+						'climbing 22 to 30 costs roughly 24 million attempts and 1.1 million destroyed ' +
+						'copies in expectation. This item is not in the gear ladder, so there is no ' +
+						'stage-specific stopping point to quote, but the ceiling still applies.'
 				}
 			: { known: false, verdict: 'unknown' };
 	}

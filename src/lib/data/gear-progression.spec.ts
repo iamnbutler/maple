@@ -341,7 +341,10 @@ describe('paths are well-formed', () => {
 		const verdict = starTargetVerdict('Pot Lid of Questionable Provenance', 30);
 		expect(verdict.known).toBe(false);
 		expect(verdict.verdict).toBe('above-global-cap');
-		expect(verdict.why).toMatch(/no class stat/);
+		// The reason is COST, not a worthless band: main stat freezes at 22 but ATT
+		// keeps climbing, so the justification must not claim otherwise.
+		expect(verdict.why).toMatch(/Safeguard|attempts/);
+		expect(verdict.why).toMatch(/ATT keeps climbing/);
 	});
 
 	// `above-global-cap` is additive: a KNOWN item keeps returning the verdicts
