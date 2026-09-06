@@ -26,6 +26,7 @@ export * as classSkills from './class-skills';
 // to generate upgrade CANDIDATES and to attribute the residual, never to be
 // summed into a CalcInput. See docs/plans/2026-09-06-progression-systems.md §1.
 export * as legion from './legion';
+export * as legionArtifact from './legion-artifact';
 export * as links from './links';
 
 // Flat re-exports of the gear-system tables.
