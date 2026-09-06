@@ -29,6 +29,7 @@ export * as legion from './legion';
 export * as legionArtifact from './legion-artifact';
 export * as links from './links';
 export * as vmatrix from './vmatrix';
+export * as hexa from './hexa';
 
 // Flat re-exports of the gear-system tables.
 export * from './starforce';

@@ -505,19 +505,28 @@ Per-node totals to level 30:
 
 **Whole-character totals** (derived — arithmetic on the tables above, not separately sourced):
 
+> **⚠️ CORRECTED 2026-09-06.** The row below originally read **1,527 / 35,432**. That does not
+> follow from the per-node table above it: `145 + 150 + 4x83 + 4x123 + 2x208 = 1,535`, and the
+> fragment column was out by 8,544. The per-node figures are the ones independently
+> cross-checked against Whackybeanz, so they stand and the summary row has been recomputed
+> from them. `src/lib/data/hexa.ts` derives the total rather than hardcoding it.
+
 | Configuration | Sol Erda | Fragments |
 |---|---|---|
-| GMS today (Origin + Ascent + 4 Mastery + 4 Enh + 2 CommonA) all to **Lv30** | **1,527** | **35,432** |
+| GMS today (Origin + Ascent + 4 Mastery + 4 Enh + 2 CommonA) all to **Lv30** | **1,535** | **43,976** |
 | …all to **Lv20** | 587 | 14,335 |
 | …all to **Lv10** | 315 | 6,806 |
 | Bossing-only subset (Sol Janus excluded) to **Lv30** | 1,319 | 29,164 |
 | After v271 (add 1 CommonB to Lv30) | 1,664 | 39,467 |
 
-Arithmetic: 145 + 150 + 4×83 + 4×123 + 2×208 = 1,527 Sol Erda;
-4,400 + 4,500 + 4×2,252 + 4×3,383 + 2×6,268 = 35,432 fragments.
+Arithmetic: 145 + 150 + 4×83 + 4×123 + 2×208 = **1,535** Sol Erda;
+4,400 + 4,500 + 4×2,252 + 4×3,383 + 2×6,268 = **43,976** fragments.
+
+(The Lv20 / Lv10 / bossing-subset / post-v271 rows above were derived the same way and have
+**not** been re-checked — treat them as suspect until recomputed.)
 
 > **Sanity anchor:** at 1,000 Sol Erda Energy per Sol Erda, a fully maxed GMS HEXA skill
-> matrix costs **1,527,000 Sol Erda Energy**. See §5 for how many weeks that is.
+> matrix costs **1,535,000 Sol Erda Energy**. See §5 for how many weeks that is.
 
 ---
 
@@ -1524,7 +1533,33 @@ Note three nodes sit at **09** — one level below the level-10 milestone. That 
 pattern §3.1 says an optimizer must surface: `9 → 10` on an enhancement core buys **+6 pp FD**
 for 150 fragments (25 frags/pp), the second-cheapest damage in the whole system.
 
-### 7.7 ⚠️ THE ONE THING THAT DOES NOT RECONCILE
+### 7.7 ✅ RESOLVED — the `06/20` reading is the saved-node UI
+
+*(This section originally read "THE ONE THING THAT DOES NOT RECONCILE". It was closed on
+2026-09-06 by re-reading the source screenshots directly. Explanation 2 below was right.)*
+
+**IMG_7994 and IMG_7995 settle it.** The right-hand panel of the HEXA Stat tab shows **two
+node tiles side by side** — a saved node and the live one — with a checkmark on whichever is
+currently applied, and a single `NN / 20` counter beneath the LEFT tile.
+
+- **IMG_7995** (stat core II selected): left tile `20`, right tile `20`, counter `20 / 20`,
+  checkmark on the **left** tile. Lines read ATT +40 (Lv6) · Crit Dmg +2.80% (Lv8) ·
+  STR +600 (Lv6) — sum 20. Consistent.
+- **IMG_7994** (stat core I selected): left tile `06`, right tile `20`, counter `06 / 20`,
+  checkmark on the **right** tile. Lines read Crit Dmg +0.70% (Lv2) · ATT +50 (Lv10) ·
+  STR +800 (Lv8) — sum 20.
+
+So in IMG_7994 the displayed **lines belong to the checked 20-level node**, while the `06 / 20`
+counter belongs to the **unchecked saved node sitting at level 6**. There is no conflict: the
+sum rule holds, and the panel was simply showing two nodes at once.
+
+**Consequence for the capture doc and for any future screenshot parse:** the `NN / 20` figure
+next to a HEXA Stat core is NOT necessarily the level of the core whose lines are on screen.
+Read the line levels and sum them; treat the counter as belonging to the left tile.
+
+---
+
+### 7.7b Original analysis (kept for the reasoning, which was correct)
 
 **Stat node II is reported as displaying `06/20`, but its three lines are Lv2 + Lv10 + Lv8 = 20.**
 
