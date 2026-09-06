@@ -12,6 +12,7 @@ import * as calc from '$lib/calc';
 import type { CalcInput, Delta } from '$lib/calc/types';
 import { getClass, type ClassDef } from '$lib/data/classes';
 import * as flames from '$lib/data/flames';
+import { capabilities, type ItemCapabilities } from '$lib/data/items';
 import * as hyperstats from '$lib/data/hyperstats';
 import * as potential from '$lib/data/potential';
 import * as starforce from '$lib/data/starforce';
@@ -94,6 +95,62 @@ const POTENTIAL_CATEGORIES: Record<string, potential.PotentialCategory | undefin
 };
 
 /* -------------------------------------------------------------------------- */
+/* Capability gate                                                             */
+/*                                                                             */
+/* The catalogue (src/lib/data/items) is the ground truth for "can this item    */
+/* even receive this upgrade". Before this gate existed the generators trusted  */
+/* whatever an agent PUT at them and proposed impossible upgrades — star        */
+/* forcing a Ring of Restraint, star forcing a Genesis weapon, flaming a ring.  */
+/*                                                                             */
+/* A suppressed candidate is NEVER dropped silently: every suppression lands    */
+/* in `CandidateResult.notes` so the UI can distinguish "we have no suggestion  */
+/* for this item" from "this upgrade is impossible for this item".              */
+/* -------------------------------------------------------------------------- */
+
+/** One "we did not generate X for Y, because Z" record, before formatting. */
+interface Suppression {
+	slot: string;
+	itemName: string;
+	reason: string;
+}
+
+/** Group suppressions by reason so 8 flame-ineligible items make 1 note, not 8. */
+function formatSuppressions(kind: string, list: readonly Suppression[]): string[] {
+	const byReason = new Map<string, string[]>();
+	for (const entry of list) {
+		const where = `${entry.slot} (${entry.itemName})`;
+		const bucket = byReason.get(entry.reason);
+		if (bucket) bucket.push(where);
+		else byReason.set(entry.reason, [where]);
+	}
+	return [...byReason].map(
+		([reason, where]) => `No ${kind} candidate for ${where.join(', ')}: ${reason}`
+	);
+}
+
+/** Every reason the capability lookup recorded, as one sentence. */
+function capabilityReasons(caps: ItemCapabilities): string {
+	const reasons = Object.values(caps.reasons);
+	return reasons.length > 0 ? reasons.join(' ') : 'the item catalogue does not allow it.';
+}
+
+/** The subset of `Item` the catalogue needs to resolve capabilities. */
+function capsFor(slot: string, item: Item): ItemCapabilities {
+	return capabilities({
+		name: item.name,
+		slot,
+		category: item.category,
+		itemLevel: item.itemLevel,
+		superior: item.superior
+	});
+}
+
+/** A candidate note flagging that the item is not in the catalogue. */
+function unknownItemNote(caps: ItemCapabilities): string[] {
+	return caps.known ? [] : [caps.reasons['unknown-item'] ?? 'Item not found in the catalogue.'];
+}
+
+/* -------------------------------------------------------------------------- */
 /* Star force                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -140,15 +197,34 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 	const cls = getClass(character.classId);
 	const candidates: UpgradeCandidate[] = [];
 	const notes: string[] = [];
+	const suppressed: Suppression[] = [];
 	const breakpoints = opts.breakpoints ?? STAR_BREAKPOINTS;
 
 	for (const [slot, item] of Object.entries(character.equipment ?? {})) {
 		if (!item) continue;
 		if (!STAR_FORCEABLE_CATEGORIES.includes(item.category)) continue;
 
-		if (item.superior) {
+		// The catalogue gate. Genesis / Destiny weapons, Ring of Restraint and
+		// everything else with no upgrade slots stops here.
+		const caps = capsFor(slot, item);
+		if (!caps.canStarforce) {
+			const fixed =
+				caps.fixedStarforce !== undefined
+					? ` It is fixed at ${caps.fixedStarforce}★.`
+					: '';
+			suppressed.push({
+				slot,
+				itemName: item.name,
+				reason: `${capabilityReasons(caps)}${fixed}`
+			});
+			continue;
+		}
+
+		if (item.superior || caps.superior) {
 			// starforce.ts: "Superior gear is out of scope here — it still loses a star on
 			// failure and has Chance Time", so `expectedCostToReach` would be wrong.
+			// `caps.superior` catches Tyrant / Nova / Elite Heliseum gear even when the
+			// capture forgot to set the flag.
 			notes.push(
 				`${slot} (${item.name}) is Superior/Tyrant gear: the star force cost chain does not ` +
 					'model Chance Time or star loss on failure, so no star force candidates were ' +
@@ -159,7 +235,10 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 		if (item.itemLevel === undefined || item.starforce === undefined) continue;
 
 		const kind = starForceKind(slot, item.category);
-		const max = starforce.maxStars(item.itemLevel, false);
+		// The catalogue knows the per-item caps (Sweetwater 15★, the two
+		// star-forceable badges 22★, Superior tables); fall back to the level
+		// table only when it does not.
+		const max = caps.maxStarforce ?? starforce.maxStars(item.itemLevel, false);
 		const from = item.starforce;
 		if (from >= max) continue;
 
@@ -182,7 +261,10 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 				continue;
 			}
 
-			const candidateNotes = ['Safeguard assumed on 15★-17★; Enhancement Mode 1; no MVP discount.'];
+			const candidateNotes = [
+				'Safeguard assumed on 15★-17★; Enhancement Mode 1; no MVP discount.',
+				...unknownItemNote(caps)
+			];
 			let confidence: Confidence = 'estimated';
 			if (kind === 'weapon' && to > 25) {
 				confidence = 'speculative';
@@ -213,6 +295,7 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 		}
 	}
 
+	notes.push(...formatSuppressions('star force', suppressed));
 	return { candidates, notes };
 }
 
@@ -230,16 +313,10 @@ const FLAME_BAND_LABELS: Record<FlameBand, string> = {
 	minmax: 'min-maxed'
 };
 
-/** Slots the flame pool never touches (flames.FLAME_INELIGIBLE). */
-function flameEligible(slot: string, item: Item): boolean {
-	if (item.category === 'secondary' || item.category === 'emblem') return false;
-	if (item.category === 'badge' || item.category === 'medal') return false;
-	if (item.category === 'android' || item.category === 'totem') return false;
-	if (item.category === 'heart' || item.category === 'pocket') return false;
-	if (slot.startsWith('ring')) return false;
-	if (slot === 'shoulder') return false;
-	return true;
-}
+// Flame eligibility used to be a hand-rolled slot list here. It now comes from
+// the item catalogue (src/lib/data/items), which encodes flames.FLAME_INELIGIBLE
+// plus its three named exceptions (Immortal Legacy, Scarlet Shoulder, Ancient
+// Slate Replica) per item rather than per slot.
 
 function flameAdvantaged(item: Item): boolean {
 	const haystack = `${item.name} ${item.setName ?? ''}`.toLowerCase();
@@ -253,6 +330,7 @@ function generateFlame(character: Character): CandidateResult {
 	const main = mainStatOf(cls);
 	const candidates: UpgradeCandidate[] = [];
 	const notes: string[] = [];
+	const suppressed: Suppression[] = [];
 
 	if (!main) {
 		return {
@@ -268,7 +346,12 @@ function generateFlame(character: Character): CandidateResult {
 
 	for (const [slot, item] of Object.entries(character.equipment ?? {})) {
 		if (!item) continue;
-		if (!flameEligible(slot, item)) continue;
+
+		const caps = capsFor(slot, item);
+		if (!caps.canFlame) {
+			suppressed.push({ slot, itemName: item.name, reason: capabilityReasons(caps) });
+			continue;
+		}
 		if (item.itemLevel === undefined) continue;
 
 		if (item.category === 'weapon') {
@@ -330,11 +413,13 @@ function generateFlame(character: Character): CandidateResult {
 					'StrategyWiki weights the benchmarks were published under.',
 				item.flame
 					? 'Current flames read from the item breakdown.'
-					: 'No flame block captured; the current score was treated as 0.'
+					: 'No flame block captured; the current score was treated as 0.',
+				...unknownItemNote(caps)
 			]
 		});
 	}
 
+	notes.push(...formatSuppressions('flame', suppressed));
 	return { candidates, notes };
 }
 
@@ -521,6 +606,7 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 	const cls = getClass(character.classId);
 	const candidates: UpgradeCandidate[] = [];
 	const notes: string[] = [];
+	const suppressed: Suppression[] = [];
 
 	if (type === 'bonus' && !potential.BONUS_POTENTIAL_AVAILABLE_IN_HEROIC) {
 		return {
@@ -537,6 +623,15 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 		if (!item) continue;
 		const category = POTENTIAL_CATEGORIES[item.category];
 		if (!category) continue;
+
+		// The catalogue gate: medals, most badges, pocket items, androids and
+		// totems never take potential, and neither do a handful of named rings.
+		const caps = capsFor(slot, item);
+		if (!caps.canPotential) {
+			suppressed.push({ slot, itemName: item.name, reason: capabilityReasons(caps) });
+			continue;
+		}
+
 		const source = type === 'main' ? item.potential : item.bonusPotential;
 		if (!source || item.itemLevel === undefined) continue;
 
@@ -577,7 +672,8 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 				confidence: 'speculative',
 				notes: [
 					'Rank-up rates are UNVERIFIED_GMS_RANK_UP_RATES — they predate the v239 cube rework.',
-					'Assumes the new grade rolls the same line kinds, which is optimistic.'
+					'Assumes the new grade rolls the same line kinds, which is optimistic.',
+					...unknownItemNote(caps)
 				]
 			});
 		}
@@ -609,12 +705,14 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 				confidence: 'estimated',
 				notes: [
 					'USEFUL_LINES is an editorial judgement call, not a sourced game table.',
-					'The cube count is a lower bound on the real cost.'
+					'The cube count is a lower bound on the real cost.',
+					...unknownItemNote(caps)
 				]
 			});
 		}
 	}
 
+	notes.push(...formatSuppressions(type === 'main' ? 'potential' : 'bonus potential', suppressed));
 	return { candidates, notes };
 }
 

@@ -9,6 +9,7 @@
 	import ItemPanel from '$lib/components/ItemPanel.svelte';
 	import Section from '$lib/components/Section.svelte';
 	import StatWorthTable from '$lib/components/StatWorthTable.svelte';
+	import SymbolPanel from '$lib/components/SymbolPanel.svelte';
 	import UpgradeTable from '$lib/components/UpgradeTable.svelte';
 	import type { Slot } from '$lib/schema';
 	import { int } from '$lib/ui/format';
@@ -72,18 +73,24 @@
 
 <Section title="Equipment" subtitle="{int(equippedCount)} of 29 slots filled">
 	<div class="equip" class:open={selected !== null}>
-		<div class="grid-wrap">
-			<EquipmentGrid
-				equipment={character.equipment ?? {}}
-				{selected}
-				onselect={(slot) => (selected = selected === slot ? null : slot)}
-			/>
-			<div class="legend">
-				<span class="key" style:--c="var(--grade-rare)">rare</span>
-				<span class="key" style:--c="var(--grade-epic)">epic</span>
-				<span class="key" style:--c="var(--grade-unique)">unique</span>
-				<span class="key" style:--c="var(--grade-legendary)">legendary</span>
-				<span class="hint">border = potential grade · bottom stripe = bonus potential</span>
+		<div class="gear">
+			<div class="grid-wrap">
+				<EquipmentGrid
+					equipment={character.equipment ?? {}}
+					{selected}
+					onselect={(slot) => (selected = selected === slot ? null : slot)}
+				/>
+				<div class="legend">
+					<span class="key" style:--c="var(--grade-rare)">rare</span>
+					<span class="key" style:--c="var(--grade-epic)">epic</span>
+					<span class="key" style:--c="var(--grade-unique)">unique</span>
+					<span class="key" style:--c="var(--grade-legendary)">legendary</span>
+				</div>
+				<div class="hint">border = potential grade · bottom stripe = bonus potential</div>
+			</div>
+
+			<div class="symbol-wrap">
+				<SymbolPanel symbols={character.symbols} characterId={character.id} />
 			</div>
 		</div>
 
@@ -160,7 +167,7 @@
 
 	.equip {
 		display: grid;
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
 		gap: 12px;
 		align-items: start;
 	}
@@ -169,10 +176,28 @@
 		grid-template-columns: minmax(0, 1fr) 360px;
 	}
 
+	/* Grid and symbols sit side by side, and wrap onto two rows when narrow. */
+	.gear {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		align-items: flex-start;
+	}
+
+	.grid-wrap {
+		flex: 0 0 auto;
+	}
+
+	.symbol-wrap {
+		flex: 1 1 300px;
+		min-width: 0;
+	}
+
 	.legend {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		flex-wrap: wrap;
+		gap: 4px 8px;
 		margin-top: 6px;
 		font-size: 10px;
 		color: var(--text-faint);
@@ -185,7 +210,11 @@
 	}
 
 	.hint {
-		margin-left: auto;
+		margin-top: 2px;
+		max-width: 298px;
+		font-size: 10px;
+		line-height: 1.3;
+		color: var(--text-faint);
 	}
 
 	.two {

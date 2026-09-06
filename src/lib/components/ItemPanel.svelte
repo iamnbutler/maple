@@ -3,7 +3,10 @@
 
 	import { CATEGORY_BY_SLOT, type Item, type Slot } from '$lib/schema';
 	import { int, stars } from '$lib/ui/format';
+	import { resolveIconUrl } from '$lib/ui/icons';
 	import { GRADE_COLORS, GRADE_LABELS, SLOT_LABELS, statEntries } from '$lib/ui/slots';
+
+	import ItemIcon from './ItemIcon.svelte';
 
 	let {
 		characterId,
@@ -103,7 +106,10 @@
 
 <aside class="panel">
 	<header>
-		<div>
+		{#if item && resolveIconUrl(item)}
+			<span class="thumb"><ItemIcon {item} size={40} fallback="none" /></span>
+		{/if}
+		<div class="head-text">
 			<div class="slot">{SLOT_LABELS[slot]}</div>
 			<div class="name">{item?.name ?? 'Empty slot'}</div>
 		</div>
@@ -250,6 +256,22 @@
 		gap: 8px;
 		padding: 6px 8px;
 		border-bottom: 1px solid var(--line);
+	}
+
+	.thumb {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 42px;
+		height: 42px;
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		background: var(--panel-3);
+	}
+
+	.head-text {
+		min-width: 0;
 	}
 
 	.slot {
