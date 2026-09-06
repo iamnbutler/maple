@@ -431,7 +431,9 @@ The two sources agree exactly on every entry I compared. MapleStory Wiki's table
 | 100% | 0% |
 | 100% + excess stars | +1% per excess star, up to **+20%** |
 
-Star Force accounting: every star on a normal equip = 1 Star Force; every star on an **Overall = 2** Star Force. Max stars by item level (non-Superior): 0–95 → 5, 96–107 → 8, 108–117 → 10, 118–127 → 15, 128–137 → 20, **138+ → 25**. Superior (Tyrant) equips: 0–95 → 3, 96–107 → 5, 108–117 → 8, 118–127 → 10, 128–137 → 12, 138+ → **15**.
+Star Force accounting: every star on a normal equip = 1 Star Force; every star on an **Overall = 2** Star Force. Max stars by item level (non-Superior) as StrategyWiki states them: 0–95 → 5, 96–107 → 8, 108–117 → 10, 118–127 → 15, 128–137 → 20, **138+ → 25**. Superior (Tyrant) equips: 0–95 → 3, 96–107 → 5, 108–117 → 8, 118–127 → 10, 128–137 → 12, 138+ → **15**.
+
+> ⚠️ **Out of date at the top bracket.** The 2025 Star Force reorganization (KMS 2025-03-20, GMS 2025-11-12) raised the cap for item level 138+ from **25★ to 30★** and changed the bracket boundaries slightly (0–94 → 5★, 95–107 → 8★). Use the post-revamp table in **§4A.1.2**, not this one. The *map* penalty/bonus brackets above are unaffected.
 
 **Arcane Force maps** (StrategyWiki §Arcane Force Maps):
 
@@ -6377,9 +6379,13 @@ reporting, or (ii) restrict claims to relative deltas, which don't need it.
 
 ## 6. Companion files produced alongside this document
 
-Two supporting documents were produced in the same research effort and live next to this file. They are referenced rather than inlined because they are per-boss / per-tool data dumps rather than formulas:
+Three supporting documents were produced in the same research effort and live next to this file. They are referenced rather than inlined because they are per-boss / per-tool data dumps rather than formulas:
 
 - **`docs/research/bosses.md`** — per-boss roster with in-game data (level, PDR, HP per phase, Arcane/Sacred Force requirement and bonus breakpoints), the in-game "recommended Combat Power" gate table, Arcane/Sacred Force damage-modifier derivations, community range→DPM→clear-time benchmarks, a Korean↔GMS boss-name map, and notes for porting to JSON.
 - **`docs/research/existing-tools.md`** — deeper inventory of APIs, item databases and open-source repos usable as implementation references: the Nexon Open API's region coverage, the GMS unofficial rankings JSON endpoint, `maplestory.io` raw-WZ endpoints for item base stats / set effects / potential option tables, pre-extracted item JSON manifests, star-force and cube-rate implementations, and VLM/OCR gear-import notes.
 
+- **`docs/research/kms-tools.md`** — notes from reverse-engineering MapleScouter's shipped JS bundle: its 환산 주스탯 ("converted main stat") metric, its boss-suitability model (a monotone cubic Hermite curve over 13 knots, separate curves for 300%-defense and 380%-defense bosses), and the relationship between 환산, 전투력 (Combat Power) and clear rates. Useful if you want to reproduce a MapleScouter-style single-scalar score.
+
 If you read one other thing before writing code, read `existing-tools.md` §"TL;DR / decisions".
+
+**Also present, out of scope:** `docs/plans/2026-09-06-maple-design.md` was written by a sub-agent during this research task without being asked for. It is a draft proposal, not an approved design — I have marked it as such at the top of the file. Delete it if it is not wanted.

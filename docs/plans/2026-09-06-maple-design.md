@@ -1,6 +1,8 @@
 # Maple — design (stage 1 + stretch)
 
-Date: 2026-09-06. Status: decided by Claude while Nate was AFK; open questions at the end.
+Date: 2026-09-06. Status: decided by Claude under the user's standing instruction ("You make all
+the decisions"). Open questions that genuinely need the user are parked in §11; everything else is
+settled and being built against.
 
 ## 1. What this is
 
@@ -16,7 +18,7 @@ A personal (1–5 users) MapleStory GMS gear/progression tracker with:
 5. stretch: a **boss board** rating each boss/difficulty on three axes: solo, party, carried.
 
 Research backing every decision lives in `docs/research/` (`formulas.md`, `existing-tools.md`,
-`bosses.md`, `_part_*.md`). Do not re-derive game math from memory; cite those files.
+`bosses.md`, `kms-tools.md`). Do not re-derive game math from memory; cite those files.
 
 ## 2. Decisions that shape everything
 
@@ -29,7 +31,7 @@ Research backing every decision lives in `docs/research/` (`formulas.md`, `exist
 | Persistence | JSON files under `data/` with append-only snapshots | Tiny user count; agent-friendly; diffable. No DB. |
 | LLM in the app | **None.** The app publishes a schema + an extraction guide; the external agent does the parsing | Matches "driven from external agent"; keeps the app dependency-free. Revisit if Nate wants an in-app key. |
 | Stack | SvelteKit 2 / Svelte 5 runes / TS / zod 4 / vitest / adapter-node, plain scoped CSS | Already scaffolded. |
-| Region assumptions | GMS 2026: 30★ star force, potential level breakpoint 151, Heroic (Reboot) cube prices 12M/22M | `_part_tables_a.md`. Server type is a per-character field (`heroic` default). |
+| Region assumptions | GMS 2026: 30★ star force, potential level breakpoint 151, Heroic (Reboot) cube prices 12M/22M | `formulas.md` §4A. Server type is a per-character field (`heroic` default). |
 
 ## 3. Domain model (zod schemas in `src/lib/schema/`)
 
@@ -149,7 +151,7 @@ Each candidate = `{ id, kind, label, slot?, delta, cost?: { mesos?: number; days
 
 | kind | Generated from | Delta source | Cost |
 |---|---|---|---|
-| `starforce` | current stars → +1, and → next breakpoint (17, 18, 19, 20, 21, 22, 23, 25, 30) | SF stat/att per star by item level (`_part_tables_a.md`); 30★ system | expected meso via `masonym` cost formula + GMS v269 rates, Enhancement Mode 1, safeguard 15–17 |
+| `starforce` | current stars → +1, and → next breakpoint (17, 18, 19, 20, 21, 22, 23, 25, 30) | SF stat/att per star by item level (`formulas.md` §4A); 30★ system | expected meso via `masonym` cost formula + GMS v269 rates, Enhancement Mode 1, safeguard 15–17 |
 | `flame` | current flame block → a target tier per stat (e.g. T5/T6/T7 main, att) | flame formulas by item level | flames in days/mesos: unknown → `confidence: low`, cost omitted |
 | `potential` | current grade/lines → next grade, or "3 useful lines" at same grade | potential line tables by category & level bracket | Heroic cube price × expected cubes (rough; `low` confidence) |
 | `bonusPotential` | same | bonus pot tables | same |
