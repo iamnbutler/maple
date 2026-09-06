@@ -9,6 +9,7 @@
 // WORLD SCOPE: Heroic (Reboot) only.
 
 // Namespaced access, e.g. `data.starforce.maxStars(...)`.
+export * as gearProgression from './gear-progression';
 export * as starforce from './starforce';
 export * as flames from './flames';
 export * as potential from './potential';

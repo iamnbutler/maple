@@ -72,13 +72,27 @@ describe('star force candidates', () => {
 		expect(statStep.delta.mainFlat).toBe(statStep.delta.subFlat);
 	});
 
-	it('marks weapon 26-30 speculative', () => {
-		// The fixture holds a Genesis Bow, which is a fixed 22★ and generates no
-		// star force candidates at all (see the capability tests below), so swap in
-		// an ordinary Lv200 bow to exercise the 26-30 extrapolation.
-		const { candidates } = generate(
+	// Stars 23-30 grant no class stat at all, and 22 -> 30 costs ~2.4e7 attempts
+	// and ~1.1e6 destroyed copies. Nate: "30 star is a thing of myth (no one will
+	// ever see)". A laddered item must not be offered one.
+	it('never offers 30★ on an item the progression ladder covers', () => {
+		const { candidates, notes } = generate(
 			(character) => {
 				character.equipment.weapon!.name = 'Arcane Umbra Bow';
+			},
+			{ kinds: ['starforce'] }
+		);
+		expect(candidates.some((c) => c.id === 'starforce:weapon:22-30')).toBe(false);
+		// Dropped WITH A REASON — a silently missing row looks exactly like a bug.
+		expect(notes.join(' ')).toMatch(/Arcane Umbra Bow.*did not offer/);
+	});
+
+	// `unknown` means the item is not in the ladder, which is NOT the same as
+	// "wrong" — those still generate, so the 26-30 extrapolation stays reachable.
+	it('marks weapon 26-30 speculative on an item outside the ladder', () => {
+		const { candidates } = generate(
+			(character) => {
+				character.equipment.weapon!.name = 'Ignitia Sureshot Bow';
 			},
 			{ kinds: ['starforce'] }
 		);

@@ -16,6 +16,7 @@ import { capabilities, type ItemCapabilities } from '$lib/data/items';
 import * as hyperstats from '$lib/data/hyperstats';
 import * as potential from '$lib/data/potential';
 import * as potentialLines from '$lib/data/potential-lines';
+import * as gearProgression from '$lib/data/gear-progression';
 import * as starforce from '$lib/data/starforce';
 import * as symbols from '$lib/data/symbols';
 import {
@@ -256,10 +257,47 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 		const from = item.starforce;
 		if (from >= max) continue;
 
+		// Pitched and Brilliant gear is out of scope for ranking entirely: the drop
+		// wait is measured in months-to-years, so an upgrade path through it is not
+		// a plan. gear-progression.md SS "Pitched exclusion" carries the reasoning.
+		if (gearProgression.isOutOfScope(item.name)) continue;
+
 		const targets = new Set<number>([from + 1]);
 		for (const breakpoint of breakpoints) if (breakpoint > from) targets.add(breakpoint);
 
+		// The mechanical cap is not the plan. Stars 23-30 grant NO class stat
+		// (gear-progression `LAST_STAT_STAR`), and 22 -> 30 costs ~2.4e7 attempts
+		// and ~1.1e6 destroyed copies. Offering it is how this board came to show
+		// "Fafnir Soaring Sword 14* -> 30*" at 2,275 TRILLION mesos.
+		//
+		// A target past the stopping point is DROPPED WITH A REASON, never silently:
+		// a missing row is indistinguishable from a bug, and the user has to be able
+		// to disagree with the prescription. `unknown` means the item is not in the
+		// ladder — those still generate, because unknown is not the same as wrong.
+		const overInvested: string[] = [];
+		const wanted: number[] = [];
 		for (const to of [...targets].filter((t) => t <= max).sort((a, b) => a - b)) {
+			const verdict = gearProgression.starTargetVerdict(item.name, to);
+			if (verdict.verdict === 'over-invested' || verdict.verdict === 'impossible') {
+				overInvested.push(`${to}★`);
+				continue;
+			}
+			wanted.push(to);
+		}
+		if (overInvested.length > 0) {
+			const v = gearProgression.starTargetVerdict(item.name, Math.max(...targets));
+			notes.push(
+				`${slot} (${item.name}): did not offer ${overInvested.join(', ')} — ` +
+					`${v.why ?? 'past the stopping point for this stage.'}` +
+					(v.prescribed !== undefined
+						? ` The plan stops at ${v.prescribed}★${
+								v.onEvent !== undefined ? ` (${v.onEvent}★ on a Star Force event)` : ''
+							}.`
+						: '')
+			);
+		}
+
+		for (const to of wanted) {
 			let delta: Delta;
 			let mesos: number;
 			try {
@@ -275,8 +313,10 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 				continue;
 			}
 
+			const starVerdict = gearProgression.starTargetVerdict(item.name, to);
 			const candidateNotes = [
 				'Safeguard assumed on 15★-17★; Enhancement Mode 1; no MVP discount.',
+				...(starVerdict.verdict === 'event-only' && starVerdict.why ? [starVerdict.why] : []),
 				...unknownItemNote(caps)
 			];
 			let confidence: Confidence = 'estimated';
