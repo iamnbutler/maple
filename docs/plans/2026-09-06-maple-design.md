@@ -31,7 +31,7 @@ Research backing every decision lives in `docs/research/` (`formulas.md`, `exist
 | Persistence | JSON files under `data/` with append-only snapshots | Tiny user count; agent-friendly; diffable. No DB. |
 | LLM in the app | **None.** The app publishes a schema + an extraction guide; the external agent does the parsing | Matches "driven from external agent"; keeps the app dependency-free. Revisit if Nate wants an in-app key. |
 | Stack | SvelteKit 2 / Svelte 5 runes / TS / zod 4 / vitest / adapter-node, plain scoped CSS | Already scaffolded. |
-| Region assumptions | GMS 2026: 30★ star force, potential level breakpoint 151, Heroic (Reboot) cube prices 12M/22M | `formulas.md` §4A. Server type is a per-character field (`heroic` default). |
+| Region assumptions | GMS 2026 **Heroic only**: 30★ star force, potential level breakpoint 151, Heroic cube prices 12M/22M, Heroic crystal values | `formulas.md` §4A. Regular servers are out of scope — no server-type field exists. |
 
 ## 3. Domain model (zod schemas in `src/lib/schema/`)
 
@@ -43,7 +43,6 @@ Character {
   id: string            // slug, e.g. "nate-shadower"
   name: string          // IGN
   world: string         // e.g. "Kronos"
-  serverType: "heroic" | "regular"
   classId: string       // from src/lib/data/classes.ts (e.g. "shadower")
   level: number
   statWindow?: StatWindow
@@ -176,7 +175,7 @@ grouped by slot with the best-of-slot highlighted.
 | `GET /api/docs` | Markdown guide for agents: schema, workflow, screenshot extraction instructions, validation identities |
 | `GET /api/schema` | JSON Schema (zod `toJSONSchema`) for Character/Item/StatWindow |
 | `GET /api/ref/classes` · `/api/ref/bosses` · `/api/ref/slots` · `/api/ref/potential-lines` | Reference data |
-| `GET /api/characters` · `POST /api/characters` | List / create (`{ id?, name, classId, level, world, serverType }`) |
+| `GET /api/characters` · `POST /api/characters` | List / create (`{ id?, name, classId, level, world }`) |
 | `GET /api/characters/:id` · `PUT` · `PATCH` · `DELETE` | Full doc; replace; merge-patch; delete |
 | `PUT /api/characters/:id/equipment/:slot` · `DELETE` | Upsert / remove one item (returns validation warnings) |
 | `PUT /api/characters/:id/stat-window` | Replace stat window |
@@ -223,10 +222,24 @@ floors) and labels DPM-based verdicts as `uncalibrated`.
 - API tests with a temp `data/` dir.
 - `npm run check`, `npm test`, `npm run build` must pass before any wave is declared done.
 
-## 11. Open questions for Nate (not blocking)
+## 11. Answered by Nate (2026-09-06)
 
-1. Which world / server type do you play (Heroic vs regular)? Default is `heroic` per character.
-2. Which class(es)? (Xenon and Demon Avenger need special handling; everything else is generic.)
-3. Should the app ever call an LLM itself for screenshot import, or stay external-agent only? Default: external only.
-4. Boss board calibration: OK to anchor DPM on KMS 8.8-challenge class charts, scaled by your damage index? Alternative is your own Battle Analysis numbers as the anchor.
-5. Hosting: local `npm run dev` only, or should it be reachable from your phone (Tailscale/Cloudflare tunnel)?
+1. **Server: Heroic only.** Regular servers are treated as nonexistent — no `serverType` field, Heroic
+   cube/flame prices and crystal values throughout.
+2. **Classes: Ren (priority), Hero, Wind Archer, Battle Mage, Night Walker.** The class table still
+   covers everything, but these five are the ones that must be exactly right and explicitly tested.
+   Hero needs its 1H/2H weapon-constant variants. Xenon and Demon Avenger keep their stat-multiplier
+   branches (they're in the formula) but get no bespoke coverage.
+3. **In-app LLM calls are allowed** ("do it if helpful — I have keys"). Still not needed for stage 1:
+   the external agent owns screenshot parsing. Revisit for a convenience "paste a screenshot here"
+   route once the API is proven.
+4. **Boss board anchors on the KMS 8.8-challenge class DPM charts**, scaled by the damage index.
+   Personal Battle Analysis numbers as an anchor source are a stretch goal, not stage 1.
+5. **Local only.** `npm run dev` on this machine; no tunnel, no remote hosting. Auth stays optional
+   (`MAPLE_TOKEN`) and off by default.
+
+## 12. Remaining open questions
+
+None blocking. Things I'll decide as they come up and flag if they turn out to matter:
+- Whether the Ren weapon constant in the research is current (marked UNVERIFIED if the source is thin).
+- Class DPM anchor values for the five priority classes — needs a pass over the 8.8-challenge charts.
