@@ -346,17 +346,20 @@ never a rung two steps ahead.
 | 0 | Reveal potential on every filled slot; any cube brings an item to 3 lines automatically (stamps are retired — <https://maplestorywiki.net/w/Potential>) | every slot has 3 lines |
 | 1 | **Epic, 1 line %main stat** on everything you will keep | all slots ≥ Epic with a stat line |
 | 2 | **Unique on W / S / E first** — they are the only slots with ATT%/IED/Boss (<https://grandislibrary.com/content/progression-guide>) | WSE at Unique with ≥1 ATT% each |
-| 3 | **Unique 3-line stat on armor/accessories** — the guide's "21%"; today's 151+ equivalent is **24%+** | armor at `24%+` |
-| 4 | **Legendary on W / S / E**, roll to **2 lines ATT%** (~75–130 cubes each) | 2L ATT on each of W, S, E |
-| 5 | **Legendary on armor**, roll to **2 lines %stat / `21%+`** (~35–50 Bright cubes per slot) | `21%+` everywhere |
-| 6 | **Gloves: 1 Critical Damage line** (cheap, ~9 cubes ≈ 0.2B) | 1L crit damage |
-| 7 | **WSE third useful line** — 2 ATT + 1 Boss (weapon/secondary), 2 ATT + 1 IED (emblem); aim the whole set at a **9-line 8/1/0 or 7/2/0 budget** (§4.1) | 9 usable WSE lines |
-| 8 | **3rd stat line on armor / `33%+`** — the "casual" branch, ~20–30× the cost of rung 5 | `33%+` |
-| 9 | **Hat: cooldown**, if the class wants one (§5) — the only published ladder is **−2s + 2L stat**, then **−4s + 1L stat** *"if you can afford it"* (<https://buffhero.win/>) | as the class dictates |
-| 10 | Endgame min-max: 2L crit damage gloves (~10.3B), 3L ATT WSE (~52–160B), `36%+`/`39%+` armor. Effectively unbounded | — |
+| 3 | **Unique 3-line stat on armor/accessories** — the 2020 guide's "21%"; today's 151+ equivalent is **24%+** | armor at `24%+` |
+| 4 | **Legendary on W / S / E**, roll to **2L ATT%** (~75–130 cubes each ≈ 0.9–1.5B with Glowing) | 2L ATT on each of W, S, E |
+| 5 | **Legendary on armor**, roll to **2L %stat / `21%+`** (~35–50 cubes ≈ 0.4–0.6B per slot with Glowing) | `21%+` everywhere |
+| 6 | **Gloves: 1 Critical Damage line** (~9 cubes ≈ 0.2B) | 1L crit damage |
+| 7 | **"3L usable" on weapon + secondary** — a *mix*: ideally 2 ATT + 1 Boss (847 cubes ≈ 19B). Aim the whole set at a **9-line 8/1/0 or 7/2/0 budget** (§4.1) | 9 usable WSE lines |
+| 8 | **Gloves: 2L Critical Damage** (~469 cubes ≈ 10.3B derived; community reports **387–400 bright cubes ≈ 8–10B**). Community places this **above** "fake 3L" armor | 2L crit damage |
+| 9 | **"fake 3L" armor** — 3 lines where one is %All Stat: `27%` on ≤150 gear, **`30%` on 151+** (~250 cubes ≈ 3.0B with Glowing) | `30%` on 151+ |
+| 10 | **"real 3L" armor** — three genuine main-stat lines: `30%` on ≤150, **`33%` on 151+** (~1,400 cubes ≈ 17B with Glowing) | `33%` on 151+ |
+| 11 | **Hat: cooldown**, if the class wants one (§5) — the only published ladder is **−2s + 2L stat**, then **−4s + 1L stat** *"if you can afford it"* (<https://buffhero.win/>) | as the class dictates |
+| 12 | **3L ideal on WSE** (3L ATT), then **double prime** on genuinely permanent items only. Effectively unbounded | — |
 
-Rungs 7 and 9 are deliberately ordered after rung 6: the WSE third line and the cooldown hat both
-cost 10–40B, an order of magnitude above rungs 4–6.
+Rungs 4–6 are the cheap, high-value core: everything up to and including a 1L crit-damage glove
+costs under ~1.5B per slot. Rungs 7–8 are the first 10–20B steps. Rung 10 is roughly **5–6× rung 9**
+for the last 3 percentage points.
 
 **DISPUTED — rung 8 versus Star Force.** The Reboot Guide explicitly presents this as a fork and does
 not pick a winner:
@@ -373,6 +376,83 @@ not pick a winner:
 The tracker is well placed to settle this per character: it can price rung 8 (≈16B for `33%+`,
 §3.2c; ≈20–39B if you insist on three *main-stat* lines, §3.2) against the Star Force cost for the same slot and compare `gainPct`. Present both, do
 not hard-code the guide's preference.
+
+**The "sit on fake 3L" argument.** A widely-upvoted position says to skip the fake-3L → real-3L
+step entirely unless you are already near the top:
+
+> *"if you're going from 27% to 30%, you should just sit on the 27% until you're at the point where
+> it's reasonable for you to go for 33% instead. 9% main stat is actually a lot more close to 6% all
+> stat than most people think, and if youre at near/full 22★ with 27% gear then making the step up to
+> 30% probably doesn't have any meaningful impact on your bossing."*
+> — <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kcuhwjy/>
+
+> *"Just leave it. Save meso for starforce. Extra 3% stat can add up across multiple items but wont
+> increase ur dmg as much as you'd expect."*
+> — <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kcvt4zh/>
+
+**Double prime is discouraged for almost everyone, and it is gated behind Star Force.** The most
+detailed statement:
+
+> *"1. You actually don't want double prime on a lot of equipment because it's going to get replaced
+> in short order… 4. You are not going to double prime your gear. Let's be real… It's on about the
+> same meso efficiency as unironic 23★ items. **You do real 3L, optimized WSE, ~10b+ flames, and
+> double prime WSE first.**"*
+> — <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kctfjbx/>
+
+> *"A lot of items are not worth double priming. **None of the arcane equips are worth double
+> priming.** Anything non-pitched isn't worth double priming. None of the Gollux equips are worth
+> double priming (yes, even the Superior Gollux Ring)… you only go for double primes that are real
+> BIS. Not 'BIS because it's so good' but actually 'BIS because literally nothing in the next 10
+> years of this game will ever beat this'."*
+> — <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kctvmjv/>
+
+> *"Double prime not really worth it until your items are like 24+ as stars > double prime"*
+> — <https://www.reddit.com/r/Maplestory/comments/1rtzumy/cubing_priority_order_sheet/oaicjy0/>
+
+The milestone people describe before touching DP is **"full 22★ real-3L on everything"**, and even
+players who reach it often report regretting the spend: *"I honestly think that dp and 23★ aren't
+worth it, I'd rather fund a full 22★ 3L char again"*
+(<https://www.reddit.com/r/Maplestory/comments/1cr2opa/how_do_yall_end_game_players_have_the_sanity_to/>).
+**How many players are actually there is DISPUTED** — one estimate of *"like 50 people on reboot"*
+was answered with *"Probably half of the people in the top 5 guilds are at or close to that point.
+That's already 500ish"*
+(<https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kcuhwjy/>).
+
+**Triple prime is never a plan.** No thread advocates it as a goal; it appears only as a flex-post
+outcome. The tracker should never generate a triple-prime candidate.
+
+### 2.2b Never cube gear you will replace — the specific list
+
+This is the most consistently repeated rule in every Reboot thread read. Transfer Hammer caps
+carried potential at Epic, so anything destined to be foddered should stay Epic.
+
+| Item | Community rule | Source |
+|---|---|---|
+| CRA (hat/top/bottom/weapon) | *"I would keep your CRA weapon at epic and work on your other gear. Since you will probably fodder the CRA into Abso weapon"* | <https://www.reddit.com/r/Maplestory/comments/1fe50uq/legendary_cubing_reboot/lmkv3sj/> |
+| CRA, if you still have item burning | *"I wouldn't bother with CRA at all. You're wasting money if you cube new cras to legendary or starforce them above 17★"* | <https://www.reddit.com/r/Maplestory/comments/1q07t0w/what_exactly_is_the_meta_gear_progression/> |
+| Absolab | *"I wouldn't touch the abso as you'll be upgrading to arcanes."* · *"No reason to specifically aim for 2L crit on AbsoLab gloves"* | <https://www.reddit.com/r/Maplestory/comments/13grpp1/cubing_order/jk1i0dm/> · <https://www.reddit.com/r/Maplestory/comments/1coonjr/2_line_crit_damage_glove/l3g3u7l/> |
+| Arcane **weapon + emblem** | *"I would leave the arcane weapon and emblem as is since those will be replaced eventually by genesis weapon and seren emblem."* · *"I wouldn't recommend going past 2.5 lines across weapon and emblem until you get genesis weapon and mitras."* | <https://www.reddit.com/r/Maplestory/comments/1msjykl/cubing_priority/n950lrh/> · <https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oa7bofl/> |
+| Transition accessories (golden clover belt, enraged Zak cape) | *"don't cube it beyond epic. Just get them to 16★ so they can be transferred up to gollux/abso."* | <https://www.reddit.com/r/Maplestory/comments/13j9dsw/progression_of_starforce_and_cubing/jkdxxvi/> |
+| Zak face/eye, HT earring/ring | **Exception** — worth Legendary *because they become drop/meso gear later* | same source |
+| **Permanent, full-send items** | class secondary / PNO (*"you will keep it forever until they add a replacement"*), pitched items, eternals, Slime Ring (*"even now with the limbo ring its still BIS"*) | <https://www.reddit.com/r/Maplestory/comments/1msjykl/cubing_priority/n96ljkz/> · <https://www.reddit.com/r/Maplestory/comments/1jltvj5/crafting_drop_gear_when_double_prime_for_2b_is_it/mk6imvh/> |
+| Eternal ordering | *"IMO your first Limbo Eternal should be glove, it's the most expensive to cube and worth 2L CD+stat."* | <https://www.reddit.com/r/Maplestory/comments/1qrs7gz/eternal_armor_progression_questions/o2qi1mq/> |
+
+The per-item policy, stated cleanly:
+> *"If it's a permanent item such as eternals/pitch, I use glowing cubes up to fake 3L, then I use
+> bright cubes for real 3L with a better chance for double prime. Other items that are not as
+> permanent, I will generally just use glowing cubes and leave them at fake/real 3L depending on how
+> soon I will replace it."*
+> — <https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oa8b5os/>
+
+**Caveat added by the 2025 Star Force revamp:** laddering spare items to 23–25★ forces re-cubing, so
+"permanent" is now weaker than it was. *"for any gear that ends up getting replaced (cra, arcanes,
+gollux), 21★ settle is the move… For gear that is more long term (pitched, eternals)… you want 2
+sets that you ladder"*
+(<https://www.reddit.com/r/Maplestory/comments/1pbu9q4/gear_progression_after_sf_change/nrtti75/>).
+
+**Tracker rule:** every `Item` needs a `permanence` field (`disposable | transitional | permanent`).
+Generate no potential candidate above Epic for `disposable`, cap `transitional` at "fake 3L", and
+allow the full ladder only on `permanent`.
 
 ### 2.3 Tier-up versus rerolling at the current tier
 
@@ -397,11 +477,32 @@ The conventional wisdom, and it is confirmed by the numbers:
   (0.54B). For targets in the **prime-only** set (crit damage, cooldown, meso/drop, IED 35/40,
   Boss 35/40), Bright wins: 2L crit-damage gloves is 469 Bright (10.3B) vs 1,092 Glowing (13.1B).
 
-- **The catch that decides it in practice.** The Glowing Cube applies the new potential
-  immediately; the Bright Cube *"Lets you choose the Potential before or after"*.
-  <https://maplestorywiki.net/w/Cube> So: **Glowing while you have nothing to lose, Bright once you
-  hold a result you would be sad to lose.** Expected cubes-to-first-hit is the same either way, but
-  only Bright lets you stop at an intermediate result without risk.
+- **DISPUTED — does the Glowing Cube destroy your old potential?**
+  *Position A (wiki):* <https://maplestorywiki.net/w/Cube> lists *"Lets you choose the Potential
+  before or after"* under Bright Cube **only**, implying Glowing applies destructively.
+  *Position B (players):* r/Maplestory describes both as offering a keep/discard step, with the
+  difference being only animation timing — Glowing *"shows the result simultaneously with the reset
+  button"* (causing misclicks) while Bright *"updates the stats FIRST then runs the animation so
+  accidently over clicking isnt an issue"*
+  (<https://www.reddit.com/r/Maplestory/comments/1rufmpv/cubing_tip_for_glowing_cube/oal88b6/>).
+  No thread was found describing the loss of a good potential to a Glowing cube, which is weak
+  evidence for Position B. **Do not build the recommendation on this.** The cube choice below rests
+  on the cost math, which is independent of it.
+
+- **The community's own cube rubric matches the derived math exactly.** The most-copied version:
+  > **Bright/Black:** *"To tier up / To get double prime lines (e.g. 2L crit damage, 2L CD hat) / To
+  > reroll a good 3Ls to better 3L (e.g. 30% → 33%) / To perfect items"*
+  > **Glowing/Red:** *"To cube at legendary for a useable 2L / During a large sale… to get better
+  > 3Ls / To reroll a weak 3L/2.5L/2L to a good 3L"*
+  > — <https://www.reddit.com/r/Maplestory/comments/12mlhfi/glowing_cube_vs_bright_cube_for_ranking_up/jgb901y/>
+
+  and the same comment's summary: *"Using 22m cubes to rank up is the better play overall… Once leg,
+  definitely only use 12m cubes unless it is your glove or you start trying to improve fake 3L
+  equips."* The stated crossover: **"Glowing is cheaper for 30+. Bright is cheaper for 33+."**
+  (<https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kcs8hkl/>) — which is
+  the §3.2c table restated. Dissent exists (*"In almost every case, 33% is much more cost efficient
+  via reds"* — <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kczzlly/>),
+  so treat the crossover as approximate.
 
 - **Auto Steal on gloves is gated to the free in-game cubes.** The Auto Steal lines exist only in
   the Solid/Meister and Hard/Master pools — **never in Glowing or Bright**. The Reboot Guide says
@@ -668,6 +769,33 @@ Yes in substance, no in that exact wording. What the sources actually say:
   players will go for."* (same)
 - **On armor:** the ladder step is *"Cubing gear to 21% stat"* — which at 71–150 is a 3-line Unique
   with a single prime, i.e. explicitly **not** a prime-count target. (same)
+
+From r/Maplestory, the same convention stated at each wealth level:
+
+- Poor: *"with only 5 bil you should prob just 2L uniq everything before spending half your money on
+  one legendary equip"*
+  (<https://www.reddit.com/r/Maplestory/comments/145hvqc/whats_the_most_youve_spent_cubing_from_unique_to/jnl4hky/>)
+- F2P: *"As a F2P 2 line stat is what you want, ideally 3 line but that's a luxury you have to pay
+  for or get very lucky"*
+  (<https://www.reddit.com/r/Maplestory/comments/1f7bguq/should_i_keep_the_23_str_or_keep_cubing_for/ll74h8v/>)
+- Mid: *"Your gear is fine, 18-21% is good enough."*
+  (<https://www.reddit.com/r/Maplestory/comments/13grpp1/cubing_order/jk1i0dm/>)
+- The modal endpoint: *"Most people, majority of people will settle with perfect 3l before dipping
+  their feet on double prime."*
+  (<https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kct7kel/>)
+- Bossing mules: *"everything 17 starred and 12+% stat"* with *"empress gloves (cubed for 1L crit
+  dmg)"*
+  (<https://www.reddit.com/r/Maplestory/comments/18gpkyq/what_equipment_is_good_to_aim_for_when_it_comes/kd20lfq/>);
+  *"I just 21% everything (or better if I get lucky), with 1 line crit dmg + 1 line stat on gloves"*
+  (<https://www.reddit.com/r/Maplestory/comments/1s4wjuq/ctene_mules_cubing_breakpoint/ocq81zv/>)
+- Per-slot done-states on WSE: *"Most you aim for on arcane weapons are 23 att 30 boss or ied, and
+  21 att 30 ied or 9/12 dmg / double prime att emblem. Some of my chars I'll leave at 12 att 40 ied
+  and filler stat for the emblem. PNO or class specific secondary you can full send to 3L or double
+  prime."*
+  (<https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oa7bofl/>)
+- And the gating heuristic for whether DP is even on your ladder: *"This is one of those things if
+  you have to ask, you are not there yet at that kind of progression level."*
+  (<https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kct7kel/>)
 
 So the accepted convention is better stated as **"cube to the second line of the category you want,
 then stop"**, with "line" meaning prime *or* non-prime — except on the prime-only lines (crit
@@ -1157,13 +1285,18 @@ interface PotentialCandidate {
 **Cube selection rule** (derived in §2.3, confirmed by the game's own Auto Enhancement UI):
 
 ```
-if step === "tier-up"                          → bright   (cheaper per rank AND non-destructive)
-else if target category is prime-only           → bright   (crit_dmg, cooldown, meso, drop,
-                                                            IED 35/40, Boss 35/40)
-else if the item already holds a result worth keeping → bright  (Glowing applies destructively)
-else                                            → glowing  (~half the cost for both-pool targets)
+if step === "tier-up"                     → bright   (higher rank-up rate; ~468M vs ~500M U→L)
+else if target needs 2+ PRIME lines        → bright   (2L crit_dmg, 2L cooldown, 2L meso/drop,
+                                                       double-prime stat, "33%+" on 151+ gear)
+else                                       → glowing  (~half the cost when the target category
+                                                       also exists in the non-prime pool:
+                                                       2L stat, 2L ATT, "fake 3L" / "30%" )
 // Auto Steal targets: solid only — Auto Steal is absent from the Glowing/Bright pools.
 ```
+Community shorthand for the same rule: *"Glowing is cheaper for 30+. Bright is cheaper for 33+."*
+(<https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kcs8hkl/>) and
+*"Once leg, definitely only use 12m cubes unless it is your glove"*
+(<https://www.reddit.com/r/Maplestory/comments/12mlhfi/glowing_cube_vs_bright_cube_for_ranking_up/jgb901y/>).
 
 **Hard constraints the generator must respect:**
 

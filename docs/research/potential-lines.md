@@ -96,20 +96,39 @@ every column must total 100 %. All **60** (slot group × rank) pools sum to
 duplicates. This check is asserted in `potential-lines.spec.ts` and is the strongest
 evidence the transcription is complete.
 
-Second validation: the probability engine reproduces MathBro's calculator (S2) to within
-1 × 10⁻⁵ relative on the weapon pool, which is identical in GMS and KMS:
+Second validation: the probability engine reproduces MathBro's calculator (S2) **exactly**,
+once both sides are run on the same pool transcription (`poolVariant: 'kms'`). 13 cases,
+four slot groups, two item levels, both cash cubes, four kinds of target:
 
-| Query (Lv200 Legendary weapon)  | `potential-lines.ts` | MathBro (S2)    |
-| ------------------------------- | -------------------- | --------------- |
-| 3 lines of boss damage, Bright  | 9.163453 × 10⁻⁴      | 9.163430 × 10⁻⁴ |
-| 2 lines of boss damage, Bright  | 2.765017 × 10⁻²      | 2.765000 × 10⁻² |
-| 3 lines of %ATT, Bright         | 2.197962 × 10⁻⁴      | 2.197950 × 10⁻⁴ |
-| 3 lines of boss-or-IED, Bright  | 5.663296 × 10⁻³      | 5.663270 × 10⁻³ |
-| 3 lines of boss-or-IED, Glowing | 5.142114 × 10⁻³      | 5.142180 × 10⁻³ |
-| 2 boss + 1 %ATT, Bright         | 1.867253 × 10⁻³      | 1.867250 × 10⁻³ |
+| Case (Legendary, Bright unless noted)    | ours, KMS pool data           | reference (S2)            |
+| ---------------------------------------- | ----------------------------- | ------------------------- |
+| accessory Lv150, 33 %+ stat              | 3.374960 × 10⁻⁴ · 2,963 cubes | 3.374960 × 10⁻⁴ · 2,963   |
+| accessory Lv150, 36 %+ stat              | 1.078878 × 10⁻⁵ · 92,686      | 1.078878 × 10⁻⁵ · 92,689  |
+| accessory Lv150, 30 %+ stat              | 2.269247 × 10⁻³ · 441         | 2.269247 × 10⁻³ · 441     |
+| accessory Lv150, 33 %+ stat, **Glowing** | 1.455176 × 10⁻⁴ · 6,872       | 1.455176 × 10⁻⁴ · 6,872   |
+| accessory Lv200, 36 %+ stat              | 3.374960 × 10⁻⁴ · 2,963       | 3.374960 × 10⁻⁴ · 2,963   |
+| accessory Lv200, 39 %+ stat              | 1.078878 × 10⁻⁵ · 92,686      | 1.078878 × 10⁻⁵ · 92,689  |
+| weapon Lv150, 33 %+ stat                 | 2.847320 × 10⁻⁴ · 3,512       | 2.847320 × 10⁻⁴ · 3,512   |
+| weapon Lv200, 39 %+ stat                 | 9.285811 × 10⁻⁶ · 107,689     | 9.285811 × 10⁻⁶ · 107,691 |
+| weapon Lv200, 39 %+ ATT                  | 1.160714 × 10⁻⁶ · 861,513     | 1.160714 × 10⁻⁶ · 861,538 |
+| weapon Lv200, 3 lines of boss            | 9.163427 × 10⁻⁴ · 1,091       | 9.163427 × 10⁻⁴ · 1,091   |
+| hat Lv200, 39 %+ stat                    | 9.285811 × 10⁻⁶ · 107,689     | 9.285811 × 10⁻⁶ · 107,691 |
+| hat Lv150, 33 %+ stat                    | 2.406749 × 10⁻⁴ · 4,155       | 2.406749 × 10⁻⁴ · 4,155   |
+| gloves Lv200, 3 lines of crit damage     | 1.000000 × 10⁻⁵ · 99,999      | 1.000000 × 10⁻⁵ · 100,000 |
 
-Two independent transcriptions of two different Nexon regions' disclosures agreeing to five
-significant figures is about as good as this kind of data gets.
+Percentiles agree too: for the first row we give median 2,054 / 75 % 4,107 / 85 % 5,620 /
+95 % 8,875 against the reference's 2,053 / 4,107 / 5,620 / 8,875 — the single-cube median
+difference is because we `ceil` ("how many cubes to be 50 % sure" is a whole number) where
+the reference rounds.
+
+Two independent transcriptions of two Nexon regions' disclosures, driven through two
+independently written probability engines, agreeing to five significant figures across
+four orders of magnitude is about as good as this kind of data gets. **Any residual
+difference in the shipped numbers is therefore a difference in the source tables, not in
+the model** — and §3.1 shows it is exactly one line.
+
+Note the reference's meso column includes a **per-cube** reveal fee:
+2,963 × (22,000,000 + 20 × 150²) = 66,519,350,000. We exclude that by default; see §6.
 
 ---
 
@@ -124,6 +143,56 @@ They are not the same data. Both were checked line by line.
 | Weapon Legendary "+1 ATT per 10 character levels" | Listed as `Weapon ATT +1 per 10 Character Levels`, cash 4.878 % | Listed as a flat `ATT : +32`, same 4.878 % weight              | GMS wording. Same pool slot either way; the _value_ differs and only GMS's is sourced for GMS.                                                           |
 | MathBro's level handling                          | —                                                               | bumps `%` values by +1 at item level **160** as a KMS→GMS hack | GMS's real breakpoint is **151** (S1, and `formulas.md` §4A §3.2). MathBro's 160 is an approximation; do not copy it.                                    |
 | Rank-up rates                                     | GMS figures are "wildly higher than KMS" (S1) but predate v239  | published                                                      | Neither is re-exported here — see §6.                                                                                                                    |
+
+### 3.1 UNRESOLVED: the high-rank `%DEF` line — worth 1.34×
+
+This is the one difference that changes an answer, so it gets its own section.
+
+**StrategyWiki's GMS tables carry a `DEF %` line in the Unique and Legendary armour and
+accessory pools. Nexon KR's tables do not.**
+
+It is not a scraping artifact. The same KMS scrape _does_ capture `Defense : +6%` at Epic
+and `Defense : +3%` at Rare, so the pipeline would have shown a top-rank `DEF %` had one
+been there. Both tables are internally consistent — each sums to exactly 100 % — so they
+describe genuinely different pools, or the same pool at two different times. The same
+pattern applies to `Skills and Potion HP Recovery`, which GMS lists at Legendary and KMS
+does not; that one is invisible to us because GMS already records it as **0 % on cash
+cubes**.
+
+`DEF %` carries weight 4 in every affected pool, so including it enlarges the pool and
+makes every _other_ line rarer, cubed over three lines:
+
+| group                             | GMS pool weight | KMS pool weight | factor on a 3-line target    | observed        |
+| --------------------------------- | --------------- | --------------- | ---------------------------- | --------------- |
+| `accessory`                       | 43              | 39              | (43/39)³ = 1.339             | **1.337–1.340** |
+| `gloves`                          | 44              | 40              | (44/40)³ = 1.331             | **1.331**       |
+| `hat`                             | 45              | 41              | (45/41)³ = 1.322             | **1.300–1.322** |
+| `weapon` / `secondary` / `emblem` | —               | —               | 1.000 (no `DEF %` in either) | **1.000**       |
+
+Predicted and observed agree to three decimals, and switching the single line off
+(`poolVariant: 'kms'`) reproduces the reference **exactly** on all 13 cases. So the
+attribution is proven, not asserted.
+
+**Which is right for current GMS is unresolved.** No third source was reachable:
+StrategyWiki 403s scripted fetches, `whackybeanz` is 404, MapleStory Wiki's potential
+stat-table page is still empty, and this session's web-search budget was exhausted before
+a fourth avenue could be tried. Arguments each way:
+
+- _For GMS having it_: StrategyWiki's page is GMS-annotated throughout, and its
+  probability columns were computed **with** `DEF %` in the pool (they sum to 100 % only
+  with it), so it is not a stray row someone appended.
+- _Against_: GMS potential pools are ports of KMS ones and a genuine divergence would be
+  unusual; StrategyWiki is demonstrably stale elsewhere on this page (pre-v239 cube names,
+  the boss/IED/drop cap in §4). KMS may simply have pruned two junk lines from the top
+  ranks and GMS followed without the wiki catching up.
+
+**Decision:** keep GMS (StrategyWiki) as the source of record, per the project's region
+rule, and expose `PoolVariant` so the disagreement is measurable rather than hidden. The
+constant `UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE` documents it in-module.
+
+**Consequence for the UI: do not present an armour or accessory cube cost as accurate to
+better than ~1.4× until someone confirms from an in-game tooltip whether a Legendary hat
+can roll `DEF +12%`.** Weapon, secondary and emblem costs carry no such uncertainty.
 
 `Initial` / `In-game cube` / `Cash cube` columns are **not** interchangeable: several lines
 are `0 %` on cash cubes (all Auto Steal lines, the +40 % "Skills and Potion HP Recovery"
@@ -293,34 +362,39 @@ returns exactly 0, not a small number.**
 Lv200 item, already Legendary, character level 285, Heroic meso prices
 (Glowing 12 M, Bright 22 M). "cubes" is the **mean**; the median is ~0.69× the mean.
 
-| Target                            | Slot      | P per Bright cube | Glowing: cubes / mesos | Bright: cubes / mesos |
-| --------------------------------- | --------- | ----------------- | ---------------------- | --------------------- |
-| **3× Critical Damage (+24 % CD)** | gloves    | 7.51 × 10⁻⁶       | 1,330,988 / **16.0 T** | 133,099 / **2.9 T**   |
-| 2× Critical Damage (+16 % CD)     | gloves    | 2.14 × 10⁻³       | 1,091 / 13.1 B         | 468 / 10.3 B          |
-| 1× Critical Damage (+8 % CD)      | gloves    | 1.12 × 10⁻¹       | 10 / 120 M             | 9 / 197 M             |
-| **2× cooldown lines**             | hat       | 3.19 × 10⁻³       | 731 / 8.8 B            | 314 / **6.9 B**       |
-| 2× the −2 s line (−4 s total)     | hat       | 5.13 × 10⁻⁴       | 4,562 / 54.7 B         | 1,951 / 42.9 B        |
-| 1× cooldown line                  | hat       | 1.36 × 10⁻¹       | 8 / 98 M               | 7 / 162 M             |
-| **3× %ATT, any value**            | weapon    | 2.20 × 10⁻⁴       | 4,355 / **52.3 B**     | 4,550 / 100.1 B       |
-| **3× %ATT, all 13 % (all prime)** | weapon    | 1.16 × 10⁻⁶       | 8,615,125 / 103.4 T    | 861,513 / **19.0 T**  |
-| 2× %ATT, any value                | weapon    | 1.06 × 10⁻²       | 91 / **1.1 B**         | 94 / 2.1 B            |
-| 3× boss damage                    | weapon    | 9.16 × 10⁻⁴       | 1,251 / **15.0 B**     | 1,091 / 24.0 B        |
-| 2× boss damage                    | weapon    | 2.77 × 10⁻²       | 39 / **470 M**         | 36 / 796 M            |
-| **3× boss-or-IED**                | weapon    | 5.66 × 10⁻³       | 194 / **2.3 B**        | 177 / 3.9 B           |
-| 2× boss-or-IED                    | weapon    | 8.63 × 10⁻²       | 12 / **147 M**         | 12 / 255 M            |
-| 2× boss + 1× IED                  | weapon    | 2.31 × 10⁻³       | 482 / **5.8 B**        | 433 / 9.5 B           |
-| 2× boss + 1× %ATT                 | weapon    | 1.87 × 10⁻³       | 570 / **6.8 B**        | 536 / 11.8 B          |
-| **3× boss-or-IED**                | secondary | 3.56 × 10⁻³       | 312 / **3.7 B**        | 281 / 6.2 B           |
-| 2× boss-or-IED                    | secondary | 6.47 × 10⁻²       | 16 / **197 M**         | 15 / 340 M            |
-| **3× IED**                        | emblem    | 7.29 × 10⁻⁴       | 1,470 / **17.6 B**     | 1,372 / 30.2 B        |
-| 2× IED                            | emblem    | 2.32 × 10⁻²       | 45 / **540 M**         | 43 / 949 M            |
-| **any boss line**                 | emblem    | **0**             | **impossible**         | **impossible**        |
-| 2× IED + 1× %ATT                  | emblem    | 1.69 × 10⁻³       | 608 / **7.3 B**        | 590 / 13.0 B          |
-| 3× %STR, any value                | hat       | 7.08 × 10⁻⁴       | 1,412 / **16.9 B**     | 1,413 / 31.1 B        |
-| 3× 13 % STR (all prime)           | hat       | 7.02 × 10⁻⁶       | 1,423,828 / 17.1 T     | 142,383 / **3.1 T**   |
-| 3 stat-ish lines, ≥30 % total     | hat       | 7.30 × 10⁻²       | 14 / **166 M**         | 14 / 301 M            |
-| **3× Item Drop Rate**             | accessory | 3.40 × 10⁻⁶       | 2,944,724 / 35.3 T     | 294,472 / **6.5 T**   |
-| 2× Item Drop Rate                 | accessory | 1.26 × 10⁻³       | 1,853 / 22.2 B         | 794 / **17.5 B**      |
+| Target                            | Slot       | P per Bright cube | Glowing: cubes / mesos | Bright: cubes / mesos |
+| --------------------------------- | ---------- | ----------------- | ---------------------- | --------------------- |
+| **3× Critical Damage (+24 % CD)** | gloves     | 7.51 × 10⁻⁶       | 1,330,988 / **16.0 T** | 133,099 / **2.9 T**   |
+| 2× Critical Damage (+16 % CD)     | gloves     | 2.14 × 10⁻³       | 1,091 / 13.1 B         | 468 / 10.3 B          |
+| 1× Critical Damage (+8 % CD)      | gloves     | 1.12 × 10⁻¹       | 10 / 120 M             | 9 / 197 M             |
+| **2× cooldown lines**             | hat        | 3.19 × 10⁻³       | 731 / 8.8 B            | 314 / **6.9 B**       |
+| 2× the −2 s line (−4 s total)     | hat        | 5.13 × 10⁻⁴       | 4,562 / 54.7 B         | 1,951 / 42.9 B        |
+| 1× cooldown line                  | hat        | 1.36 × 10⁻¹       | 8 / 98 M               | 7 / 162 M             |
+| **3× %ATT, any value**            | weapon     | 2.20 × 10⁻⁴       | 4,355 / **52.3 B**     | 4,550 / 100.1 B       |
+| **3× %ATT, all 13 % (all prime)** | weapon     | 1.16 × 10⁻⁶       | 8,615,125 / 103.4 T    | 861,513 / **19.0 T**  |
+| 2× %ATT, any value                | weapon     | 1.06 × 10⁻²       | 91 / **1.1 B**         | 94 / 2.1 B            |
+| 3× boss damage                    | weapon     | 9.16 × 10⁻⁴       | 1,251 / **15.0 B**     | 1,091 / 24.0 B        |
+| 2× boss damage                    | weapon     | 2.77 × 10⁻²       | 39 / **470 M**         | 36 / 796 M            |
+| **3× boss-or-IED**                | weapon     | 5.66 × 10⁻³       | 194 / **2.3 B**        | 177 / 3.9 B           |
+| 2× boss-or-IED                    | weapon     | 8.63 × 10⁻²       | 12 / **147 M**         | 12 / 255 M            |
+| 2× boss + 1× IED                  | weapon     | 2.31 × 10⁻³       | 482 / **5.8 B**        | 433 / 9.5 B           |
+| 2× boss + 1× %ATT                 | weapon     | 1.87 × 10⁻³       | 570 / **6.8 B**        | 536 / 11.8 B          |
+| **3× boss-or-IED**                | secondary  | 3.56 × 10⁻³       | 312 / **3.7 B**        | 281 / 6.2 B           |
+| 2× boss-or-IED                    | secondary  | 6.47 × 10⁻²       | 16 / **197 M**         | 15 / 340 M            |
+| **3× IED**                        | emblem     | 7.29 × 10⁻⁴       | 1,470 / **17.6 B**     | 1,372 / 30.2 B        |
+| 2× IED                            | emblem     | 2.32 × 10⁻²       | 45 / **540 M**         | 43 / 949 M            |
+| **any boss line**                 | emblem     | **0**             | **impossible**         | **impossible**        |
+| 2× IED + 1× %ATT                  | emblem     | 1.69 × 10⁻³       | 608 / **7.3 B**        | 590 / 13.0 B          |
+| 30 %+ main stat                   | hat        | 2.66 × 10⁻³       | 399 / **4.8 B**        | 375 / 8.3 B           |
+| **36 %+ main stat** (13/13/10)    | hat        | 1.85 × 10⁻⁴       | 12,743 / **152.9 B**   | 5,403 / 118.9 B       |
+| **39 %+ main stat** (13/13/13)    | hat        | 7.02 × 10⁻⁶       | 1,423,828 / 17.1 T     | 142,383 / **3.1 T**   |
+| 36 %+ main stat                   | accessory  | 2.52 × 10⁻⁴       | 9,190 / **110.3 B**    | 3,963 / 87.2 B        |
+| 39 %+ main stat                   | accessory  | 8.05 × 10⁻⁶       | 1,242,292 / 14.9 T     | 124,229 / **2.7 T**   |
+| 36 %+ main stat                   | heartBadge | 5.05 × 10⁻⁴       | 4,732 / **56.8 B**     | 1,980 / 43.6 B        |
+| 39 %+ main stat                   | heartBadge | 2.15 × 10⁻⁵       | 465,484 / 5.6 T        | 46,548 / **1.0 T**    |
+| Xenon, 33 %+ any of STR/DEX/LUK   | hat (150)  | 1.11 × 10⁻²       | 202 / 2.4 B            | 90 / **2.0 B**        |
+| **3× Item Drop Rate**             | accessory  | 3.40 × 10⁻⁶       | 2,944,724 / 35.3 T     | 294,472 / **6.5 T**   |
+| 2× Item Drop Rate                 | accessory  | 1.26 × 10⁻³       | 1,853 / 22.2 B         | 794 / **17.5 B**      |
 
 ### Reading this table
 
@@ -335,23 +409,49 @@ Lv200 item, already Legendary, character level 285, Heroic meso prices
   shape of the number they had in mind. Either way, "a handful of characters in MapleStory
   history" is a fair description of both.
 - **Nothing "reroll to three useful lines" should ever cost 2.2 B.** The cheapest genuinely
-  useful three-line target in the table (3 stat-ish lines totalling ≥30 % on a hat) is
-  166 M; the expensive ones are 10³–10⁴× the old model's answer. The old number was not
-  merely imprecise — it was in the wrong regime, and it would have ranked potential above
-  everything else in the upgrade list.
+  useful three-line target in the table (30 %+ main stat on a hat) is 4.8 B; the expensive
+  ones are 10³–10⁴× the old model's answer. The old number was not merely imprecise — it
+  was in the wrong regime, and it would have ranked potential above everything else in the
+  upgrade list.
+- **`%` stat rows above are armour/accessory and therefore carry the §3.1 uncertainty:**
+  read them as "×1.34 pessimistic if the KMS tables turn out to be right for GMS". The
+  weapon, secondary and emblem rows do not.
+
+### 7.1 Asking for a stat target correctly
+
+"33 %+ stat", the phrasing the reference calculators use, means **main-stat % lines plus
+All Stat % lines, summed across all three lines** — All Stat raises your main stat, so it
+counts (at 3 % below the pure stat line of the same rank, which is why `12/12/9` is the
+canonical "33 %" roll on a Lv150 item). It does **not** mean "any three stat lines".
+
+That distinction is worth ~40×, so `potential-lines.ts` refuses to guess:
+
+```ts
+mainStatPercent('luk', 33); // ✅ LUK% + All Stat%, summed  → 5,403 cubes on a Lv150 hat
+{ kind: 'stat_pct', lines: 3, totalValue: 33 }        // ❌ throws
+{ kind: 'stat_pct', lines: 3, totalValue: 33, anyStat: true } // ✅ Xenon only → 90 cubes
+```
+
+The rejected form is satisfied by `STR +12% / DEX +12% / LUK +9%` — three lines that sum to
+33 % and are worth nothing to a single-stat character. `attackPercent(total)` is the
+equivalent helper for "N %+ ATT", and correctly does **not** count All Stat.
 
 ---
 
 ## 8. Open questions
 
-1. **GMS rank-up rates post-v239.** Still unsourced (carried over from `formulas.md` §4A
-   §3.5 open question #5). This is now the largest remaining error term in any
+1. **Does a Legendary GMS hat/glove/accessory roll a `DEF %` line?** See §3.1. This is now
+   the largest error term in any armour or accessory cube cost (×1.34), and it is
+   settleable in thirty seconds by anyone who can read an in-game potential tooltip or the
+   GMS potential-line list in the client.
+2. **GMS rank-up rates post-v239.** Still unsourced (carried over from `formulas.md` §4A
+   §3.5 open question #5). This is the largest remaining error term in any
    "rare → legendary" cost estimate.
-2. **Does GMS actually have the 3-line boss/IED/drop change?** Inferred from a KMS patch
+3. **Does GMS actually have the 3-line boss/IED/drop change?** Inferred from a KMS patch
    note plus a GMS calculator's behaviour, not from a GMS patch note. The specific GMS
    version was not located.
-3. **Whether a cube re-hides potential** (i.e. whether the reveal fee is per-cube). See §6.
-4. **Pools below the published item-level bands** are unpublished, not merely untranscribed.
-5. **S1's snapshot is 2026-07-08.** If GMS changed a line pool between then and now, this
+4. **Whether a cube re-hides potential** (i.e. whether the reveal fee is per-cube). See §6.
+5. **Pools below the published item-level bands** are unpublished, not merely untranscribed.
+6. **S1's snapshot is 2026-07-08.** If GMS changed a line pool between then and now, this
    dataset would not know. No such change appears in GMS v264-v271 patch notes
    (`formulas.md` §4A §3, "2025-2026 changes").
