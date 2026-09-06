@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -325,11 +328,148 @@ describe('paths are well-formed', () => {
 	});
 
 	it('treats an unknown item as UNKNOWN, never as INVALID', () => {
-		// Ren's Imugi Gem is post-v270 and deliberately not in the ladder.
-		expect(stageForItem('Imugi Gem')).toBeUndefined();
-		const verdict = starTargetVerdict('Imugi Gem', 22);
+		expect(stageForItem('Pot Lid of Questionable Provenance')).toBeUndefined();
+		const verdict = starTargetVerdict('Pot Lid of Questionable Provenance', 20);
 		expect(verdict.known).toBe(false);
 		expect(verdict.verdict).toBe('unknown');
+	});
+
+	// The 22-star ceiling comes from the star table, not from the ladder, so a name
+	// we failed to recognise must not be able to produce a 30-star recommendation by
+	// falling through. This is the belt-and-braces for any future lookup gap.
+	it('caps an UNKNOWN item at 22 stars too', () => {
+		const verdict = starTargetVerdict('Pot Lid of Questionable Provenance', 30);
+		expect(verdict.known).toBe(false);
+		expect(verdict.verdict).toBe('above-global-cap');
+		expect(verdict.why).toMatch(/no class stat/);
+	});
+
+	// `above-global-cap` is additive: a KNOWN item keeps returning the verdicts
+	// analysis/candidates.ts already branches on, so adding it broke nothing.
+	it('keeps the existing suppression verdicts for a KNOWN item at 30 stars', () => {
+		for (const [name, slot] of [
+			['Arcane Umbra Bow', 'weapon'],
+			['AbsoLab Knight Shoes', 'shoes'],
+			['Royal Warrior Helm', 'hat'],
+			["Will o' the Wisps", 'earrings']
+		] as const) {
+			const v = starTargetVerdict(name, 30, slot);
+			expect(v.known, name).toBe(true);
+			expect(['over-invested', 'impossible'], name).toContain(v.verdict);
+		}
+	});
+});
+
+describe('name lookup covers the names captures actually produce', () => {
+	// Each row is a real capture that used to resolve to `undefined`, which is how a
+	// "Fafnir Soaring Sword 14★ -> 30★ for 2,275 trillion mesos" candidate reached
+	// the ranked board. Family stages cover one item PER JOB BRANCH, so `examples`
+	// can never enumerate them — these exercise the set/prefix matchers instead.
+	const cases: [name: string, slot: Parameters<typeof stageForItem>[1], stageId: string][] = [
+		// Ren weapons: post-v270, so the catalogue cannot help at all — prefix only.
+		['Fafnir Soaring Sword', 'weapon', 'weapon-cra'],
+		['Genesis Sword', 'weapon', 'weapon-genesis'],
+		// Other job branches of the same families.
+		['Fafnir Mana Cradle', 'weapon', 'weapon-cra'],
+		['AbsoLab Shining Rod', 'weapon', 'weapon-absolab'],
+		['Arcane Umbra Dual Bowguns', 'weapon', 'weapon-arcane'],
+		['Genesis Bow', 'weapon', 'weapon-genesis'],
+		// Armour families, non-Warrior branches, via catalogue set membership.
+		['Royal Dunwitch Hat', 'hat', 'armour-core-cra'],
+		['Eagle Eye Ranger Cowl', 'top', 'armour-core-cra'],
+		['Trixter Assassin Pants', 'bottom', 'armour-core-cra'],
+		['AbsoLab Bandit Cape', 'cape', 'armour-outer-absolab'],
+		['Arcane Umbra Mage Shoes', 'shoes', 'armour-outer-arcane'],
+		['Eternal Archer Hat', 'hat', 'armour-core-eternal'],
+		['Eternal Thief Gloves', 'gloves', 'armour-outer-eternal'],
+		// Loose screenshot transcriptions that drop the job word.
+		['Arcane Umbra Top', 'top', 'armour-outer-arcane'],
+		['Arcane Umbra Bottom', 'bottom', 'armour-outer-arcane'],
+		['Arcane Umbra Gloves', 'gloves', 'armour-outer-arcane'],
+		['Arcane Umbra Shoes', 'shoes', 'armour-outer-arcane'],
+		['Arcane Umbra Cape', 'cape', 'armour-outer-arcane'],
+		['Arcane Umbra Knight Hat', 'hat', 'armour-outer-arcane'],
+		['Arcane Umbra Knight Suit', 'overall', 'armour-outer-arcane'],
+		['Total Control Heart', 'heart', 'heart-pitched'],
+		// Post-v270 or class-specific names in cube-only slots.
+		["Princess No's Imugi Gem", 'secondary', 'secondary-princess-no'],
+		['Imugi Gem', 'secondary', 'secondary-lv100'],
+		['Gold Sword Emblem', 'emblem', 'emblem-gold-maple'],
+		// Curly apostrophe (U+2019) — the catalogue stores a straight one.
+		['Kanna’s Treasure', 'ring', 'ring-keepers'],
+		["Kanna's Treasure", 'ring', 'ring-keepers'],
+		['Guardian Angel Ring', 'ring', 'ring-keepers']
+	];
+
+	it.each(cases)('%s (%s) resolves to %s', (name, slot, stageId) => {
+		expect(stageForItem(name, slot)?.id).toBe(stageId);
+	});
+
+	// The failure mode the starforce.ts `MAX_STAR_EXCEPTIONS` comment warns about: a
+	// bare substring on "genesis"/"eternal"/"royal" catching badges, medals, capes
+	// and rings. Every matcher is slot-scoped precisely to stop this.
+	const mustNotMatch: [name: string, slot: Parameters<typeof stageForItem>[1], stageId: string][] =
+		[
+			['Genesis Badge', 'badge', 'weapon-genesis'],
+			['Eternal Flame Ring', 'ring', 'armour-core-eternal'],
+			['Eternal Flame Ring', 'ring', 'armour-outer-eternal'],
+			['Stone of Eternal Life', 'pocket', 'armour-outer-eternal'],
+			['Royal Black Metal Shoulder', 'shoulder', 'armour-core-cra']
+		];
+
+	it.each(mustNotMatch)('%s (%s) must NOT match %s', (name, slot, forbiddenStageId) => {
+		expect(stageForItem(name, slot)?.id).not.toBe(forbiddenStageId);
+	});
+
+	it('keeps Genesis Badge on the badge stage and the Genesis weapon on the weapon stage', () => {
+		expect(stageForItem('Genesis Badge', 'badge')?.id).toBe('badge-genesis');
+		expect(stageForItem('Genesis Sword', 'weapon')?.id).toBe('weapon-genesis');
+	});
+
+	it('refuses to guess when a matcher is ambiguous and no slot is given', () => {
+		// "arcane umbra" is claimed by both the weapon stage and the armour stage.
+		expect(stageForItem('Arcane Umbra Whatsit')).toBeUndefined();
+		// A slot disambiguates it.
+		expect(stageForItem('Arcane Umbra Whatsit', 'weapon')?.id).toBe('weapon-arcane');
+		expect(stageForItem('Arcane Umbra Whatsit', 'cape')?.id).toBe('armour-outer-arcane');
+	});
+
+	it('never lets two stages claim the same slot for the same prefix', () => {
+		const seen = new Map<string, string>();
+		for (const stage of ALL_STAGES) {
+			for (const prefix of stage.match?.prefixes ?? []) {
+				for (const slot of stage.match!.slots) {
+					const key = `${prefix}|${slot}`;
+					const other = seen.get(key);
+					expect(other, `"${prefix}" in ${slot} is claimed by both ${other} and ${stage.id}`).toBe(
+						undefined
+					);
+					seen.set(key, stage.id);
+				}
+			}
+		}
+	});
+
+	it('never lets two stages claim the same slot as a fallback', () => {
+		const seen = new Set<string>();
+		for (const stage of ALL_STAGES) {
+			if (!stage.match?.slotFallback) continue;
+			for (const slot of stage.match.slots) {
+				expect(seen.has(slot), `${slot} has two slotFallback stages`).toBe(false);
+				seen.add(slot);
+			}
+		}
+	});
+
+	it('only allows a slot fallback where every item in the slot gets identical advice', () => {
+		// Secondaries and emblems take no star force and no flames, so "cube it and
+		// stop" is true of every item in those slots. Nowhere else qualifies.
+		for (const stage of ALL_STAGES) {
+			if (!stage.match?.slotFallback) continue;
+			expect(stage.match.slots.every((s) => s === 'secondary' || s === 'emblem')).toBe(true);
+			expect(stage.stop.stars).toBeUndefined();
+			expect(stage.stop.flames).toBe('not-applicable');
+		}
 	});
 });
 
@@ -535,4 +675,116 @@ describe('investment order', () => {
 		expect(INVESTMENT_ORDER[1].actions.join(' ')).toMatch(/No flames yet/i);
 		expect(INVESTMENT_ORDER[2].actions.join(' ')).toMatch(/Flames enter here/i);
 	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* Regression: the seeded characters                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Walks the real transcribed gear in `data/characters/*.json`.
+ *
+ * This exists because a name that silently fails to match does not produce an
+ * error — it produces a plausible-looking recommendation. `stageForItem` returning
+ * `undefined` for "Fafnir Soaring Sword" is what put a 14★ -> 30★ candidate worth
+ * 2,275 trillion mesos on the ranked board. This test converts that class of gap
+ * from invisible to failing.
+ *
+ * `data/` is gitignored, so the suite skips cleanly when it is absent rather than
+ * failing on a fresh checkout.
+ */
+describe('seeded characters resolve end to end', () => {
+	/**
+	 * Slots whose items are CORRECTLY not on any gear path, and why.
+	 *
+	 * These are not lookup failures — they are equipment the progression model has
+	 * nothing to say about, because none of them takes star force, potential or
+	 * flames on the damage path. Keep this list short and justified: every entry
+	 * added here is a piece of gear the tracker will stop advising on.
+	 */
+	const SLOTS_NOT_ON_A_PATH: Record<string, string> = {
+		medal: 'no star force, no potential, no flames — event/achievement medals only',
+		android: 'the android body itself carries no upgrades; the HEART is the modelled slot',
+		totem: 'no star force, no potential, no flames'
+	};
+
+	/**
+	 * Individual items that are correctly not on a path. Event and exclusive-scroll
+	 * rings take no ordinary star force at all — `items/rules.ts` classifies them as
+	 * `exclusive-scroll-only` or `no-upgrade-slots`.
+	 */
+	const ITEMS_NOT_ON_A_PATH = new Set(
+		[
+			'Ring of Restraint',
+			'Heroic Awake Ring (Lv. 4)',
+			'Awake Ring',
+			'Vengeful Ring',
+			'Cosmos Ring',
+			'Eternal Flame Ring',
+			"Libae's Prototype R Ring"
+		].map((n) => n.toLowerCase())
+	);
+
+	const dir = join(process.cwd(), 'data', 'characters');
+	let files: string[] = [];
+	try {
+		files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+	} catch {
+		files = [];
+	}
+
+	it.runIf(files.length > 0)('found the seeded characters', () => {
+		expect(files.length).toBeGreaterThan(0);
+	});
+
+	for (const file of files) {
+		const doc = JSON.parse(readFileSync(join(dir, file), 'utf8')) as {
+			name?: string;
+			equipment?: Record<string, { name: string; starforce?: number }>;
+		};
+		const equipment = Object.entries(doc.equipment ?? {});
+
+		describe(`${doc.name ?? file}`, () => {
+			it('has gear to check', () => {
+				expect(equipment.length).toBeGreaterThan(10);
+			});
+
+			it.each(equipment)('%s: %o resolves to a stage or an allow-list entry', (slotKey, item) => {
+				// `ring1..ring4` / `pendant1..2` / `totem1..3` collapse to the slot family.
+				const slot = slotKey.replace(/\d+$/, '');
+				const allowed =
+					slot in SLOTS_NOT_ON_A_PATH || ITEMS_NOT_ON_A_PATH.has(item.name.toLowerCase());
+				const stage = stageForItem(item.name, slot as never);
+				expect(
+					stage !== undefined || allowed,
+					`"${item.name}" (${slotKey}) matched no stage and is not on the allow-list. ` +
+						`Either add a matcher, or justify it in SLOTS_NOT_ON_A_PATH / ITEMS_NOT_ON_A_PATH.`
+				).toBe(true);
+			});
+
+			// The concrete bug: an unmatched name let a 30-star target through.
+			it.each(equipment)('%s: %o can never be offered a 30-star target', (slotKey, item) => {
+				const slot = slotKey.replace(/\d+$/, '');
+				const verdict = starTargetVerdict(item.name, 30, slot as never);
+				// Known gear lands on the ladder's own suppression verdicts; anything the
+				// ladder does not cover still hits the global 22-star ceiling. What must
+				// never happen is a 30-star target reading as fine.
+				expect(['over-invested', 'impossible', 'above-global-cap']).toContain(verdict.verdict);
+			});
+
+			it('never leaves a star-forced item both unmatched and uncapped', () => {
+				for (const [slotKey, item] of equipment) {
+					if (item.starforce === undefined) continue;
+					const slot = slotKey.replace(/\d+$/, '');
+					const stage = stageForItem(item.name, slot as never);
+					const allowed =
+						slot in SLOTS_NOT_ON_A_PATH || ITEMS_NOT_ON_A_PATH.has(item.name.toLowerCase());
+					expect(
+						stage !== undefined || allowed,
+						`"${item.name}" carries ${item.starforce} stars but has no stopping point`
+					).toBe(true);
+				}
+			});
+		});
+	}
 });

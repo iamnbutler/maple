@@ -36,8 +36,23 @@
 	}
 
 	const sorted = $derived([...upgrades].sort((a, b) => compare(a, b, mode)));
-	// "BEST" is advice, so it can only ever land on something achievable.
-	const best = $derived(sorted.find((u) => !isCeiling(u)));
+	// "BEST" is advice, so it can only ever land on something achievable — and
+	// advice means value for money, NOT the biggest number. Sorting by raw gain
+	// puts the most expensive rung of a ladder on top, so the badge landed on a
+	// 14.78B glove roll while the 650M roll two rows down bought most of the same
+	// damage. It is therefore always the best gain-per-meso, whatever the sort
+	// mode: the badge answers "what should I buy next", the column headers answer
+	// "rank these by X".
+	const best = $derived(
+		(() => {
+			const actionable = sorted.filter((u) => !isCeiling(u));
+			const priced = actionable.filter((u) => u.gainPerBillionMesos !== undefined);
+			if (priced.length === 0) return actionable[0];
+			return priced.reduce((a, b) =>
+				(b.gainPerBillionMesos ?? 0) > (a.gainPerBillionMesos ?? 0) ? b : a
+			);
+		})()
+	);
 	const maxGain = $derived(Math.max(1e-9, ...upgrades.map((u) => u.gainPercent)));
 
 	function groupLabel(u: RankedUpgrade): string {
@@ -89,7 +104,11 @@
 	<tr class:best={isBest} class:groupbest={isGroupBest && !isBest} class:ceiling={isCeiling(u)}>
 		<td class="what">
 			<div class="line">
-				{#if isBest}<span class="tag">best</span>{/if}
+				{#if isBest}<span
+						class="tag"
+						title="Best gain per meso spent, not the biggest raw gain — the most damage your next billion buys."
+						>best</span
+					>{/if}
 				{#if isCeiling(u)}
 					<span
 						class="tag ceiling"

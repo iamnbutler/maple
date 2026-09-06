@@ -204,6 +204,13 @@ while AbsoLab does not: **CRA is a stepping stone that lasts 100 levels; AbsoLab
    priority as soon as possible."_
 4. Lv 250 **Eternal** cape / shoes / gloves / shoulder — **22★**. ⚠️ Disputed, §7.
 
+Note on slot scope: AbsoLab and Arcane Umbra also make hats and overalls, and some characters wear
+them instead of CRA in those slots (`sets.json`; e.g. `AbsoLab Knight Helm`,
+`Arcane Umbra Knight Hat`, `Arcane Umbra Knight Suit`). The stopping point is the same wherever the
+piece sits, so the data module's AbsoLab and Arcane armour stages claim every armour slot, while
+the Pensalir / CRA / Eternal stages stay split between hat-top-bottom-overall and
+shoes-gloves-cape-shoulder.
+
 Gloves are the crit-damage slot: `UG` P2 _"Get your Absolab Gloves to at least 1 line of % Crit
 Damage and, ideally, 1 line of % stat. 2 lines of % Crit Damage shouldn't be a goal due to cost for
 these gloves"_, then P3 _"2 Line % Crit Damage on your Gloves"_ — an explicit, sourced example of

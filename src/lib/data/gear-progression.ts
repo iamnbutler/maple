@@ -40,7 +40,8 @@
 //  * No new dependencies. Boss data is referenced by id into `bosses.ts` rather
 //    than copied, so it cannot drift.
 
-import type { CatalogueSlot } from './items';
+import { normalizeItemName, resolveByName, type CatalogueSlot } from './items';
+import { SETS } from './sets';
 import { getBoss, fivePercentHp, forceRequirement, type Boss } from './bosses';
 
 /** Slot family a path belongs to. Coarser than `schema.Slot` (one `ring`, not `ring1..4`). */
@@ -119,6 +120,46 @@ export type TierId =
 	| 'pitched'
 	| 'brilliant';
 
+/**
+ * How a stage claims item names beyond its literal `name` and `examples`.
+ *
+ * WHY THIS IS NOT JUST A PREFIX. A `nameKind: 'family'` stage covers one item PER
+ * JOB BRANCH — there are ~20 Fafnir weapons, ~20 Arcane Umbra weapons and five
+ * per-branch names for every armour piece. Enumerating three examples can never
+ * cover that, and a bare substring match is actively dangerous: `starforce.ts`
+ * was already burned by a bare `'genesis'` catching the Genesis Badge, the
+ * Genesis Bandana, a "Bond of Destiny" cape and four "…Destiny" medals.
+ *
+ * The fix there — `MAX_STAR_EXCEPTIONS` — is the pattern copied here: a matcher
+ * is ANCHORED at the start of the name and SLOT-SCOPED, so a badge can never
+ * match a weapon family. `slots` is mandatory for that reason.
+ */
+export interface StageMatch {
+	/**
+	 * Slots this stage may ever claim. Mandatory — this is the guard that stops a
+	 * medal or badge matching a weapon family.
+	 */
+	slots: readonly GearSlot[];
+	/**
+	 * Name prefixes, matched against the normalised name at a word boundary.
+	 * Anchored at the start, never a bare substring.
+	 */
+	prefixes?: readonly string[];
+	/**
+	 * Catalogue set names (matched as a prefix, so "Root Abyss Set" covers
+	 * "Root Abyss Set (Warrior)" and its four siblings). Safer than string
+	 * matching for armour, because the catalogue already knows set membership.
+	 */
+	sets?: readonly string[];
+	/**
+	 * Last-resort claim on the whole slot. Only correct where every item in the
+	 * slot gets identical advice — secondaries and emblems, which take no star
+	 * force and no flames, so "cube it and stop" is true of all of them. Requires
+	 * a known slot; never fires on a bare name.
+	 */
+	slotFallback?: boolean;
+}
+
 export interface PathStage {
 	/** Stable id, unique within the whole module. */
 	id: string;
@@ -135,6 +176,11 @@ export interface PathStage {
 	tier: TierId;
 	/** Mechanical star cap (wiki `starForceEnhancements`). NEVER a target. */
 	maxStars?: number;
+	/**
+	 * Slot-scoped matchers for the branch names `examples` cannot enumerate.
+	 * Omit only when the stage is a single, fixed item.
+	 */
+	match?: StageMatch;
 	/** Where the item comes from, in prose. */
 	obtainedFrom: string;
 	/** Boss ids into `bosses.ts`, when a boss drops it. */
@@ -257,6 +303,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 140,
 				tier: 'starter-140',
 				maxStars: 30,
+				match: { slots: ['weapon'], prefixes: ['utgard'] },
 				obtainedFrom: 'Lv 130+ monster drops',
 				stop: {
 					stars: 12,
@@ -279,6 +326,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Root Abyss Set',
 				tier: 'cra',
 				maxStars: 30,
+				match: { slots: ['weapon'], prefixes: ['fafnir'], sets: ['Root Abyss Set'] },
 				obtainedFrom: 'Chaos Vellum (Chaos Root Abyss)',
 				bossIds: ['chaos-vellum'],
 				stop: {
@@ -306,6 +354,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'AbsoLab Set',
 				tier: 'absolab',
 				maxStars: 30,
+				match: { slots: ['weapon'], prefixes: ['absolab'], sets: ['AbsoLab Set'] },
 				obtainedFrom: 'AbsoLab dailies (Scrapyard / Dark World Tree) + Lotus & Damien materials',
 				bossIds: ['normal-lotus', 'normal-damien'],
 				stop: {
@@ -333,6 +382,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Arcane Umbra Set',
 				tier: 'arcane-umbra',
 				maxStars: 30,
+				match: { slots: ['weapon'], prefixes: ['arcane umbra'], sets: ['Arcane Umbra Set'] },
 				obtainedFrom: 'Lucid / Will (Arcane Umbra Weapon Box)',
 				bossIds: ['normal-lucid', 'normal-will'],
 				stop: {
@@ -361,6 +411,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Eternal Set',
 				tier: 'genesis',
 				maxStars: 22,
+				match: { slots: ['weapon'], prefixes: ['genesis'] },
 				obtainedFrom: 'Black Mage liberation — 8 clears, monthly reset',
 				bossIds: ['hard-black-mage'],
 				stop: {
@@ -391,9 +442,10 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				id: 'secondary-lv100',
 				name: 'Lv 100 vendor secondary',
 				nameKind: 'family',
-				examples: ['Ruin Force Shield', 'Karma Orb', 'Deimos Warrior Shield'],
+				examples: ['Ruin Force Shield', 'Karma Orb', 'Deimos Warrior Shield', 'Imugi Gem'],
 				itemLevel: 100,
 				tier: 'starter-140',
+				match: { slots: ['secondary'], slotFallback: true },
 				obtainedFrom: 'Secondary Weapon Vendor, Leafre (500k mesos)',
 				stop: {
 					potential: 'legendary',
@@ -420,6 +472,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				],
 				itemLevel: 140,
 				tier: 'fixed',
+				match: { slots: ['secondary'], prefixes: ["princess no's"] },
 				obtainedFrom: 'Princess No fragments',
 				bossIds: ['normal-princess-no'],
 				stop: {
@@ -450,6 +503,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				nameKind: 'item',
 				itemLevel: 100,
 				tier: 'fixed',
+				match: { slots: ['emblem'], slotFallback: true },
 				obtainedFrom: 'Quest reward',
 				stop: {
 					potential: 'legendary',
@@ -477,6 +531,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 200,
 				setName: 'Pitched Boss Set',
 				tier: 'pitched',
+				match: { slots: ['emblem'], prefixes: ["mitra's rage"] },
 				obtainedFrom: "Chosen Seren — Mitra's Rage Selection Box",
 				bossIds: ['normal-chosen-seren', 'hard-chosen-seren'],
 				outOfScope: true,
@@ -506,6 +561,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 140,
 				tier: 'starter-140',
 				maxStars: 30,
+				match: { slots: ['hat', 'top', 'bottom', 'overall'], prefixes: ['pensalir'] },
 				obtainedFrom: 'Lv 130+ monster drops',
 				stop: STOP_STARTER_ARMOUR,
 				movesOnWhen: 'You can clear or be carried in Chaos Root Abyss (entry Lv 180).'
@@ -519,6 +575,11 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Root Abyss Set',
 				tier: 'cra',
 				maxStars: 30,
+				match: {
+					slots: ['hat', 'top', 'bottom', 'overall'],
+					prefixes: ['eagle eye', 'trixter'],
+					sets: ['Root Abyss Set']
+				},
 				obtainedFrom: 'Chaos Pierre (hat), Chaos Crimson Queen (top), Chaos Von Bon (bottom)',
 				bossIds: ['chaos-pierre', 'chaos-crimson-queen', 'chaos-von-bon'],
 				stop: STOP_17_THEN_22_LEGENDARY,
@@ -535,6 +596,11 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Eternal Set',
 				tier: 'eternal',
 				maxStars: 30,
+				match: {
+					slots: ['hat', 'top', 'bottom', 'overall'],
+					prefixes: ['eternal'],
+					sets: ['Eternal Set']
+				},
 				obtainedFrom: "Kalos — Kalos's Residual Determination",
 				bossIds: ['easy-kalos', 'normal-kalos', 'chaos-kalos'],
 				stop: {
@@ -573,6 +639,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 140,
 				tier: 'starter-140',
 				maxStars: 30,
+				match: { slots: ['shoes', 'gloves', 'cape', 'shoulder'], prefixes: ['pensalir'] },
 				obtainedFrom: 'Lv 130+ monster drops; shoulder from Easy/Normal Magnus',
 				bossIds: ['normal-magnus'],
 				stop: STOP_STARTER_ARMOUR,
@@ -580,18 +647,25 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 			},
 			{
 				id: 'armour-outer-absolab',
-				name: 'AbsoLab shoes / gloves / cape / shoulder',
+				name: 'AbsoLab armour',
 				nameKind: 'family',
 				examples: [
 					'AbsoLab Knight Shoes',
 					'AbsoLab Knight Gloves',
 					'AbsoLab Knight Cape',
-					'AbsoLab Knight Shoulder'
+					'AbsoLab Knight Shoulder',
+					'AbsoLab Knight Helm',
+					'AbsoLab Knight Suit'
 				],
 				itemLevel: 160,
 				setName: 'AbsoLab Set',
 				tier: 'absolab',
 				maxStars: 30,
+				match: {
+					slots: ['hat', 'top', 'bottom', 'overall', 'shoes', 'gloves', 'cape', 'shoulder'],
+					prefixes: ['absolab'],
+					sets: ['AbsoLab Set']
+				},
 				obtainedFrom: 'AbsoLab dailies (Scrapyard / Dark World Tree) + Lotus & Damien materials',
 				bossIds: ['normal-lotus', 'normal-damien'],
 				stop: {
@@ -613,18 +687,25 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 			},
 			{
 				id: 'armour-outer-arcane',
-				name: 'Arcane Umbra shoes / gloves / cape / shoulder',
+				name: 'Arcane Umbra armour',
 				nameKind: 'family',
 				examples: [
 					'Arcane Umbra Knight Shoes',
 					'Arcane Umbra Knight Gloves',
 					'Arcane Umbra Knight Cape',
-					'Arcane Umbra Knight Shoulder'
+					'Arcane Umbra Knight Shoulder',
+					'Arcane Umbra Knight Hat',
+					'Arcane Umbra Knight Suit'
 				],
 				itemLevel: 200,
 				setName: 'Arcane Umbra Set',
 				tier: 'arcane-umbra',
 				maxStars: 30,
+				match: {
+					slots: ['hat', 'top', 'bottom', 'overall', 'shoes', 'gloves', 'cape', 'shoulder'],
+					prefixes: ['arcane umbra'],
+					sets: ['Arcane Umbra Set']
+				},
 				obtainedFrom: 'Lucid / Will (Arcane Umbra Armor Box)',
 				bossIds: ['easy-lucid', 'normal-lucid', 'easy-will', 'normal-will'],
 				stop: {
@@ -662,6 +743,11 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Eternal Set',
 				tier: 'eternal',
 				maxStars: 30,
+				match: {
+					slots: ['shoes', 'gloves', 'cape', 'shoulder'],
+					prefixes: ['eternal'],
+					sets: ['Eternal Set']
+				},
 				obtainedFrom: "Kalos — Kalos's Residual Determination",
 				bossIds: ['easy-kalos', 'normal-kalos', 'chaos-kalos'],
 				stop: {
@@ -696,6 +782,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Boss Accessory Set',
 				tier: 'boss-acc-mid',
 				maxStars: 20,
+				match: { slots: ['earrings'] },
 				obtainedFrom:
 					"Hard Hilla (Will o' the Wisps); Horntail / Chaos Horntail (Dea Sidus Earring)",
 				bossIds: ['hard-hilla', 'chaos-horntail'],
@@ -725,6 +812,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Superior Gollux Set',
 				tier: 'gollux-superior',
 				maxStars: 30,
+				match: { slots: ['earrings'] },
 				obtainedFrom: 'Hell Gollux drop, or 700 Gollux Coins from Lucia',
 				bossIds: ['hard-gollux'],
 				stop: {
@@ -754,6 +842,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Dawn Boss Set',
 				tier: 'dawn',
 				maxStars: 30,
+				match: { slots: ['earrings'] },
 				obtainedFrom: 'Normal/Chaos Gloom, Normal/Hard Darknell',
 				bossIds: ['normal-gloom', 'normal-darknell'],
 				stop: {
@@ -778,6 +867,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Pitched Boss Set',
 				tier: 'pitched',
 				maxStars: 30,
+				match: { slots: ['earrings'] },
 				obtainedFrom: 'Hard Darknell (weekly)',
 				bossIds: ['hard-darknell'],
 				outOfScope: true,
@@ -832,6 +922,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Dawn Boss Set',
 				tier: 'dawn',
 				maxStars: 30,
+				match: { slots: ['face'] },
 				obtainedFrom: 'Normal or Hard Lucid, Normal or Hard Will',
 				bossIds: ['normal-lucid', 'normal-will'],
 				stop: STOP_17_THEN_22_LEGENDARY,
@@ -972,6 +1063,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 160,
 				tier: 'commerci',
 				maxStars: 30,
+				match: { slots: ['eye'] },
 				obtainedFrom: 'Commerci Denaro from Javert — the reliable, grind-gated route',
 				stop: STOP_17_THEN_22_LEGENDARY,
 				movesOnWhen: 'Terminal on the normal path (the successor, Magic Eyepatch, is Pitched).'
@@ -1027,6 +1119,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Superior Gollux Set',
 				tier: 'gollux-superior',
 				maxStars: 30,
+				match: { slots: ['pendant'] },
 				obtainedFrom: '700 Gollux Coins from Lucia, or Hell Gollux drop',
 				bossIds: ['hard-gollux'],
 				stop: {
@@ -1090,6 +1183,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Boss Accessory Set',
 				tier: 'boss-acc-mid',
 				maxStars: 30,
+				match: { slots: ['pendant'] },
 				obtainedFrom: 'Normal Arkarium — rare drop; keep spares for transfer hammering',
 				bossIds: ['normal-arkarium'],
 				stop: {
@@ -1115,6 +1209,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Dawn Boss Set',
 				tier: 'dawn',
 				maxStars: 30,
+				match: { slots: ['pendant'] },
 				obtainedFrom: 'Normal/Hard Verus Hilla, Normal/Hard/Extreme Chosen Seren',
 				bossIds: ['normal-verus-hilla', 'normal-chosen-seren'],
 				stop: STOP_17_THEN_22_LEGENDARY,
@@ -1153,11 +1248,17 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				id: 'ring-starter',
 				name: 'Starter rings',
 				nameKind: 'family',
-				examples: ['Silver Blossom Ring', "Noble Ifia's Ring"],
+				examples: [
+					'Silver Blossom Ring',
+					"Noble Ifia's Ring",
+					'Cracked Gollux Ring',
+					'Solid Gollux Ring'
+				],
 				itemLevel: 110,
 				setName: 'Boss Accessory Set',
 				tier: 'boss-acc-low',
 				maxStars: 10,
+				match: { slots: ['ring'], prefixes: ['cracked gollux', 'solid gollux'] },
 				obtainedFrom: "Horntail (Silver Blossom Ring); Ifia (Noble Ifia's Ring); event shops",
 				bossIds: ['chaos-horntail'],
 				stop: {
@@ -1183,11 +1284,16 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					'Reinforced Gollux Ring',
 					"Kanna's Treasure",
 					'Dawn Guardian Angel Ring',
+					'Guardian Angel Ring',
 					'Meister Ring'
 				],
 				itemLevel: 140,
 				tier: 'crafted-ring',
 				maxStars: 30,
+				match: {
+					slots: ['ring'],
+					prefixes: ['superior gollux', 'reinforced gollux', 'meister ring']
+				},
 				obtainedFrom:
 					"Gollux Coins (Superior/Reinforced); Princess No (Kanna's Treasure); Guardian " +
 					'Angel Slime + Conversion Scroll (Dawn GA Ring); Accessory-crafting Meister (Meister Ring)',
@@ -1238,6 +1344,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Brilliant Boss Set',
 				tier: 'brilliant',
 				maxStars: 30,
+				match: { slots: ['ring'] },
 				obtainedFrom: 'Grandis endgame bosses',
 				outOfScope: true,
 				stop: {
@@ -1272,6 +1379,15 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 140,
 				tier: 'gollux-lower',
 				maxStars: 30,
+				match: {
+					slots: ['belt'],
+					prefixes: [
+						'cracked engraved gollux',
+						'solid engraved gollux',
+						'reinforced engraved gollux',
+						'golden clover'
+					]
+				},
 				obtainedFrom: 'Gollux (Easy/Normal/Hard); Golden Clover Belt from Pink Bean',
 				bossIds: ['normal-gollux', 'hard-gollux', 'normal-pink-bean'],
 				stop: {
@@ -1292,6 +1408,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Superior Gollux Set',
 				tier: 'gollux-superior',
 				maxStars: 30,
+				match: { slots: ['belt'] },
 				obtainedFrom: 'Hell Gollux drop, or 700 Gollux Coins from Lucia',
 				bossIds: ['hard-gollux'],
 				stop: {
@@ -1362,6 +1479,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 100,
 				tier: 'event',
 				maxStars: 8,
+				match: { slots: ['heart'] },
 				obtainedFrom: 'Event shops — DTQ: "comes around every other event"',
 				stop: {
 					stars: 8,
@@ -1388,6 +1506,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 120,
 				setName: 'Pitched Boss Set',
 				tier: 'pitched',
+				match: { slots: ['heart'], prefixes: ['total control', 'black heart'] },
 				obtainedFrom: 'Hard Lotus (Black Heart, 20-day time limit); Total Control (Lv 200)',
 				bossIds: ['hard-lotus'],
 				outOfScope: true,
@@ -1507,6 +1626,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				itemLevel: 160,
 				setName: 'Pitched Boss Set',
 				tier: 'pitched',
+				match: { slots: ['pocket'], prefixes: ['cursed '] },
 				obtainedFrom: "Hard Will — Will's Cursed Spellbook Selection Box (weekly)",
 				bossIds: ['hard-will'],
 				outOfScope: true,
@@ -1882,7 +2002,10 @@ export const NAMES_NOT_IN_V270_CATALOGUE: readonly string[] = [
 	"Mitra's Rage: Magician",
 	"Mitra's Rage: Bowman",
 	"Mitra's Rage: Thief",
-	"Mitra's Rage: Pirate"
+	"Mitra's Rage: Pirate",
+	// Ren's secondary. v270 predates the class — see items/catalogue.json
+	// `coverage.knownMissing`, which names it explicitly.
+	'Imugi Gem'
 ] as const;
 
 /* -------------------------------------------------------------------------- */
@@ -1897,9 +2020,14 @@ const PATH_BY_STAGE_ID = new Map<string, SlotPath>(
 	SLOT_PATHS.flatMap((p) => p.stages.map((s) => [s.id, p] as const))
 );
 
-const norm = (name: string) => name.trim().toLowerCase();
+// Normalisation is DELEGATED to the catalogue's own normaliser rather than
+// reimplemented. It folds curly apostrophes (U+2019, as in the captured
+// "Kanna’s Treasure" against the catalogue's "Kanna's Treasure"), en/em dashes,
+// NFKC forms and whitespace. A private `.toLowerCase()` here would have missed
+// all of that, which is exactly how "Kanna's Treasure" went unmatched.
+const norm = normalizeItemName;
 
-/** Every name a stage answers to: its own, plus its `examples`. */
+/** Every literal name a stage answers to: its own, plus its `examples`. */
 function stageNames(stage: PathStage): string[] {
 	return [stage.name, ...(stage.examples ?? [])].map(norm);
 }
@@ -1907,6 +2035,87 @@ function stageNames(stage: PathStage): string[] {
 const STAGE_BY_NAME = new Map<string, PathStage>();
 for (const stage of STAGES) {
 	for (const n of stageNames(stage)) if (!STAGE_BY_NAME.has(n)) STAGE_BY_NAME.set(n, stage);
+}
+
+/** Normalised catalogue-set names an item id belongs to (from `sets.json`). */
+const SET_NAMES_BY_ITEM_ID = new Map<number, string[]>();
+for (const set of SETS) {
+	for (const id of set.memberItemIds) {
+		const bucket = SET_NAMES_BY_ITEM_ID.get(id);
+		if (bucket) {
+			if (!bucket.includes(set.name)) bucket.push(set.name);
+		} else SET_NAMES_BY_ITEM_ID.set(id, [set.name]);
+	}
+}
+
+/** Prefix match, anchored at the start and at a word boundary — never a substring. */
+function hasPrefix(nameNorm: string, prefix: string): boolean {
+	const p = norm(prefix);
+	if (!nameNorm.startsWith(p)) return false;
+	// A trailing space in the prefix already encodes the boundary.
+	if (p.endsWith(' ')) return true;
+	const next = nameNorm.charAt(p.length);
+	return next === '' || next === ' ';
+}
+
+/**
+ * What the catalogue knows about a captured name: its canonical names, its slot
+ * and its set memberships. Uses `resolveByName`, which already handles the
+ * approximations screenshot captures produce ("Total Control Heart" for
+ * "Total Control", "Arcane Umbra Hat" for "Arcane Umbra Knight Hat").
+ */
+function catalogueFacts(
+	itemName: string,
+	slot?: GearSlot
+): { names: string[]; slot?: GearSlot; sets: string[] } {
+	const { entries } = resolveByName(itemName, slot);
+	if (entries.length === 0) return { names: [], slot, sets: [] };
+	const slots = new Set(entries.map((e) => e.slot));
+	const sets = new Set<string>();
+	for (const e of entries) for (const s of SET_NAMES_BY_ITEM_ID.get(e.id) ?? []) sets.add(s);
+	return {
+		names: entries.map((e) => norm(e.name)),
+		// Only trust a catalogue-derived slot when every candidate agrees.
+		slot: slot ?? (slots.size === 1 ? [...slots][0] : undefined),
+		sets: [...sets]
+	};
+}
+
+/**
+ * Stages claiming a name by matcher, before slot scoping.
+ * `kind` orders the passes: set membership is more specific than a name prefix,
+ * and `slotFallback` is the last resort.
+ */
+function matcherCandidates(
+	nameNorm: string,
+	sets: readonly string[],
+	kind: 'sets' | 'prefixes' | 'slotFallback'
+): PathStage[] {
+	return STAGES.filter((stage) => {
+		const m = stage.match;
+		if (!m) return false;
+		if (kind === 'sets') return (m.sets ?? []).some((want) => sets.some((s) => s.startsWith(want)));
+		if (kind === 'prefixes') return (m.prefixes ?? []).some((p) => hasPrefix(nameNorm, p));
+		return m.slotFallback === true;
+	});
+}
+
+/**
+ * Narrow matcher candidates to one stage.
+ *
+ * With a known slot, the `slots` allow-list does the work — this is the guard
+ * that stops a badge matching a weapon family. Without one, a matcher is only
+ * honoured when exactly one stage in the whole module claims it, so an ambiguous
+ * prefix like "arcane umbra" (weapon AND armour) resolves to `undefined` rather
+ * than guessing.
+ */
+function narrow(candidates: PathStage[], slot?: GearSlot): PathStage | undefined {
+	if (candidates.length === 0) return undefined;
+	if (slot) {
+		const scoped = candidates.filter((s) => s.match!.slots.includes(slot));
+		return scoped.length === 1 ? scoped[0] : undefined;
+	}
+	return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 /** All paths that cover a slot. More than one means a real branch — check `branchCondition`. */
@@ -1919,22 +2128,59 @@ export function getStage(id: string): PathStage | undefined {
 }
 
 /**
- * Resolve an item name to its stage. Case- and whitespace-insensitive, and matches
- * a family's `examples` as well as its own name. `undefined` means UNKNOWN, never
- * INVALID — callers must degrade gracefully rather than suppress the item.
+ * Resolve an item name to its stage.
+ *
+ * PASS ORDER, most specific first. Each pass is slot-scoped once a slot is known
+ * (passed in, or agreed by every catalogue candidate):
+ *   1. the literal `name` / `examples`, on the normalised name;
+ *   2. the same, on the canonical catalogue name(s) — this is what turns a
+ *      captured "Total Control Heart" or "Arcane Umbra Hat" into a hit;
+ *   3. catalogue SET membership, e.g. any "Root Abyss Set (…)" piece in a
+ *      hat/top/bottom/overall slot is the CRA armour stage. Safer than string
+ *      matching, because the catalogue already knows the set;
+ *   4. an anchored, slot-scoped name PREFIX — the only thing that reaches names
+ *      the v270 dump does not have at all (Ren's "Fafnir Soaring Sword",
+ *      "Genesis Sword") and the per-job-branch names `examples` cannot enumerate;
+ *   5. `slotFallback`, for slots where every item gets identical advice.
+ *
+ * Pass `slot` whenever you have it. It is what lets an unknown name match a
+ * family safely; without it, an ambiguous matcher yields `undefined` rather than
+ * a guess.
+ *
+ * `undefined` means UNKNOWN, never INVALID — callers must degrade gracefully and
+ * say so, not suppress the item.
  */
-export function stageForItem(itemName: string): PathStage | undefined {
-	return STAGE_BY_NAME.get(norm(itemName));
+export function stageForItem(itemName: string, slot?: GearSlot): PathStage | undefined {
+	const nameNorm = norm(itemName);
+
+	const literal = STAGE_BY_NAME.get(nameNorm);
+	if (literal && (!slot || !literal.match || literal.match.slots.includes(slot))) return literal;
+
+	const facts = catalogueFacts(itemName, slot);
+	for (const canonical of facts.names) {
+		const hit = STAGE_BY_NAME.get(canonical);
+		if (hit && (!slot || !hit.match || hit.match.slots.includes(slot))) return hit;
+	}
+
+	const effectiveSlot = slot ?? facts.slot;
+	return (
+		narrow(matcherCandidates(nameNorm, facts.sets, 'sets'), effectiveSlot) ??
+		narrow(matcherCandidates(nameNorm, facts.sets, 'prefixes'), effectiveSlot) ??
+		// A slot fallback with no slot would claim every unknown name in the game.
+		(effectiveSlot
+			? narrow(matcherCandidates(nameNorm, facts.sets, 'slotFallback'), effectiveSlot)
+			: undefined)
+	);
 }
 
 /** The prescribed stopping point for an item, if we know its stage. */
-export function stopPointForItem(itemName: string): StopPoint | undefined {
-	return stageForItem(itemName)?.stop;
+export function stopPointForItem(itemName: string, slot?: GearSlot): StopPoint | undefined {
+	return stageForItem(itemName, slot)?.stop;
 }
 
 /** The path an item sits on. */
-export function pathForItem(itemName: string): SlotPath | undefined {
-	const stage = stageForItem(itemName);
+export function pathForItem(itemName: string, slot?: GearSlot): SlotPath | undefined {
+	const stage = stageForItem(itemName, slot);
 	return stage ? PATH_BY_STAGE_ID.get(stage.id) : undefined;
 }
 
@@ -1962,27 +2208,58 @@ export function nextRecommendedStage(stageId: string): PathStage | undefined {
 }
 
 /** True for an item on a Pitched or Brilliant stage. These must never be ranked. */
-export function isOutOfScope(itemName: string): boolean {
-	return stageForItem(itemName)?.outOfScope === true;
+export function isOutOfScope(itemName: string, slot?: GearSlot): boolean {
+	return stageForItem(itemName, slot)?.outOfScope === true;
 }
 
-/**
- * Whether a star target exceeds what this stage is worth, and by how much.
- * `known: false` means the item is not in the ladder — say so, do not suppress.
- */
-export function starTargetVerdict(
-	itemName: string,
-	targetStars: number
-): {
+export type StarTargetVerdict = {
 	known: boolean;
 	prescribed?: number;
 	onEvent?: number;
 	mechanicalMax?: number;
-	verdict: 'unknown' | 'within-plan' | 'event-only' | 'over-invested' | 'impossible';
+	verdict:
+		'unknown' | 'within-plan' | 'event-only' | 'over-invested' | 'impossible' | 'above-global-cap';
 	why?: string;
-} {
-	const stage = stageForItem(itemName);
-	if (!stage) return { known: false, verdict: 'unknown' };
+};
+
+/**
+ * Whether a star target exceeds what this stage is worth, and by how much.
+ *
+ * `known: false` means the item is not in the ladder — say so, do not suppress.
+ *
+ * VERDICTS FOR A KNOWN ITEM ARE UNCHANGED and remain the suppression signal
+ * `analysis/candidates.ts` branches on (`over-invested` / `impossible`). Since
+ * no stage prescribes past 22 stars, a >22 target on a known item already lands
+ * on one of those two.
+ *
+ * `above-global-cap` is ADDITIVE and only ever returned for an UNKNOWN item. The
+ * 22-star ceiling comes from the star table, not from the ladder (stars 23+ grant
+ * no class stat; 22 -> 30 costs ~2.4e7 attempts and ~1.1e6 destroyed copies), so
+ * it holds for a name we failed to recognise too. Callers that want a name gap to
+ * fail closed rather than fall through to a 30-star recommendation should treat
+ * `above-global-cap` the same as `over-invested`; callers that deliberately keep
+ * generating speculative candidates for unlisted items can ignore it.
+ */
+export function starTargetVerdict(
+	itemName: string,
+	targetStars: number,
+	slot?: GearSlot
+): StarTargetVerdict {
+	const stage = stageForItem(itemName, slot);
+	if (!stage) {
+		return targetStars > PRESCRIBED_MAX_STAR
+			? {
+					known: false,
+					verdict: 'above-global-cap',
+					why:
+						`${targetStars} stars is past the ${PRESCRIBED_MAX_STAR}-star ceiling that applies ` +
+						'to every item in the game: stars 23+ grant no class stat at all, and climbing 22 ' +
+						'to 30 costs roughly 24 million attempts and 1.1 million destroyed copies in ' +
+						'expectation. This item is not in the gear ladder, so there is no stage-specific ' +
+						'stopping point to quote — but the ceiling still applies.'
+				}
+			: { known: false, verdict: 'unknown' };
+	}
 	const { stars, starsOnEvent } = stage.stop;
 	const max = stage.maxStars;
 	if (max !== undefined && targetStars > max) {

@@ -79,6 +79,15 @@ export function weakest(...values: Confidence[]): Confidence {
 
 type FourStat = 'str' | 'dex' | 'int' | 'luk';
 
+/** Grade ordering, for comparing where an item IS against where the plan stops. */
+const POTENTIAL_GRADE_RANK: Record<string, number> = {
+	none: 0,
+	rare: 1,
+	epic: 2,
+	unique: 3,
+	legendary: 4
+};
+
 /**
  * Goal kinds whose lines only add up when they all carry the SAME stat, and so
  * must name one. Non-stat goals (boss, IED, %ATT, crit damage) are unambiguous.
@@ -278,7 +287,15 @@ function generateStarforce(character: Character, opts: CandidateOptions): Candid
 		const wanted: number[] = [];
 		for (const to of [...targets].filter((t) => t <= max).sort((a, b) => a - b)) {
 			const verdict = gearProgression.starTargetVerdict(item.name, to);
-			if (verdict.verdict === 'over-invested' || verdict.verdict === 'impossible') {
+			if (
+				verdict.verdict === 'over-invested' ||
+				verdict.verdict === 'impossible' ||
+				// Returned only for items MISSING from the ladder, above the global
+				// 22-star ceiling. Failing closed here means a future name-matching
+				// gap produces no recommendation rather than a 30★ one — stars 23+
+				// grant no class stat on any item, laddered or not.
+				verdict.verdict === 'above-global-cap'
+			) {
 				overInvested.push(`${to}★`);
 				continue;
 			}
@@ -678,6 +695,30 @@ interface SlotGoal {
 	 * "fake 3L" a 30%: see `potentialLines.mainStatPercent`.
 	 */
 	totalPercent?: number;
+	/**
+	 * A CONJUNCTION: several requirements that must all hold on the same item.
+	 * The goals people actually chase are mostly of this shape — "1 line of crit
+	 * damage AND 1 main-stat line" on gloves, "2 ATT AND 1 boss" on a weapon —
+	 * and the single-`poolKind` fields above cannot express any of them.
+	 *
+	 * When set, `parts` is the whole goal: the fields above are ignored.
+	 */
+	parts?: readonly GoalPart[];
+}
+
+/** One requirement inside a conjunction goal. */
+interface GoalPart {
+	/** The pool's vocabulary, for the probability model. */
+	poolKind: potentialLines.PoolLineKind | readonly potentialLines.PoolLineKind[];
+	/** How many lines of it. Default 1. */
+	lines?: number;
+	/** Our valuation vocabulary for the same line. */
+	valueKind: potential.PotentialLineKind;
+	/**
+	 * Summed percentage instead of a per-line minimum, for the additive kinds.
+	 * See `SlotGoal.totalPercent`.
+	 */
+	totalPercent?: number;
 }
 
 /**
@@ -693,6 +734,20 @@ interface SlotGoal {
  * requirement the probability model prices, and the same number through
  * `addLine` when the contribution is valued. They cannot drift apart.
  */
+function lineValueForKind(
+	kind: potential.PotentialLineKind,
+	grade: potential.PotentialGrade,
+	itemLevel: number,
+	category: potential.PotentialCategory,
+	slot: string
+): number | null {
+	const value = potential.lineValue(grade, itemLevel, category, kind, {
+		slot: slot as potential.PotentialSlot
+	});
+	if (value === null || value === 0) return null;
+	return value;
+}
+
 function goalLineValue(
 	goal: SlotGoal,
 	grade: potential.PotentialGrade,
@@ -748,16 +803,25 @@ function slotGoals(
 	});
 
 	switch (group) {
-		// WSE. SS6: default is 2L ATT, NOT three prime lines.
-		//
-		// NOTE: the researched next rung is a MIXED goal — "2 ATT + 1 Boss" — which
-		// this shape cannot express (one `poolKind` per goal). Tracked as a gap;
-		// the whole-WSE 9-line budget in SS4.1 needs the same conjunction support.
+		// WSE. SS6: default is 2L ATT, NOT three prime lines. The researched next
+		// rung is the mixed "3L usable" - 2 ATT + 1 Boss - which the community
+		// ranks above 3L ATT.
 		case 'weapon':
 		case 'secondary':
 		case 'shieldSoulRing':
 			return [
 				att('att2', 23, 2, '2L ATT'),
+				{
+					id: 'att2boss1',
+					label: `2 ${attWord} + 1 boss damage line ("3L usable")`,
+					lines: 3,
+					kind: attKind,
+					poolKind: attPool,
+					parts: [
+						{ poolKind: attPool, lines: 2, valueKind: attKind },
+						{ poolKind: 'boss', lines: 1, valueKind: 'boss' }
+					]
+				},
 				att('att3', 33, 3, '3L ATT'),
 				// Boss and IED are HARD-CAPPED at 2 lines per item (StrategyWiki,
 				// quoted in cubing-strategy.md SS1): three of either is impossible,
@@ -777,23 +841,76 @@ function slotGoals(
 		case 'emblem':
 			return [
 				att('att2', 23, 2, '2L ATT'),
+				{
+					id: 'att2ied1',
+					label: `2 ${attWord} + 1 IED line`,
+					lines: 3,
+					kind: attKind,
+					poolKind: attPool,
+					parts: [
+						{ poolKind: attPool, lines: 2, valueKind: attKind },
+						{ poolKind: 'ied', lines: 1, valueKind: 'ied' }
+					]
+				},
 				att('att3', 33, 3, '3L ATT — cheapest 3L-ATT slot'),
 				{ id: 'ied2', label: '2 lines of {value}% IED', lines: 2, kind: 'ied', poolKind: 'ied' }
 			];
-		// Gloves are the only armour slot whose pool contains Critical Damage.
-		// 3L crit damage is deliberately ABSENT: 133,100 cubes ~ 2.9T mesos, the
-		// target Nate described as "maybe 5 people in all of maple story history".
-		case 'gloves':
+		// Gloves are the only armour slot whose pool contains Critical Damage, and
+		// crit damage is the ONLY thing worth chasing here. Nate: "No one will roll
+		// for %stat on gloves - % critical damage on gloves is one of the biggest
+		// damage increases in the game."
+		//
+		// The rungs are his, verbatim: "1l + 0% stats isn't bad, 1L + 1 mainstat
+		// line is great, 2l is amazing, 2l + 1 mainstat is godly". Note that three
+		// of the four are CONJUNCTIONS - crit AND stat on the same item - which is
+		// why `parts` exists. The plain stat ladder is deliberately NOT offered for
+		// this slot; that was our error, not the research's.
+		//
+		// 3L crit damage stays absent: 133,100 cubes ~ 2.9T mesos, the target Nate
+		// described as "maybe 5 people in all of maple story history".
+		case 'gloves': {
+			const crit = (lines: number): GoalPart => ({
+				poolKind: 'crit_dmg',
+				lines,
+				valueKind: 'crit_dmg'
+			});
+			// Valued per-line from the pool tables rather than as a summed total, so
+			// no constant is invented. It ignores %All Stat, which makes this rung
+			// slightly PRICIER than reality - the conservative direction.
+			const oneStat: GoalPart = { poolKind: 'stat_pct', lines: 1, valueKind: 'stat_pct' };
 			return [
 				{
+					id: 'crit1',
+					label: '1 line of {value}% critical damage',
+					lines: 1,
+					kind: 'crit_dmg',
+					poolKind: 'crit_dmg'
+				},
+				{
+					id: 'crit1stat1',
+					label: '1 crit damage + 1 main stat line (great)',
+					lines: 2,
+					kind: 'crit_dmg',
+					poolKind: 'crit_dmg',
+					parts: [crit(1), oneStat]
+				},
+				{
 					id: 'critdmg2',
-					label: '2 lines of {value}% critical damage',
+					label: '2 lines of {value}% critical damage (amazing)',
 					lines: 2,
 					kind: 'crit_dmg',
 					poolKind: 'crit_dmg'
 				},
-				...statLadder()
+				{
+					id: 'crit2stat1',
+					label: '2 crit damage + 1 main stat line (godly)',
+					lines: 3,
+					kind: 'crit_dmg',
+					poolKind: 'crit_dmg',
+					parts: [crit(2), oneStat]
+				}
 			];
+		}
 		// Hats are the only slot whose pool contains Skill Cooldown.
 		//
 		// WARNING: the cooldown goal is generated and priced, but it SCORES ZERO
@@ -839,6 +956,25 @@ function goalContribution(
 	const main = mainStatOf(cls);
 	let placed = 0;
 
+	// A conjunction credits every part, in order, up to the item's 3 lines.
+	if (goal.parts) {
+		for (const part of goal.parts) {
+			const lines = part.lines ?? 1;
+			if (part.totalPercent !== undefined) {
+				addLine(out, part.valueKind, part.totalPercent, main, cls);
+				placed = Math.min(placed + lines, 3);
+				continue;
+			}
+			const per = perKindValue?.(part.valueKind) ?? 0;
+			if (per === 0) continue;
+			for (let i = 0; i < lines && placed < 3; i++) {
+				addLine(out, part.valueKind, per, main, cls);
+				placed += 1;
+			}
+		}
+		if (placed === 0) return null;
+	}
+
 	// A summed goal names a TOTAL, not a per-line value. Damage only cares about
 	// the total for the additive kinds these goals use (%stat, %ATT), so credit it
 	// once and mark the lines it consumed. Never route a multiplicative kind (IED)
@@ -848,7 +984,7 @@ function goalContribution(
 		placed = Math.min(goal.lines, 3);
 	}
 
-	for (let i = placed; i < goal.lines && placed < 3; i++) {
+	for (let i = placed; !goal.parts && i < goal.lines && placed < 3; i++) {
 		const kind = goal.valueKinds?.[i] ?? goal.kind;
 		const value =
 			kind === goal.kind ? lineValueForGoal : (perKindValue?.(kind) ?? lineValueForGoal);
@@ -866,7 +1002,10 @@ function goalContribution(
 		.map((line) => ({ line, dataKind: PARSED_TO_DATA[line.kind] }))
 		.filter(
 			(entry) =>
-				entry.dataKind && entry.dataKind !== goal.kind && !goal.valueKinds?.includes(entry.dataKind)
+				entry.dataKind &&
+				entry.dataKind !== goal.kind &&
+				!goal.valueKinds?.includes(entry.dataKind) &&
+				!goal.parts?.some((part) => part.valueKind === entry.dataKind)
 		)
 		.sort((a, b) => b.line.value - a.line.value);
 
@@ -1044,18 +1183,48 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 		// the real pools in `potential-lines.ts`, not `1 / triplePrime` — that old
 		// basis priced three specific crit-damage lines on gloves at 2.2B when the
 		// true expectation is 2.9 TRILLION, a factor of 1,331.
+		// The plan gates potential exactly as it gates stars. Nate: "you would never,
+		// ever 30% your transient earrings. These are a placeholder until gollux."
+		// The stage carries the prescribed grade and main-stat % for the slot, so a
+		// stepping stone gets its cheap Epic roll and nothing more.
+		const overInvestedGoals: string[] = [];
+		const stop = gearProgression.stopPointForItem(item.name);
+		const planGrade = stop?.potential;
+		if (
+			planGrade !== undefined &&
+			POTENTIAL_GRADE_RANK[source.grade] > POTENTIAL_GRADE_RANK[planGrade]
+		) {
+			notes.push(
+				`${slot} (${item.name}): no cube goals — the plan stops at ${planGrade} potential ` +
+					`here${
+						stop?.mainStatPct !== undefined ? ` (${stop.mainStatPct}% main stat)` : ''
+					}, and it is already ${source.grade}. ${stop?.why ?? ''}`.trim()
+			);
+			continue;
+		}
+
 		const group = potentialLines.poolGroupForSlot(slot);
 		if (group && item.itemLevel !== undefined && source.grade !== 'rare') {
 			for (const goal of slotGoals(group, cls, item.itemLevel)) {
+				// A rung past the prescribed main-stat % is over-investment in gear
+				// this stage is going to hand off. Reported, not silently dropped.
+				if (
+					goal.totalPercent !== undefined &&
+					stop?.mainStatPct !== undefined &&
+					goal.totalPercent > stop.mainStatPct
+				) {
+					overInvestedGoals.push(`${goal.totalPercent}%`);
+					continue;
+				}
 				// ONE value drives both sides. `minValue` is what the probability
 				// model prices, and the same number is what `goalContribution` credits
 				// — so the cost can never describe a cheaper outcome than the gain.
-				const summed = goal.totalPercent !== undefined;
+				const summed = goal.parts === undefined && goal.totalPercent !== undefined;
 				const value =
-					goal.anyValue || summed
+					goal.anyValue || summed || goal.parts
 						? undefined
 						: goalLineValue(goal, source.grade, item.itemLevel, category, slot);
-				if (!goal.anyValue && !summed && value === null) continue;
+				if (!goal.anyValue && !summed && !goal.parts && value === null) continue;
 
 				// A multi-line STAT requirement must name the stat it wants. Without
 				// it, STR/DEX/INT/LUK count interchangeably and a roll of
@@ -1076,6 +1245,53 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 				// is a DIFFERENT requirement from three lines of >=11%: 12/12/9 clears
 				// 33 but fails a per-line minimum. Built by the module so stat goals
 				// pick up %All Stat, which is what makes a "fake 3L" add to 30.
+				// A conjunction becomes several requirements on the same item, which is
+				// what `PotentialTarget` has always been — an array — even though every
+				// goal until now filled exactly one slot of it.
+				let conjunction: potentialLines.LineRequirement[] | undefined;
+				if (goal.parts) {
+					const main = mainStatOf(cls);
+					conjunction = [];
+					let ok = true;
+					for (const part of goal.parts) {
+						if (part.totalPercent !== undefined) {
+							conjunction.push(
+								part.valueKind === 'stat_pct' && main && !cls.flags?.xenon
+									? potentialLines.mainStatPercent(
+											main as potentialLines.PoolStat,
+											part.totalPercent
+										)
+									: { kind: part.poolKind, totalValue: part.totalPercent, anyStat: true }
+							);
+							continue;
+						}
+						const per = lineValueForKind(
+							part.valueKind,
+							source.grade,
+							item.itemLevel,
+							category,
+							slot
+						);
+						if (per === null) {
+							ok = false;
+							break;
+						}
+						const partScope = STAT_BEARING_GOAL_KINDS.has(
+							part.poolKind as potentialLines.PoolLineKind
+						)
+							? statScope
+							: {};
+						conjunction.push({
+							kind: part.poolKind,
+							lines: part.lines ?? 1,
+							minValue: Math.abs(per),
+							...partScope
+						});
+					}
+					// A part the pool cannot supply makes the whole goal unrollable.
+					if (!ok) continue;
+				}
+
 				let requirement: potentialLines.LineRequirement;
 				if (summed) {
 					const total = goal.totalPercent as number;
@@ -1098,7 +1314,7 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 						...scope
 					};
 				}
-				const target: potentialLines.PotentialTarget = [requirement];
+				const target: potentialLines.PotentialTarget = conjunction ?? [requirement];
 
 				// Validate OUTSIDE the try below. An ambiguous target is a bug in
 				// this file, not a missing pool, and the catch would otherwise turn
@@ -1110,7 +1326,8 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 					goal,
 					value ?? goalLineValue(goal, source.grade, item.itemLevel, category, slot) ?? 0,
 					source,
-					cls
+					cls,
+					(k) => lineValueForKind(k, source.grade, item.itemLevel!, category, slot)
 				);
 				if (!contribution) continue;
 
@@ -1162,6 +1379,13 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 					]
 				});
 			}
+		}
+
+		if (overInvestedGoals.length > 0) {
+			notes.push(
+				`${slot} (${item.name}): did not offer ${overInvestedGoals.join(', ')} main stat — ` +
+					`the plan stops at ${stop?.mainStatPct}% here. ${stop?.why ?? ''}`.trim()
+			);
 		}
 	}
 

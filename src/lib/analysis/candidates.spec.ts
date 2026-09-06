@@ -4,6 +4,7 @@ import * as potentialData from '$lib/data/potential';
 import * as starforceData from '$lib/data/starforce';
 
 import { getClass, listClasses } from '$lib/data/classes';
+import * as gearProgression from '$lib/data/gear-progression';
 import { CATALOGUE, CATALOGUE_META, capabilities, findByName } from '$lib/data/items';
 import type { Item } from '$lib/schema';
 
@@ -40,10 +41,17 @@ describe('star force candidates', () => {
 		expect(new Set(cape.map((c) => c.id)).size).toBe(cape.length);
 		const targets = cape.map((c) => Number(c.id.split('-').pop()));
 		expect(targets).toContain(18);
-		expect(targets).toContain(30);
+		// Breakpoints are offered up to the PLAN, not the mechanical cap. The
+		// fixture's cape sits on a ladder stage that stops at 22 on event, so 23,
+		// 25 and 30 are correctly absent — stars 23+ grant no class stat at all.
+		const plan = gearProgression.starTargetVerdict(windArcherFixture().equipment.cape!.name, 30);
+		const ceiling = plan.known ? (plan.onEvent ?? plan.prescribed ?? 30) : 30;
+		expect(Math.max(...targets)).toBeLessThanOrEqual(ceiling);
 		expect(Math.max(...targets)).toBeLessThanOrEqual(starforceData.maxStars(200, false));
 		for (const bp of STAR_BREAKPOINTS) {
-			if (bp > 17 && bp <= starforceData.maxStars(200, false)) expect(targets).toContain(bp);
+			if (bp > 17 && bp <= Math.min(ceiling, starforceData.maxStars(200, false))) {
+				expect(targets).toContain(bp);
+			}
 		}
 	});
 
@@ -61,11 +69,10 @@ describe('star force candidates', () => {
 
 	it('gives a star force delta in the % applied (base) channel', () => {
 		const { candidates } = generate(() => {}, { kinds: ['starforce'] });
-		const step = candidates.find((c) => c.id === 'starforce:hat:22-23')!;
-
-		expect(step.delta.mainFlat).toBeUndefined(); // 23* grants ATT only, no stat
-		expect(step.delta.att).toBeGreaterThan(0);
-		expect(step.delta.mainFinal).toBeUndefined();
+		// The 23★+ band (attack only, no stat) is deliberately unreachable from
+		// here: every item is capped at 22, laddered or not. That band's behaviour
+		// is covered where it belongs, in starforce.spec.ts.
+		expect(candidates.some((c) => Number(c.id.split('-').pop()) > 22)).toBe(false);
 
 		const statStep = candidates.find((c) => c.id === 'starforce:cape:17-18')!;
 		expect(statStep.delta.mainFlat).toBeGreaterThan(0);
@@ -87,18 +94,21 @@ describe('star force candidates', () => {
 		expect(notes.join(' ')).toMatch(/Arcane Umbra Bow.*did not offer/);
 	});
 
-	// `unknown` means the item is not in the ladder, which is NOT the same as
-	// "wrong" — those still generate, so the 26-30 extrapolation stays reachable.
-	it('marks weapon 26-30 speculative on an item outside the ladder', () => {
+	// An item MISSING from the ladder still generates candidates — unknown is not
+	// the same as wrong — but it is still capped at the global 22, so a future
+	// name-matching gap fails closed instead of resurrecting a 30★ recommendation.
+	it('caps an item outside the ladder at the global ceiling too', () => {
 		const { candidates } = generate(
 			(character) => {
 				character.equipment.weapon!.name = 'Ignitia Sureshot Bow';
+				// The fixture's weapon is already at 22★, the global ceiling.
+				character.equipment.weapon!.starforce = 17;
 			},
 			{ kinds: ['starforce'] }
 		);
-		const to30 = candidates.find((c) => c.id === 'starforce:weapon:22-30')!;
-		expect(to30.confidence).toBe('speculative');
-		expect(to30.notes!.join(' ')).toContain('UNVERIFIED_WEAPON_26_30');
+		const weapon = candidates.filter((c) => c.slot === 'weapon');
+		expect(weapon.length).toBeGreaterThan(0);
+		expect(Math.max(...weapon.map((c) => Number(c.id.split('-').pop())))).toBeLessThanOrEqual(22);
 	});
 
 	it('skips Superior gear and says why', () => {
@@ -408,7 +418,11 @@ describe('capability gate', () => {
 		expect(caps.canPotential).toBe(true);
 		expect(caps.maxStarforce).toBe(30);
 
-		const { candidates } = generate(() => {}, { kinds: ['starforce'] });
+		// Started below the ceiling: the fixture's hat is already at the plan's
+		// 22★ stop, where having nothing left to offer is the correct answer.
+		const { candidates } = generate((character) => (character.equipment.hat!.starforce = 17), {
+			kinds: ['starforce']
+		});
 		expect(candidates.filter((c) => c.slot === 'hat').length).toBeGreaterThan(0);
 	});
 
@@ -427,6 +441,7 @@ describe('capability gate', () => {
 		const { candidates } = generate(
 			(character) => {
 				character.equipment.hat!.name = 'Completely Made Up Battlehat';
+				character.equipment.hat!.starforce = 17;
 			},
 			{ kinds: ['starforce'] }
 		);
