@@ -408,6 +408,25 @@ there is **no inventory endpoint** — only equipped items.
 
 ### Nexon's public GMS rankings API — the only GMS endpoint that exists
 
+> **Verified live 2026-09-06** against a real character:
+> `GET https://www.nexon.com/api/maplestory/no-auth/ranking/v2/na?type=overall&id=weekly&character_name=<IGN>&page_index=1`
+> returns `{characterName, level, exp, gap, rank, worldID, jobName, characterImgURL,
+> legionLevel, raidPower, tierID, score}`.
+>
+> `jobName` is populated and useful (e.g. `"Ren"`). **`legionLevel`, `raidPower`,
+> `tierID`, `score` and `characterID` are always 0** — the fields exist in the schema
+> but Nexon never fills them. There is no gear, stat or Combat Power data of any kind.
+> This confirms screenshots as the only equipment-import channel for GMS.
+>
+> **worldID mapping** (undocumented; build it up by observation):
+>
+> | worldID | World |
+> |---|---|
+> | 45 | Kronos (Heroic) |
+>
+> The rankings web page is a client-rendered shell (~3.7 KB) and carries no world
+> table, so the mapping cannot be scraped from it.
+
 Undocumented but public, no key, no auth:
 
 ```

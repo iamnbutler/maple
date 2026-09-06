@@ -39,22 +39,77 @@ export const SLOT_LABELS: Record<Slot, string> = {
 };
 
 /**
- * Five columns, mirroring the game window. `overall` is absent here: an overall
- * replaces top+bottom, so it is spliced in by {@link gridTemplate} only when the
- * character actually wears one.
+ * Short labels for the faint overlay on a grid tile. These follow the in-game
+ * Equip window wording ("Cap", "Clothes", "Pants", "Sub") rather than the
+ * schema's slot ids, and are kept short enough to fit a 58px tile.
+ */
+export const SLOT_TILE_LABELS: Record<Slot, string> = {
+	weapon: 'Weapon',
+	secondary: 'Sub',
+	emblem: 'Emblem',
+	hat: 'Cap',
+	top: 'Clothes',
+	bottom: 'Pants',
+	overall: 'Overall',
+	shoes: 'Shoes',
+	gloves: 'Gloves',
+	cape: 'Cape',
+	shoulder: 'Shoulder',
+	belt: 'Belt',
+	pendant1: 'Pend 1',
+	pendant2: 'Pend 2',
+	ring1: 'Ring 1',
+	ring2: 'Ring 2',
+	ring3: 'Ring 3',
+	ring4: 'Ring 4',
+	earrings: 'Earring',
+	face: 'Face',
+	eye: 'Eye',
+	pocket: 'Pocket',
+	badge: 'Badge',
+	medal: 'Medal',
+	heart: 'Heart',
+	android: 'Android',
+	totem1: 'Totem 1',
+	totem2: 'Totem 2',
+	totem3: 'Totem 3'
+};
+
+/**
+ * The in-game Equip window, transcribed cell for cell: five columns, six rows,
+ * `.` wherever the game leaves a hole.
+ *
+ *   ring1    .         hat       .         emblem
+ *   ring2    pendant1  face      .         badge
+ *   ring3    pendant2  eye       earrings  medal
+ *   ring4    weapon    top       shoulder  secondary
+ *   pocket   belt      bottom    gloves    cape
+ *   .        .         shoes     android   heart
+ *
+ * `overall` is absent here: an overall replaces top+bottom, so it is spliced in
+ * by {@link gridTemplate} only when the character actually wears one. Totems
+ * have no cell — the game keeps them on a separate tab — so an equipped totem
+ * falls through to the grid's "no cell for this slot" strip.
  */
 const LAYOUT_SPLIT: readonly (Slot | '.')[][] = [
-	['ring1', 'face', 'hat', 'medal', 'emblem'],
-	['ring2', 'eye', 'top', 'shoulder', 'secondary'],
-	['ring3', 'earrings', 'bottom', 'gloves', 'weapon'],
-	['ring4', 'pendant1', 'shoes', 'cape', 'android'],
-	['pocket', 'pendant2', 'belt', 'badge', 'heart'],
-	['totem1', 'totem2', 'totem3', '.', '.']
+	['ring1', '.', 'hat', '.', 'emblem'],
+	['ring2', 'pendant1', 'face', '.', 'badge'],
+	['ring3', 'pendant2', 'eye', 'earrings', 'medal'],
+	['ring4', 'weapon', 'top', 'shoulder', 'secondary'],
+	['pocket', 'belt', 'bottom', 'gloves', 'cape'],
+	['.', '.', 'shoes', 'android', 'heart']
 ];
+
+/** Row indices of the two cells an overall swallows (top, then bottom). */
+const TOP_ROW = 3;
+const BOTTOM_ROW = 4;
+const CLOTHES_COL = 2;
 
 /** Same grid, with `overall` spanning the two rows top/bottom would occupy. */
 const LAYOUT_OVERALL: readonly (Slot | '.')[][] = LAYOUT_SPLIT.map((row, y) =>
-	y === 1 || y === 2 ? row.map((cell, x) => (x === 2 ? ('overall' as Slot) : cell)) : row
+	y === TOP_ROW || y === BOTTOM_ROW
+		? row.map((cell, x) => (x === CLOTHES_COL ? ('overall' as Slot) : cell))
+		: row
 );
 
 function template(layout: readonly (Slot | '.')[][]): string {

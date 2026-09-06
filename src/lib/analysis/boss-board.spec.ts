@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { damageIndex } from '../calc/damage';
 import { BOSSES, BOSS_ORDER, getBoss } from '../data/bosses';
-import { anchorFrameFor } from '../data/dpm-anchors';
+import { DUMMY_TARGET, anchorFrameFor, getAnchorDpm, getDpmFit } from '../data/dpm-anchors';
 import type { CalcInput } from '../calc/types';
 import type { Character } from '../schema/character';
 import {
 	ARCANE_BLOCK_RATIO_PERCENT,
+	DEFAULT_CARRIED_UPTIME,
+	DEFAULT_UPTIME,
 	LEVEL_RELEVANCE_WINDOW,
 	SACRED_BLOCK_DEFICIT,
 	type BossBoardCharacter,
@@ -14,6 +16,7 @@ import {
 	bossTarget,
 	bossTier,
 	buildBossBoard,
+	resolveAnchorCombatPower,
 	verdictFor
 } from './boss-board';
 
@@ -641,5 +644,263 @@ describe('a realistic level-275 Wind Archer', () => {
 	it('keeps the board a readable length', () => {
 		expect(b.rows.length).toBeGreaterThan(10);
 		expect(b.rows.length).toBeLessThan(40);
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* The fitted KMS 연무장 anchor (dpm-anchors.md §3, §4)                         */
+/* -------------------------------------------------------------------------- */
+
+describe('the fitted per-class DPM anchor', () => {
+	/** In the middle of Wind Archer's fitted CP band (305M-914M). */
+	const CP = 500_000_000;
+	const withCp = (combatPower = CP): BossBoardCharacter => ({
+		level: 283,
+		classId: 'wind-archer',
+		statWindow: { displayed: { combatPower } }
+	});
+	const lv283 = character({ level: 283 });
+
+	it('calibrates a class the dataset covers, and refuses one it does not', () => {
+		const wa = buildBossBoard(lv283, withCp(), ALL);
+		expect(wa.calibrated).toBe(true);
+		expect(wa.note).toMatch(/연무장/);
+		expect(wa.note).toMatch(/2026-08/);
+
+		// Kanna is a real class with no 연무장 records — it must stay uncalibrated
+		// rather than borrow another class's curve.
+		expect(getDpmFit('kanna')).toBeNull();
+		const kanna = buildBossBoard(
+			character({ level: 283, classId: 'kanna' }),
+			{ ...withCp(), classId: 'kanna' },
+			ALL
+		);
+		expect(kanna.calibrated).toBe(false);
+		expect(kanna.note).toMatch(/[Uu]ncalibrated/);
+		expect(kanna.note).toMatch(/no records for "kanna"/);
+		for (const r of kanna.rows) {
+			expect(['uncalibrated', 'blocked']).toContain(r.solo.verdict);
+			expect(r.solo.ratio).toBeUndefined();
+		}
+	});
+
+	it('stays uncalibrated when no Combat Power is available, and says which is missing', () => {
+		const b = buildBossBoard(lv283, { level: 283, classId: 'wind-archer' }, ALL);
+		expect(b.calibrated).toBe(false);
+		expect(b.note).toMatch(/[Uu]ncalibrated/);
+		expect(b.note).toMatch(/Combat Power/);
+		const r = b.rows.find((x) => x.bossId === 'hard-lucid')!;
+		expect(r.solo.reason).toMatch(/curve in Combat Power/);
+	});
+
+	it('transfers the dummy DPM by damageIndex(you, boss) / damageIndex(you, dummy)', () => {
+		const boss = getBoss('hard-lucid')!;
+		const target = bossTarget(boss);
+		const anchor = getAnchorDpm('wind-archer', CP)!;
+		const expected = (anchor.value * damageIndex(lv283, target)) / damageIndex(lv283, DUMMY_TARGET);
+
+		const r = row(lv283, 'hard-lucid', withCp(), ALL);
+		// clearMinutes = HP / (transferred DPM * uptime).
+		expect(r.solo.clearMinutes!).toBeCloseTo(boss.hp!.total / (expected * DEFAULT_UPTIME), 6);
+	});
+
+	it('never multiplies the force coefficient in twice', () => {
+		// damageIndex already applies it through `bossTarget`, and the dummy has
+		// no force requirement, so the ratio carries the whole deficit exactly
+		// once. Halving the DPM by hand from the reported gate multiplier would
+		// double-count; check the two disagree the way they should.
+		// Normal Limbo needs 500 Sacred and level 285; 480 is exactly the 20-short
+		// boundary the gate still lets through.
+		const at = (sacredForce: number) =>
+			row(character({ level: 290, sacredForce }), 'normal-limbo', { ...withCp(), level: 290 }, ALL);
+		const shortRow = at(480);
+		const fullRow = at(500);
+		expect(shortRow.gates.forceMultiplier).toBe(0.8);
+		expect(fullRow.gates.forceMultiplier).toBe(1);
+		// DPM ratio is exactly the force ratio — applied once, not squared.
+		expect(shortRow.solo.ratio! / fullRow.solo.ratio!).toBeCloseTo(0.8, 10);
+	});
+
+	it('produces sane clear times for a level-283 character on real bosses', () => {
+		const b = buildBossBoard(lv283, withCp(), ALL);
+		for (const id of ['hard-lucid', 'chaos-gloom', 'hard-chosen-seren', 'chaos-kalos']) {
+			const r = b.rows.find((x) => x.bossId === id)!;
+			expect(r.solo.clearMinutes, id).toBeGreaterThan(0.05); // not milliseconds
+			expect(r.solo.clearMinutes, id).toBeLessThan(60 * 24); // not centuries
+		}
+		// Ordering sanity: the harder fight takes longer than the easier one.
+		const lucid = b.rows.find((x) => x.bossId === 'hard-lucid')!;
+		const seren = b.rows.find((x) => x.bossId === 'hard-chosen-seren')!;
+		const kalos = b.rows.find((x) => x.bossId === 'chaos-kalos')!;
+		expect(seren.solo.clearMinutes!).toBeGreaterThan(lucid.solo.clearMinutes!);
+		expect(kalos.solo.clearMinutes!).toBeGreaterThan(seren.solo.clearMinutes!);
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* Which Combat Power the anchor is evaluated at                               */
+/* -------------------------------------------------------------------------- */
+
+describe('Combat Power source for the DPM anchor', () => {
+	const lv283 = character({ level: 283 });
+	const displayedCp = 500_000_000;
+	const computedCp = 120_000_000;
+
+	it('prefers the displayed Combat Power over the computed one', () => {
+		const char: BossBoardCharacter = {
+			level: 283,
+			classId: 'wind-archer',
+			statWindow: { displayed: { combatPower: displayedCp } }
+		};
+		expect(resolveAnchorCombatPower(char, { combatPower: computedCp })).toEqual({
+			value: displayedCp,
+			source: 'displayed'
+		});
+
+		const b = buildBossBoard(lv283, char, { ...ALL, combatPower: computedCp });
+		expect(b.note).toMatch(/as displayed in-game/);
+		expect(b.note).toContain(displayedCp.toLocaleString('en-US'));
+	});
+
+	it('falls back to the computed Combat Power, degraded and labelled', () => {
+		const char: BossBoardCharacter = { level: 283, classId: 'wind-archer' };
+		expect(resolveAnchorCombatPower(char, { combatPower: computedCp })).toEqual({
+			value: computedCp,
+			source: 'computed'
+		});
+
+		const b = buildBossBoard(lv283, char, { ...ALL, combatPower: computedCp });
+		expect(b.calibrated).toBe(true);
+		expect(b.note).toMatch(/computed by this tool \(approximate/);
+		// The whole point of preferring displayed: the two disagree by a lot, and
+		// CP is raised to ~1.14, so the computed board is materially weaker.
+		const displayedBoard = buildBossBoard(
+			lv283,
+			{ ...char, statWindow: { displayed: { combatPower: displayedCp } } },
+			{ ...ALL, combatPower: computedCp }
+		);
+		const cheap = b.rows.find((r) => r.bossId === 'hard-lucid')!;
+		const rich = displayedBoard.rows.find((r) => r.bossId === 'hard-lucid')!;
+		expect(cheap.solo.ratio!).toBeLessThan(rich.solo.ratio!);
+	});
+
+	it('takes an explicit displayedCombatPower option when the document has none', () => {
+		const b = buildBossBoard(
+			lv283,
+			{ level: 283, classId: 'wind-archer' },
+			{ ...ALL, displayedCombatPower: displayedCp }
+		);
+		expect(b.calibrated).toBe(true);
+		expect(b.note).toMatch(/as displayed in-game/);
+	});
+
+	it('ignores a non-positive or non-finite Combat Power', () => {
+		for (const bad of [0, -1, Number.NaN]) {
+			expect(
+				resolveAnchorCombatPower(
+					{ statWindow: { displayed: { combatPower: bad } } },
+					{ combatPower: bad }
+				)
+			).toBeNull();
+		}
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* Uptime — the honest fudge factor (dpm-anchors.md §7.3)                      */
+/* -------------------------------------------------------------------------- */
+
+describe('uptime', () => {
+	const lv283 = character({ level: 283 });
+	const char: BossBoardCharacter = {
+		level: 283,
+		classId: 'wind-archer',
+		statWindow: { displayed: { combatPower: 500_000_000 } }
+	};
+
+	it('defaults to 65% on solo/party and 90% on the carried axis', () => {
+		expect(DEFAULT_UPTIME).toBe(0.65);
+		expect(DEFAULT_CARRIED_UPTIME).toBe(0.9);
+		const r = row(lv283, 'hard-lucid', char, ALL);
+		// Carried is 5% of the bar, so it is 20x the solo axis at equal uptime —
+		// and 20 * (0.9 / 0.65) once the carried axis gets its own.
+		expect(r.carried.ratio!).toBeCloseTo(
+			r.solo.ratio! * 20 * (DEFAULT_CARRIED_UPTIME / DEFAULT_UPTIME),
+			6
+		);
+		expect(r.party.ratio!).toBeCloseTo(r.solo.ratio! * 3, 6);
+	});
+
+	it('never hides the number it used', () => {
+		const b = buildBossBoard(lv283, char, ALL);
+		expect(b.note).toMatch(/uptime 65% solo and party, 90% carried/i);
+		const r = b.rows.find((x) => x.bossId === 'hard-lucid')!;
+		expect(r.carried.reason).toMatch(/90% uptime/);
+
+		const tuned = buildBossBoard(lv283, char, { ...ALL, uptimeFactor: 0.4 });
+		expect(tuned.note).toMatch(/uptime 40%/i);
+	});
+
+	it('is overridable, together or separately', () => {
+		const base = row(lv283, 'hard-lucid', char, ALL);
+
+		// One override moves both axes, so the 20x carry relation is restored.
+		const both = row(lv283, 'hard-lucid', char, { ...ALL, uptimeFactor: 0.5 });
+		expect(both.solo.ratio!).toBeCloseTo((base.solo.ratio! * 0.5) / DEFAULT_UPTIME, 8);
+		expect(both.carried.ratio!).toBeCloseTo(both.solo.ratio! * 20, 6);
+		expect(both.carried.reason).toBeUndefined();
+
+		const split = row(lv283, 'hard-lucid', char, {
+			...ALL,
+			uptimeFactor: 0.5,
+			carriedUptimeFactor: 1
+		});
+		expect(split.carried.ratio!).toBeCloseTo(split.solo.ratio! * 20 * 2, 6);
+	});
+
+	it('leaves a caller-supplied anchor DPM at face value (uptime 1.0)', () => {
+		// The legacy self-measurement path: the caller already measured the DPM
+		// they want used, so it must not be silently haircut.
+		const r = row(character(), 'hard-lucid', {}, { ...ALL, anchorDpm: TEST_ANCHOR });
+		const boss = getBoss('hard-lucid')!;
+		expect(r.solo.ratio).toBeCloseTo(expectedRatio(character(), 'hard-lucid', boss.hp!.total), 8);
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* The deterministic half is untouched by calibration                          */
+/* -------------------------------------------------------------------------- */
+
+describe('calibration does not disturb the hard gates', () => {
+	const lv283 = character({ level: 283, sacredForce: 400 });
+	const char: BossBoardCharacter = {
+		level: 283,
+		classId: 'wind-archer',
+		statWindow: { displayed: { combatPower: 500_000_000 } }
+	};
+
+	it('reports identical gates, carry numbers and crystal values with and without an anchor', () => {
+		const withAnchor = buildBossBoard(lv283, char, ALL);
+		const without = buildBossBoard(lv283, { ...char, statWindow: undefined }, ALL);
+		expect(withAnchor.rows.length).toBe(without.rows.length);
+		for (let i = 0; i < withAnchor.rows.length; i++) {
+			const a = withAnchor.rows[i];
+			const b = without.rows[i];
+			expect(a.bossId).toBe(b.bossId);
+			expect(a.gates).toEqual(b.gates);
+			expect(a.carryDamageRequired).toBe(b.carryDamageRequired);
+			expect(a.entryLevel).toBe(b.entryLevel);
+			expect(a.crystalMesos).toBe(b.crystalMesos);
+		}
+	});
+
+	it('still blocks on level and force ahead of any DPM verdict', () => {
+		const underLevel = row(character({ level: 219 }), 'hard-lucid', { ...char, level: 219 }, ALL);
+		expect(underLevel.solo.verdict).toBe('blocked');
+		expect(underLevel.solo.reason).toBe('Entry level 220; you are 219.');
+
+		const forceShort = row(character({ level: 283, sacredForce: 200 }), 'chaos-kalos', char, ALL);
+		expect(forceShort.carried.verdict).toBe('blocked');
+		expect(forceShort.carried.reason).toMatch(/Sacred Power 200\/330/);
 	});
 });

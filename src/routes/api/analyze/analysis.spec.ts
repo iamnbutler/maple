@@ -105,14 +105,20 @@ describe('GET /api/characters/:id/analysis', () => {
 		);
 	});
 
-	it('includes the boss board, uncalibrated, and honours includeEarly', async () => {
+	it('includes the boss board, calibrated from the 연무장 anchor, and honours includeEarly', async () => {
 		const plain = await call(getAnalysis, {
 			params: { id },
 			path: `/api/characters/${id}/analysis`
 		});
 		expect(plain.json.bossBoard).toBeDefined();
-		// No per-class DPM anchor is sourced yet (design §9) — say so, do not guess.
-		expect(plain.json.bossBoard.calibrated).toBe(false);
+		// The fixture is a Wind Archer with a displayed Combat Power, and Wind
+		// Archer has a KMS 연무장 fit (src/lib/data/dpm-anchors.ts), so the board
+		// calibrates. It used to read `false` because no anchor had been sourced.
+		// The banner still has to say what the estimate rests on, and the fixture's
+		// CP sits below the fitted band, so the anchor is flagged as extrapolated.
+		expect(plain.json.bossBoard.calibrated).toBe(true);
+		expect(plain.json.bossBoard.note).toMatch(/연무장/);
+		expect(plain.json.bossBoard.note).toMatch(/uptime/i);
 		const baseRows = plain.json.bossBoard.rows.length;
 
 		const early = await call(getAnalysis, {

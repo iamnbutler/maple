@@ -12,11 +12,28 @@
 //   1. HARD GATES — entry level, Arcane/Sacred Force multiplier, the 5% carry
 //      number, the ChinaMS Combat Power floors. These are real game data or
 //      pure arithmetic over it, and they are computed unconditionally.
-//   2. THE DPM MODEL — everything with a `ratio` or a `clearMinutes`. This needs
-//      a per-class 8.8-Challenge DPM anchor (src/lib/data/dpm-anchors.ts), and
-//      no trustworthy anchor has been sourced yet. Until one is, every
-//      DPM-derived verdict is `uncalibrated` and `BossBoard.calibrated` is
-//      false. See the dpm-anchors header for what a real anchor requires.
+//   2. THE DPM MODEL — everything with a `ratio` or a `clearMinutes`. This runs
+//      off the per-class KMS 연무장 fits in src/lib/data/dpm-anchors.ts:
+//
+//        dpmDummy = k_class * combatPower ** alpha_class
+//        dpmBoss  = dpmDummy
+//                 * damageIndex(you, boss) / damageIndex(you, DUMMY_TARGET)
+//                 * uptime
+//
+//      The single `damageIndex` ratio carries the PDR difference, the
+//      level-difference coefficient and the Arcane/Sacred force coefficient
+//      between the dummy and the boss — which is why `gates.forceMultiplier`
+//      below is reported but NEVER multiplied into the DPM again. It also means
+//      the transfer respects YOUR IED / %boss / crit rather than the measured
+//      population's average.
+//
+//      It needs a Combat Power (see `resolveAnchorCombatPower`) and a class the
+//      dataset covers. Without either, every DPM-derived verdict stays
+//      `uncalibrated` and `BossBoard.calibrated` is false — the same escape
+//      hatch as before, now hit far less often.
+//
+//      Even at its best this layer is `estimated`: the data is KMS, it is a
+//      dummy with no mechanics, and it decays ~2%/month (dpm-anchors.md §6).
 
 import {
 	BOSSES,
@@ -26,7 +43,16 @@ import {
 	getBoss,
 	type Boss
 } from '../data/bosses';
-import { getAnchorDpm, getAnchorFrame } from '../data/dpm-anchors';
+import {
+	ANCHOR_MEASURED_AT,
+	ANCHOR_REGION,
+	ANCHOR_SOURCE_URL,
+	DUMMY_TARGET,
+	getAnchorDpm,
+	getAnchorFrame,
+	getDpmFit,
+	type DpmFitOptions
+} from '../data/dpm-anchors';
 import { arcaneMultiplier, sacredMultiplier } from '../calc/force';
 import { damageIndex } from '../calc/damage';
 import type { CalcInput, Target } from '../calc/types';
@@ -58,6 +84,12 @@ export interface BossBoardResult extends BossBoard {
 export interface BossBoardCharacter {
 	level?: number;
 	classId?: string;
+	/**
+	 * The stat-window capture. Only `displayed.combatPower` is read, and it is
+	 * the PREFERRED Combat Power for the DPM anchor — see
+	 * {@link resolveAnchorCombatPower}.
+	 */
+	statWindow?: { displayed?: { combatPower?: number } };
 	/** Symbol levels, for the maxed-Sacred-Symbol regional bonus (bosses.md §5.5). */
 	symbols?: {
 		arcane?: Record<string, number | undefined>;
@@ -82,23 +114,78 @@ export interface BossBoardOptions {
 	/** Include `early`-tier rows (Chaos Zakum .. below Normal Lotus). Default false. */
 	includeEarlyBosses?: boolean;
 	/**
-	 * Fraction of the fight actually spent attacking — downtime, i-frames, phase
-	 * transitions, movement (bosses.md §5.5 `uptime_factor`). Default 1.0: the
-	 * 8.8 rules already require an infinitely-repeatable rotation, so the anchor
-	 * is closer to sustained DPM than to a burst window. Not sourced per boss.
+	 * Fraction of the fight actually spent attacking, on the solo and party axes
+	 * — downtime, i-frames, phase transitions, movement, mechanics
+	 * (bosses.md §5.5 `uptime_factor`, dpm-anchors.md §7.3).
+	 *
+	 * **This is the honest fudge factor.** Nothing in any public dataset measures
+	 * it: 연무장 is a stationary dummy with no mechanics, so the fitted DPM is an
+	 * upper bound and this number is what turns it into a clear time. It is the
+	 * first thing to tune when the board disagrees with your own clear times.
+	 *
+	 * Defaults to {@link DEFAULT_UPTIME} (0.65) against a fitted anchor, and to
+	 * 1.0 against a caller-supplied {@link BossBoardOptions.anchorDpm}, which is
+	 * assumed to already be whatever DPM the caller wants used.
 	 */
 	uptimeFactor?: number;
-	/** Character Combat Power, for the advisory ChinaMS entry gate (bosses.md §3.1). */
+	/**
+	 * Uptime for the `carried` axis, which defaults HIGHER
+	 * ({@link DEFAULT_CARRIED_UPTIME}, 0.9) than the solo one: a blue dot is
+	 * contributing damage for a slice of the fight, not executing a full clear,
+	 * so far less of its time goes to mechanics and phase transitions.
+	 *
+	 * Falls back to {@link BossBoardOptions.uptimeFactor} when that was set
+	 * explicitly, so a caller who sets one uptime gets it everywhere.
+	 */
+	carriedUptimeFactor?: number;
+	/**
+	 * Combat Power computed by this tool (`analysis.summary.combatPower`).
+	 *
+	 * Two jobs: the advisory ChinaMS entry gate (bosses.md §3.1), and the
+	 * FALLBACK regressor for the DPM anchor. It is only a fallback because
+	 * `computeCombatPower` needs the weapon's base and star ATT for the bow
+	 * normalisation and usually cannot derive them, and an approximate CP raised
+	 * to ~1.14 is a materially wrong DPM. See {@link resolveAnchorCombatPower}.
+	 */
 	combatPower?: number;
 	/**
-	 * Override the per-class 8.8 DPM anchor. This is how calibration and the
-	 * tests inject a known (frame, DPM) pair; production passes nothing and gets
-	 * `null` from `getAnchorDpm`.
+	 * The Combat Power the game itself displays. PREFERRED over
+	 * {@link BossBoardOptions.combatPower} for the DPM anchor. Normally read from
+	 * `character.statWindow.displayed.combatPower`; this option exists for
+	 * callers that hold the number but not the document.
+	 */
+	displayedCombatPower?: number;
+	/** `per-class` (default) or `shared` exponent; see {@link DpmFitOptions}. */
+	alphaMode?: DpmFitOptions['alphaMode'];
+	/**
+	 * Bypass the fitted anchor with a DPM measured some other way — the
+	 * self-calibration route of dpm-anchors.md §7.1, where the user records
+	 * their own Training Room run. Interpreted as a DPM produced by
+	 * {@link BossBoardOptions.anchorFrame} (default: the 8.8 frame) and scaled by
+	 * `damageIndex(you, boss) / damageIndex(frame, boss)`; uptime then defaults
+	 * to 1.0. `null` forces the uncalibrated path.
 	 */
 	anchorDpm?: Sourced<number> | number | null;
-	/** Override the stat window the anchor DPM was measured on. */
+	/** Override the stat window a supplied `anchorDpm` was measured on. */
 	anchorFrame?: CalcInput;
 }
+
+/**
+ * Default attacking uptime on the solo and party axes.
+ *
+ * dpm-anchors.md §7.3 gives "0.5-0.7 for a first solo clear, 0.75-0.9 for a
+ * farmed weekly" and says the number should be exposed rather than hidden. 0.65
+ * is the top of the first-clear band: the board's job is "can I do this yet?",
+ * which is a first clear.
+ */
+export const DEFAULT_UPTIME = 0.65;
+
+/**
+ * Default attacking uptime on the `carried` axis — the blue dot. Higher than
+ * {@link DEFAULT_UPTIME} because 5% of the bar is a burst window inside someone
+ * else's clear, not a full fight.
+ */
+export const DEFAULT_CARRIED_UPTIME = 0.9;
 
 /* -------------------------------------------------------------------------- */
 /* Tiering                                                                     */
@@ -354,13 +441,63 @@ export function bossTarget(boss: Boss): Target {
 	};
 }
 
-const UNCALIBRATED: BossAxis = Object.freeze({
-	verdict: 'uncalibrated' as BossVerdict,
-	reason: 'No 8.8-Challenge DPM anchor for this class — clear time cannot be estimated.'
-});
-
 function axis(verdict: BossVerdict, reason?: string): BossAxis {
 	return reason == null ? { verdict } : { verdict, reason };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Combat Power for the DPM anchor                                             */
+/* -------------------------------------------------------------------------- */
+
+/** Where the Combat Power fed to the DPM curve came from. */
+export type AnchorCombatPowerSource = 'displayed' | 'computed';
+
+export interface AnchorCombatPower {
+	value: number;
+	source: AnchorCombatPowerSource;
+}
+
+/**
+ * Pick the Combat Power the DPM curve is evaluated at.
+ *
+ * **Displayed wins.** `calc.computeCombatPower` needs the equipped weapon's own
+ * base ATT and Star Force ATT to do the bow normalisation (formulas.md §2.2),
+ * and GMS classic merges scroll and star ATT in the tooltip, so those are
+ * usually underivable and the function returns an un-normalised `approx` value
+ * that reads LOW for every non-bow class. Feeding that into `CP ** 1.14`
+ * compounds the error, so the number the game prints in the stat window —
+ * which the agent guide already collects — is preferred whenever it exists.
+ *
+ * The computed value is still used when there is no displayed one, because a
+ * degraded estimate beats no board at all; it is labelled and its confidence is
+ * knocked down a step by {@link degradeForComputedCp}.
+ */
+export function resolveAnchorCombatPower(
+	character: BossBoardCharacter,
+	options: BossBoardOptions
+): AnchorCombatPower | null {
+	const displayed = options.displayedCombatPower ?? character.statWindow?.displayed?.combatPower;
+	if (displayed != null && Number.isFinite(displayed) && displayed > 0) {
+		return { value: displayed, source: 'displayed' };
+	}
+	const computed = options.combatPower;
+	if (computed != null && Number.isFinite(computed) && computed > 0) {
+		return { value: computed, source: 'computed' };
+	}
+	return null;
+}
+
+/** Drop a computed-CP anchor one confidence step and say why. */
+function degradeForComputedCp(anchor: Sourced<number>): Sourced<number> {
+	return {
+		value: anchor.value,
+		confidence: 'speculative',
+		note:
+			`${anchor.note ?? ''} Combat Power was COMPUTED, not read from the stat window: ` +
+			"without the weapon's base and star ATT the bow normalisation is skipped " +
+			'(formulas.md §2.2), so the CP — and this DPM — read low. Capture the Combat ' +
+			'Power shown in-game to fix it.'
+	};
 }
 
 export function buildBossBoard(
@@ -370,14 +507,52 @@ export function buildBossBoard(
 ): BossBoardResult {
 	const relevantOnly = options.relevantOnly ?? true;
 	const includeEarly = options.includeEarlyBosses ?? false;
-	const uptimeFactor = options.uptimeFactor ?? 1;
 	const characterLevel = character.level ?? input.level;
 	const classId = character.classId ?? input.classId;
 
-	const anchor =
-		options.anchorDpm !== undefined ? toSourced(options.anchorDpm) : getAnchorDpm(classId);
-	const anchorFrame = options.anchorFrame ?? getAnchorFrame(classId);
+	/* ---- which anchor, and what it is a DPM *against* --------------------- */
+
+	// Two calibration routes, and they divide by different things:
+	//
+	//   supplied  — `options.anchorDpm` is a DPM measured on `anchorFrame` (a
+	//               DIFFERENT character), so the frame is re-evaluated against
+	//               each boss and everything the two characters share cancels.
+	//               `anchorFrameTarget` stays undefined to mean "the boss".
+	//   fitted    — `getAnchorDpm` is a DPM for THIS character at THIS Combat
+	//               Power on the 연무장 dummy, so the character is its own frame
+	//               and the denominator is fixed at DUMMY_TARGET. That ratio
+	//               carries PDR, level gap and force from dummy to boss, and is
+	//               the reason `forceMult` below is never multiplied in again.
+	const supplied = options.anchorDpm !== undefined;
+	const combatPower = supplied ? null : resolveAnchorCombatPower(character, options);
+	const fit = supplied ? null : getDpmFit(classId);
+
+	let anchor: Sourced<number> | null;
+	let anchorFrame: CalcInput;
+	let anchorFrameTarget: Target | undefined;
+	if (supplied) {
+		anchor = toSourced(options.anchorDpm);
+		anchorFrame = options.anchorFrame ?? getAnchorFrame(classId);
+		anchorFrameTarget = undefined;
+	} else {
+		const fitted = combatPower ? getAnchorDpm(classId, combatPower.value, options) : null;
+		anchor = fitted && combatPower?.source === 'computed' ? degradeForComputedCp(fitted) : fitted;
+		anchorFrame = input;
+		anchorFrameTarget = DUMMY_TARGET;
+	}
 	const calibrated = anchor !== null;
+
+	// A fitted anchor is a stationary-dummy DPM and needs the uptime haircut; a
+	// supplied one is whatever the caller measured, so it is taken at face value.
+	const uptimeFactor = options.uptimeFactor ?? (supplied ? 1 : DEFAULT_UPTIME);
+	const carriedUptimeFactor =
+		options.carriedUptimeFactor ?? options.uptimeFactor ?? (supplied ? 1 : DEFAULT_CARRIED_UPTIME);
+
+	const uncalibratedReason = supplied
+		? 'No DPM anchor was supplied — clear time cannot be estimated.'
+		: !fit
+			? `The KMS 연무장 ${ANCHOR_MEASURED_AT} dataset has no records for "${classId}", so there is no DPM anchor for it.`
+			: 'No Combat Power for this character — the DPM anchor is a curve in Combat Power, so clear time cannot be estimated.';
 
 	const tierCounts: Record<BossTier, number> = { trivial: 0, early: 0, current: 0 };
 	for (const boss of BOSSES) tierCounts[bossTier(boss)]++;
@@ -470,19 +645,22 @@ export function buildBossBoard(
 			);
 		}
 
-		let effectiveDpm: number | undefined;
+		// DPM before uptime — the axes apply their own, because the blue dot and a
+		// full clear do not spend the same fraction of the fight attacking.
+		let baseDpm: number | undefined;
 		if (anchor && totalHp != null) {
 			const target = bossTarget(boss);
-			const frameIndex = damageIndex(anchorFrame, target);
+			const frameIndex = damageIndex(anchorFrame, anchorFrameTarget ?? target);
 			if (frameIndex > 0) {
-				const base = (anchor.value * damageIndex(input, target)) / frameIndex;
-				effectiveDpm =
-					base *
-					uptimeFactor *
+				const transferred = (anchor.value * damageIndex(input, target)) / frameIndex;
+				baseDpm =
+					transferred *
 					(symbolBonus ? 1 + SACRED_SYMBOL_BONUS : 1) *
 					(correction?.dpmMultiplier ?? 1);
 			}
 		}
+
+		const effectiveDpm = baseDpm == null ? undefined : baseDpm * uptimeFactor;
 
 		if (boss.id === 'hard-lucid' && effectiveDpm != null) {
 			const p3 = (effectiveDpm * HARD_LUCID_P3_SECONDS) / 60;
@@ -499,24 +677,37 @@ export function buildBossBoard(
 				? forceReason
 				: undefined;
 
-		const makeAxis = (requiredDamage: number | undefined, label: string): BossAxis => {
+		const makeAxis = (
+			requiredDamage: number | undefined,
+			label: string,
+			uptime: number
+		): BossAxis => {
 			if (blockedReason) return axis('blocked', blockedReason);
-			if (!calibrated) return { ...UNCALIBRATED };
-			if (requiredDamage == null || timeLimitMin == null || effectiveDpm == null) {
+			if (!calibrated) return axis('uncalibrated', uncalibratedReason);
+			if (requiredDamage == null || timeLimitMin == null || baseDpm == null) {
 				return axis('uncalibrated', `No HP or time-limit data for this entry (${label}).`);
 			}
-			if (effectiveDpm <= 0) return axis('out-of-reach', 'Estimated DPM is zero.');
-			const ratio = (effectiveDpm * timeLimitMin) / requiredDamage;
+			const dpm = baseDpm * uptime;
+			if (dpm <= 0) return axis('out-of-reach', 'Estimated DPM is zero.');
+			const ratio = (dpm * timeLimitMin) / requiredDamage;
 			return {
 				verdict: verdictFor(ratio),
 				ratio,
-				clearMinutes: requiredDamage / effectiveDpm
+				clearMinutes: requiredDamage / dpm
 			};
 		};
 
-		const solo = makeAxis(totalHp, 'solo');
-		const party = makeAxis(totalHp == null ? undefined : totalHp / partySize, 'party');
-		const carried = makeAxis(carryDamageRequired, 'carried');
+		const solo = makeAxis(totalHp, 'solo', uptimeFactor);
+		const party = makeAxis(
+			totalHp == null ? undefined : totalHp / partySize,
+			'party',
+			uptimeFactor
+		);
+		const carried = makeAxis(carryDamageRequired, 'carried', carriedUptimeFactor);
+
+		if (carried.ratio != null && carriedUptimeFactor !== uptimeFactor) {
+			carried.reason = `5% of the bar at ${Math.round(carriedUptimeFactor * 100)}% uptime — a blue dot contributes damage inside someone else's clear rather than executing one, so it loses less time to mechanics than the ${Math.round(uptimeFactor * 100)}% used above.`;
+		}
 
 		if (partySize <= 1) {
 			party.reason = `${boss.bossName} is solo-only (party max ${partyMax}); the party axis repeats the solo axis.`;
@@ -571,10 +762,70 @@ export function buildBossBoard(
 		rows: kept,
 		calibrated,
 		tierCounts,
-		note: calibrated
-			? `Clear times are estimates: 8.8-Challenge anchor DPM ${anchor.value.toLocaleString('en-US')} (${anchor.confidence}) scaled by the boss-damage index. Bands are MapleScouter's ladder with the 120% realistic-minimum floor (kms-tools.md §2.3).`
-			: 'Uncalibrated: no per-class 8.8-Challenge DPM anchor exists yet, so only the hard gates, the 5% carry number and the Combat Power advisories are meaningful. Every DPM-derived verdict reads `uncalibrated`.'
+		note: boardNote({
+			anchor,
+			supplied,
+			fit,
+			combatPower,
+			classId,
+			uptimeFactor,
+			carriedUptimeFactor,
+			uncalibratedReason
+		})
 	};
+}
+
+/** Percent, for copy: `0.65` -> `65`. */
+function pct(fraction: number): string {
+	return `${Math.round(fraction * 1000) / 10}%`;
+}
+
+/**
+ * The one sentence the UI banner shows. It has to be honest about three things
+ * at once: the numbers are KMS, the transfer is a model, and the uptime is a
+ * guess the user can change (dpm-anchors.md §6, §7.3). Never claim precision.
+ */
+function boardNote(args: {
+	anchor: Sourced<number> | null;
+	supplied: boolean;
+	fit: ReturnType<typeof getDpmFit>;
+	combatPower: AnchorCombatPower | null;
+	classId: string;
+	uptimeFactor: number;
+	carriedUptimeFactor: number;
+	uncalibratedReason: string;
+}): string {
+	const { anchor, supplied, fit, combatPower, uptimeFactor, carriedUptimeFactor } = args;
+
+	const uptimeSentence =
+		uptimeFactor === carriedUptimeFactor
+			? `Attacking uptime ${pct(uptimeFactor)} — an assumption, not a measurement, and the first thing to change if these times are wrong.`
+			: `Attacking uptime ${pct(uptimeFactor)} solo and party, ${pct(carriedUptimeFactor)} carried — assumptions, not measurements, and the first thing to change if these times are wrong.`;
+	const bands = `Bands are MapleScouter's ladder with the 120% realistic-minimum floor (kms-tools.md §2.3).`;
+
+	if (!anchor) {
+		return `Uncalibrated: ${args.uncalibratedReason} Only the hard gates, the 5% carry number and the Combat Power advisories are meaningful; every DPM-derived verdict reads \`uncalibrated\`. ${bands}`;
+	}
+
+	if (supplied || !fit || !combatPower) {
+		return `Clear times are estimates: supplied anchor DPM ${anchor.value.toLocaleString('en-US')} (${anchor.confidence}) scaled by the boss-damage index. ${uptimeSentence} ${bands}`;
+	}
+
+	const cpLabel =
+		combatPower.source === 'displayed'
+			? 'Combat Power as displayed in-game'
+			: 'Combat Power computed by this tool (approximate — capture the displayed value for a better estimate)';
+
+	return (
+		`Clear times are estimates, not measurements. Basis: ${ANCHOR_REGION} 연무장 (Practice Arena) ` +
+		`records, ${ANCHOR_MEASURED_AT} (${ANCHOR_SOURCE_URL}) — ${args.classId} fitted as ` +
+		`DPM = k x CP^${fit.alpha.toFixed(2)} over ${fit.sampleSize} trusted record${fit.sampleSize === 1 ? '' : 's'}, ` +
+		`then transferred to each boss by your own damage index, which carries the defence, ` +
+		`level-gap and force differences. ${cpLabel}: ` +
+		`${Math.round(combatPower.value).toLocaleString('en-US')}. ${uptimeSentence} ` +
+		`This is KMS data — GMS differs (attack-speed cap, patch lag) and anchors decay about ` +
+		`2%/month — so treat every number here as a rough estimate (confidence: ${anchor.confidence}). ${bands}`
+	);
 }
 
 /**
