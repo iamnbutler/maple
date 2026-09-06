@@ -903,14 +903,52 @@ describe('event and exclusive-scroll rings have a stopping point', () => {
 		expect(stageForItem(name, 'ring')?.id).toBe('ring-event-only');
 	});
 
-	it('prescribes cubing but no star force, because the catalogue forbids it', () => {
+	// Nate: "target rings will never be event rings - should be like kannas
+	// treasure, meister ring, sup gollux ring". An event ring is a PLACEHOLDER: it
+	// fills a slot that would otherwise be empty and is then replaced.
+	it('treats an event ring as a placeholder, not a damage target', () => {
 		const stage = stageForItem('Eternal Flame Ring', 'ring')!;
+		expect(stage.placeholder).toBe(true);
+
 		// Absent, not 0 — "not applicable" and "zero" are different facts.
 		expect(stage.stop.stars).toBeUndefined();
-		expect(stage.stop.potential).toBe('legendary');
 		expect(stage.stop.flames).toBe('not-applicable');
+
+		// The cheap floor every other placeholder accessory gets, and no more.
+		expect(stage.stop.potential).toBe('epic');
+		expect(stage.stop.mainStatPct).toBe(6);
+
 		expect(capabilities({ name: 'Eternal Flame Ring', slot: 'ring' }).canStarforce).toBe(false);
 		expect(capabilities({ name: 'Eternal Flame Ring', slot: 'ring' }).canPotential).toBe(true);
+	});
+
+	it('names the rings that replace it, where they come from, and the wait', () => {
+		const why = stageForItem('Eternal Flame Ring', 'ring')!.stop.why;
+		for (const target of [
+			'Superior Gollux Ring',
+			'Reinforced Gollux Ring',
+			"Kanna's Treasure",
+			'Meister Ring',
+			'Dawn Guardian Angel Ring'
+		]) {
+			expect(why, `does not name ${target}`).toContain(target);
+		}
+		// Where they come from, and roughly how long.
+		expect(why).toMatch(/Gollux Coins/);
+		expect(why).toMatch(/DAILY boss/);
+		expect(why).toMatch(/Princess No/);
+		expect(why).toMatch(/No guide prescribes cubing an event ring for damage/);
+	});
+
+	it('quarantines the drop-gear quote instead of acting on it', () => {
+		const stop = stageForItem('Eternal Flame Ring', 'ring')!.stop;
+		// The Legendary advice is real, but it is for the meso/drop build, which this
+		// tracker does not model. It must not be the damage stopping point.
+		expect(stop.dropGearOnly?.potential).toBe('legendary');
+		expect(stop.potential).not.toBe('legendary');
+		expect(stop.dropGearOnly!.note).toMatch(/not for damage/i);
+		expect(stop.dropGearOnly!.note).toMatch(/[Nn]ever present this as a ranked cube goal/);
+		expect(stop.dropGearOnly!.sources.length).toBeGreaterThan(0);
 	});
 
 	it('cannot swallow a ladder ring, because every one of those IS star-forceable', () => {
@@ -940,5 +978,128 @@ describe('event and exclusive-scroll rings have a stopping point', () => {
 			if (!stage.match?.nonStarforceable) continue;
 			expect(stage.match.slots).toEqual(['ring']);
 		}
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* Placeholders never earn a damage Legendary                                  */
+/* -------------------------------------------------------------------------- */
+
+describe('placeholder gear gets the cheap floor and nothing more', () => {
+	// This bug has now arrived twice: Will o' the Wisps (3-lined a Lv 130 earring)
+	// and the event rings ("Eternal Flame Ring -> 18%+ main stat" as the single best
+	// recommendation on the board). Both times the cause was reading a drop-gear or
+	// completeness statement as a damage prescription. This is the guard for the third.
+	const placeholders = ALL_STAGES.filter((s) => s.placeholder);
+
+	it('marks a meaningful number of stages as placeholders', () => {
+		expect(placeholders.length).toBeGreaterThan(8);
+	});
+
+	it('never prescribes Legendary damage potential on a placeholder', () => {
+		const offenders = placeholders
+			.filter((s) => s.stop.potential === 'legendary')
+			.map((s) => `${s.id} (${s.stop.potential})`);
+		expect(
+			offenders,
+			'a placeholder is worn to fill a slot and is then replaced — it does not earn Legendary'
+		).toEqual([]);
+	});
+
+	it('never prescribes flames on a placeholder', () => {
+		for (const stage of placeholders) {
+			expect(['none', 'not-applicable'], stage.id).toContain(stage.stop.flames);
+		}
+	});
+
+	it('gives every placeholder a named successor to move on to', () => {
+		for (const stage of placeholders) {
+			const hasSuccessor = nextRecommendedStage(stage.id) !== undefined;
+			const namesOne = /replace|target|outscale|successor|ladder ring/i.test(
+				`${stage.stop.why} ${stage.movesOnWhen ?? ''}`
+			);
+			expect(
+				hasSuccessor || namesOne,
+				`${stage.id} is a placeholder but names nothing that replaces it`
+			).toBe(true);
+		}
+	});
+
+	it('does not mark load-bearing stepping stones as placeholders', () => {
+		// AbsoLab is replaced by Arcane Umbra, but it is the gear you clear Lucid in.
+		// It earns 17 stars and real investment; conflating the two would suppress it.
+		for (const id of [
+			'armour-outer-absolab',
+			'weapon-absolab',
+			'armour-core-cra',
+			'weapon-cra',
+			'earrings-superior-gollux',
+			'belt-superior-gollux'
+		]) {
+			expect(getStage(id)?.placeholder, id).toBeUndefined();
+			expect(getStage(id)!.stop.stars, id).toBeGreaterThanOrEqual(17);
+		}
+	});
+
+	// A drop-gear annotation is allowed anywhere, but only ever as an annotation.
+	it('never lets a drop-gear note become the damage target', () => {
+		for (const stage of ALL_STAGES) {
+			const dg = stage.stop.dropGearOnly;
+			if (!dg) continue;
+			expect(dg.potential, stage.id).not.toBe(stage.stop.potential);
+			expect(dg.note, stage.id).toMatch(/drop|meso/i);
+			expect(dg.sources.length, stage.id).toBeGreaterThan(0);
+		}
+	});
+});
+
+describe('the placeholder matcher cannot capture a real target ring', () => {
+	// Dawn Guardian Angel Ring is a genuine target: it carries the Dawn 2-set
+	// (+10% Boss Damage with Twilight Mark) and IS star-forceable. Confirmed by two
+	// independent mechanisms rather than assumed.
+	// Nate's list, plus the boss-set rings that sit alongside them. Silver Blossom
+	// Ring is deliberately NOT here: it is an early starter (10-star cap, Boss
+	// Accessory Set) and is correctly a placeholder — see the assertion below.
+	const targets = [
+		'Dawn Guardian Angel Ring',
+		'Guardian Angel Ring',
+		'Superior Gollux Ring',
+		'Reinforced Gollux Ring',
+		"Kanna's Treasure",
+		'Meister Ring',
+		'Endless Terror',
+		'Whisper of the Source'
+	];
+
+	// Mechanism 1: the capability matcher only fires on items the catalogue says
+	// cannot be star forced, and every target ring can.
+	it.each(targets)('%s is star-forceable, so `nonStarforceable` cannot fire', (name) => {
+		expect(capabilities({ name, slot: 'ring' }).canStarforce).toBe(true);
+	});
+
+	// Mechanism 2: literal name/example matching runs BEFORE any matcher pass, so
+	// even if the capability flag were wrong these would still resolve correctly.
+	it.each(targets)('%s resolves to its own stage, not the placeholder', (name) => {
+		const stage = stageForItem(name, 'ring');
+		expect(stage, name).toBeDefined();
+		expect(stage!.id, name).not.toBe('ring-event-only');
+		expect(stage!.placeholder ?? false, name).toBe(false);
+	});
+
+	it('still keeps a starter ring out of the event-ring stage', () => {
+		// Silver Blossom Ring IS a placeholder, but it takes star force (10-star cap),
+		// so it belongs on the starter rung, not with the non-star-forceable rings.
+		const silver = stageForItem('Silver Blossom Ring', 'ring')!;
+		expect(silver.id).toBe('ring-starter');
+		expect(silver.placeholder).toBe(true);
+		expect(capabilities({ name: 'Silver Blossom Ring', slot: 'ring' }).canStarforce).toBe(true);
+	});
+
+	it('keeps the Dawn Guardian Angel Ring on a real target stage with a star target', () => {
+		const dawn = stageForItem('Dawn Guardian Angel Ring', 'ring')!;
+		expect(dawn.id).toBe('ring-keepers');
+		expect(dawn.stop.stars).toBe(17);
+		expect(dawn.stop.starsOnEvent).toBe(22);
+		expect(dawn.stop.potential).toBe('legendary');
 	});
 });

@@ -302,16 +302,32 @@ gated and later become drop gear.
 **Rings never take flames** (`REPO` `rules.ts` `flame-ineligible-slot`; `DTQ`: _"Some item slots
 cannot gain bonus stats: Emblem, Badge, Medal, Secondary, Shoulder, Rings"_). Stars + cubes only.
 
-**Event and exclusive-scroll rings are a separate, parallel path.** `Eternal Flame Ring`,
-`Ring of Restraint`, `Libae's Prototype R Ring` and the Awake / Vengeful / Cosmos line take **no
-star force at all** — the catalogue blocks it with `no-upgrade-slots`, or `exclusive-scroll-only`
-for the rings that only accept their own enhancement currency (`REPO` `items/rules.ts`). They do
-take potential. So their stopping point is "**cube to Legendary, and that is the whole job**", which
-is also what `UG` prescribes: _"definitely get 2-3 on your character for damage at first, then
-eventually to re-utilize as drop gear"_, and _"Items must be Legendary to get meso or drop rate."_
-There are ~130 such rings in the v270 catalogue and no naming convention unites them, so the data
-module matches them on the **capability** (`nonStarforceable`) rather than by name. Every ring on
-the damage ladder is star-forceable, so the two cannot collide.
+**Event and exclusive-scroll rings are PLACEHOLDERS, on a separate parallel path.**
+`Eternal Flame Ring`, `Ring of Restraint`, `Libae's Prototype R Ring` and the Awake / Vengeful /
+Cosmos line take **no star force at all** — the catalogue blocks it with `no-upgrade-slots`, or
+`exclusive-scroll-only` for the rings that only accept their own enhancement currency (`REPO`
+`items/rules.ts`). They fill a ring slot that would otherwise be empty, and they are replaced.
+
+**The damage targets for the four ring slots are never event rings.** They are the ladder rings:
+`Superior Gollux Ring` and `Reinforced Gollux Ring` (700 Gollux Coins each from Lucia, or a Hell
+Gollux drop — Gollux is a **daily** boss, so this is a coin grind of weeks), `Kanna's Treasure`
+(rare drop, Princess No, weekly), the `Meister Ring` (Accessory crafting to Meister) and the
+`Dawn Guardian Angel Ring` (Guardian Angel Slime plus a Conversion Scroll, weekly). Those take star
+force and feed the Gollux and Dawn set counts; an event ring does neither.
+
+**Prescribed stop for an event ring: Epic, 6% main stat, no flames, no star force.** That is `UG`'s
+baseline for every early accessory — _"Epic potential on everything that is a Basic Boss Accessory
+and get to 6% main stat"_ — and note that `UG`'s named exceptions where you _"can go unique and
+higher"_ are Silver Blossom Ring, Black Bean Mark, Kanna's Treasure and the Mechanator/Dominator
+pendants. **Event rings are not among them.** No guide anywhere prescribes cubing an event ring for
+damage. ⚠️ Mild inference flagged: `UG` gives no explicit potential target for event rings at all
+(_"I will not go over event rings due to the fact there are plenty of them"_); Epic 6% is its
+baseline for the same class of early filler.
+
+There are ~130 non-star-forceable rings in the v270 catalogue and no naming convention unites them,
+so the data module matches them on the **capability** (`nonStarforceable`) rather than by name.
+Every ring on the damage ladder is star-forceable, which is asserted in two independent ways in
+`gear-progression.spec.ts`, so a genuine target can never be pulled into the placeholder stage.
 
 ### Belt — one path
 
@@ -772,7 +788,32 @@ Eternal Rebirth Flame → T2–5 normal / **T4–7 boss** gear. Boss-dropped equ
 lines vs 1–4 random, which is a second independent reason flames go on CRA / AbsoLab / Arcane /
 Gollux rather than Pensalir.
 
-### 7.3 The legitimate reason to over-invest in gear you have "passed"
+### 7.3 Drop / meso gear is a DIFFERENT BUILD, not a damage upgrade
+
+⚠️ **This is the single most misread set of quotes in the whole document, and it has now produced
+the same bug twice** — first as "3-line a Will o' the Wisps", then as "`Eternal Flame Ring` →
+18%+ main stat" ranking as the best available upgrade. Read the justification clauses, not just
+the word "Legendary":
+
+- `DTQ`: _"You can get this Potential to Legendary **if you wish, as Accessory Equipment can be
+  turned into Drop Gear or Mesos Gear later on**."_
+- `DTQ`: _"Accessories can also double up as Item Drop Gear and Mesos Gear, **so it's never a waste
+  to rank them up to Legendary**."_
+- `UG`: _"definitely get 2-3 on your character for damage at first, **then eventually to re-utilize
+  as drop gear**."_
+- `UG`: _"**Items must be Legendary to get meso or drop rate.**"_
+
+Every one of those sentences justifies Legendary by the **farming** build. None of them is a damage
+prescription, and `DTQ`'s early-game table cell reading "Event Ring / Legendary" has no independent
+damage argument behind it — the prose backing that column is the drop-gear one quoted above.
+
+**This tracker does not model or rank the drop/meso build at all.** So the data module records the
+advice in a quarantined field, `stop.dropGearOnly`, which is explicitly not a damage target and
+must never be ranked. The rule to apply: a placeholder — gear worn only because the slot would
+otherwise be empty — gets the cheap floor (Epic, ~6% main stat) and nothing more, no matter how
+many guides say "Legendary" about it in a farming sentence.
+
+### 7.4 The legitimate reason to over-invest in gear you have "passed"
 
 Old accessories get a second life as **drop / meso gear** — a different build, not a damage upgrade:
 
@@ -810,7 +851,13 @@ not necessarily a mistake.
    measure different things (comfortable clear vs published floor).
 10. **Meso / day cost of any of this.** Out of scope here; `starforce.ts` owns the meso model and
     no guide publishes flame or cube counts.
-11. **Whether the weapon 23★ ATT jump is worth chasing on a final weapon.** Searched for a guide
+11. **The event-ring potential target.** `UG` gives none — _"I will not go over event rings due to
+    the fact there are plenty of them"_ — so Epic 6% is applied from its baseline for the same
+    class of early filler, and `DTQ`'s "Event Ring / Legendary" table cell is discounted because
+    the prose behind that column justifies Legendary by drop gear, not damage (§7.3). Flagged as a
+    mild inference. What IS firmly sourced is the negative: no guide prescribes cubing an event
+    ring for damage, and `UG`'s named unique+ exceptions do not include them.
+12. **Whether the weapon 23★ ATT jump is worth chasing on a final weapon.** Searched for a guide
     arguing the exception and **found none** (§4.2) — so this is a documented ABSENCE of a source,
     not a disagreement, and it is not recorded as `disputed`. The cap stands. If a source turns up
     later, `WEAPON_ATT_JUMP_AT_23.recommendedByAnySource` is where it goes.

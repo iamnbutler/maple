@@ -90,6 +90,26 @@ export interface StopPoint {
 	/** Number of useful lines to aim for, when the guides name one. */
 	usefulLines?: number;
 	flames: FlameTarget;
+	/**
+	 * Potential prescribed for the DROP / MESO-GEAR build only.
+	 *
+	 * ⚠️ NOT a damage target, and must never be ranked. Both of `DTQ`'s "Legendary
+	 * on accessories" statements justify themselves by drop gear in the same
+	 * sentence — "You can get this Potential to Legendary **if you wish, as
+	 * Accessory Equipment can be turned into Drop Gear or Mesos Gear later on**"
+	 * and "Accessories can also double up as Item Drop Gear and Mesos Gear, **so
+	 * it's never a waste to rank them up to Legendary**" — as does `UG`'s
+	 * "eventually to re-utilize as drop gear". Reading those as damage advice is
+	 * what put "Eternal Flame Ring -> 18%+ main stat" at the top of the board.
+	 *
+	 * This tracker does not model the drop/meso build at all (research §7.3), so
+	 * the field exists to record the quote and quarantine it, not to act on it.
+	 */
+	dropGearOnly?: {
+		potential: PotentialTarget;
+		note: string;
+		sources: readonly string[];
+	};
 	/** One sentence a user can read next to a suppressed or capped candidate. */
 	why: string;
 	/** True when the guides disagree; see `disputed` on the stage. */
@@ -199,6 +219,18 @@ export interface PathStage {
 	movesOnWhen?: string;
 	/** True when this stage may be skipped, with the condition in `movesOnWhen`. */
 	skippable?: boolean;
+	/**
+	 * Worn ONLY because the slot would otherwise be empty, with a named damage
+	 * target that replaces it.
+	 *
+	 * Narrower than "gets replaced": AbsoLab is replaced by Arcane Umbra but it is
+	 * NOT a placeholder — it is the gear you clear Lucid in, so it earns 17 stars
+	 * and real investment. A placeholder earns the cheap floor and nothing more.
+	 * `gear-progression.spec.ts` asserts no placeholder prescribes Legendary damage
+	 * potential; that guard exists because this exact mistake has now been made
+	 * twice (Will o' the Wisps, then the event rings).
+	 */
+	placeholder?: boolean;
 	/** Set when the guides disagree about this stage; the prose says how. */
 	disputed?: string;
 	/** True for Pitched/Brilliant endpoints. NEVER rank these. See OUT_OF_SCOPE. */
@@ -336,6 +368,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				maxStars: 30,
 				match: { slots: ['weapon'], prefixes: ['utgard'] },
 				obtainedFrom: 'Lv 130+ monster drops',
+				placeholder: true,
 				stop: {
 					stars: 12,
 					starsOnEvent: 12,
@@ -594,6 +627,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				maxStars: 30,
 				match: { slots: ['hat', 'top', 'bottom', 'overall'], prefixes: ['pensalir'] },
 				obtainedFrom: 'Lv 130+ monster drops',
+				placeholder: true,
 				stop: STOP_STARTER_ARMOUR,
 				movesOnWhen: 'You can clear or be carried in Chaos Root Abyss (entry Lv 180).'
 			},
@@ -676,6 +710,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				match: { slots: ['shoes', 'gloves', 'cape', 'shoulder'], prefixes: ['pensalir'] },
 				obtainedFrom: 'Lv 130+ monster drops; shoulder from Easy/Normal Magnus',
 				bossIds: ['normal-magnus'],
+				placeholder: true,
 				stop: STOP_STARTER_ARMOUR,
 				movesOnWhen: 'AbsoLab coins from Scrapyard / Dark World Tree weeklies + Lomien materials.'
 			},
@@ -825,6 +860,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				obtainedFrom:
 					"Hard Hilla (Will o' the Wisps); Horntail / Chaos Horntail (Dea Sidus Earring)",
 				bossIds: ['hard-hilla', 'chaos-horntail'],
+				placeholder: true,
 				stop: {
 					stars: 10,
 					starsOnEvent: 12,
@@ -944,6 +980,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				maxStars: 10,
 				obtainedFrom: 'Normal / Chaos Zakum',
 				bossIds: ['chaos-zakum'],
+				placeholder: true,
 				stop: {
 					...STOP_STARTER_ACCESSORY,
 					why:
@@ -1054,6 +1091,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				maxStars: 8,
 				obtainedFrom: 'Normal / Chaos Zakum',
 				bossIds: ['chaos-zakum'],
+				placeholder: true,
 				stop: {
 					stars: 8,
 					starsOnEvent: 8,
@@ -1079,6 +1117,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				maxStars: 20,
 				obtainedFrom: 'Normal / Chaos Pink Bean',
 				bossIds: ['normal-pink-bean'],
+				placeholder: true,
 				stop: { ...STOP_STARTER_ACCESSORY, starsOnEvent: 12 },
 				movesOnWhen:
 					'Papulatus Mark drops from Chaos Papulatus (rare), or Commerci dailies produce a ' +
@@ -1151,6 +1190,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				maxStars: 15,
 				obtainedFrom: 'Chaos Horntail (daily)',
 				bossIds: ['chaos-horntail'],
+				placeholder: true,
 				stop: STOP_STARTER_ACCESSORY,
 				movesOnWhen: '700 Gollux Coins saved for the Superior Engraved Gollux Pendant.'
 			},
@@ -1216,6 +1256,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				maxStars: 15,
 				obtainedFrom: 'Normal Arkarium (daily) — common drop',
 				bossIds: ['normal-arkarium'],
+				placeholder: true,
 				stop: STOP_STARTER_ACCESSORY,
 				movesOnWhen: 'A Dominator Pendant drops from Arkarium (rare), or a Daybreak Pendant drops.'
 			},
@@ -1308,14 +1349,27 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				match: { slots: ['ring'], prefixes: ['cracked gollux', 'solid gollux'] },
 				obtainedFrom: "Horntail (Silver Blossom Ring); Ifia (Noble Ifia's Ring); event shops",
 				bossIds: ['chaos-horntail'],
+				placeholder: true,
 				stop: {
 					...STOP_STARTER_ACCESSORY,
 					flames: 'not-applicable',
 					why:
-						'Caps at 10 stars, which is also the target. Rings never take flames. Note the ' +
-						'one legitimate reason to go Legendary later: accessories become drop/meso gear, ' +
-						'and meso and drop lines require Legendary — that is a different build, not a ' +
-						'damage upgrade.',
+						'Caps at 10 stars, which is also the target — there is nothing above its own ' +
+						'ceiling to buy. Rings never take flames. A placeholder: the damage targets for ' +
+						"the ring slots are the ladder rings (Superior and Reinforced Gollux, Kanna's " +
+						'Treasure, Meister Ring, Dawn Guardian Angel Ring), all of which take star force ' +
+						'and feed a set. Do not cube this to Legendary for damage.',
+					dropGearOnly: {
+						potential: 'legendary',
+						note:
+							'Legendary on a passed accessory is prescribed for the DROP/MESO-GEAR build, ' +
+							'not for damage — meso and drop-rate lines only roll at Legendary. This ' +
+							'tracker neither models nor ranks that build, so never present it as a ' +
+							'ranked cube goal.',
+						sources: [
+							'research §7.3 — UG general tips ("Items must be Legendary to get meso or drop rate"); DTQ ("Accessories can also double up as Item Drop Gear and Mesos Gear, so it\'s never a waste to rank them up to Legendary")'
+						]
+					},
 					sources: [
 						'research §2.2, §7.3 — https://maplestorywiki.net/w/Silver_Blossom_Ring (starForceEnhancements=10); UG general tips'
 					]
@@ -1431,28 +1485,48 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 					"Libae's Prototype R Ring"
 				],
 				tier: 'event',
+				placeholder: true,
 				match: { slots: ['ring'], nonStarforceable: true },
 				obtainedFrom: 'Event shops and event questlines; availability varies by patch',
 				stop: {
 					// `stars` deliberately absent: these take no star force at all, and an
 					// absent value must mean "not applicable", never 0.
-					potential: 'legendary',
+					potential: 'epic',
+					mainStatPct: 6,
 					flames: 'not-applicable',
 					why:
-						'These rings take NO star force — the catalogue blocks it (`no-upgrade-slots`, ' +
-						'or `exclusive-scroll-only` for the Awake/Vengeful/Cosmos line, which only ' +
-						'accept their own enhancement currency). Cubing is the only lever, and ' +
-						'Legendary IS the right target: UG says to get 2-3 event rings "for damage at ' +
-						'first, then eventually to re-utilize as drop gear", and drop/meso lines ' +
-						'require Legendary. So cube it and stop — there is nothing else to spend here.',
+						'A PLACEHOLDER. An event ring is worn because the ring slot would otherwise be ' +
+						'empty, and it takes NO star force at all, so it can never become a target — ' +
+						'the catalogue blocks it (`no-upgrade-slots`, or `exclusive-scroll-only` for ' +
+						'the Awake/Vengeful/Cosmos line, which only accept their own enhancement ' +
+						'currency). Epic 6% main stat and stop. The damage targets for the four ring ' +
+						'slots are the ladder rings: Superior Gollux Ring and Reinforced Gollux Ring ' +
+						'(700 Gollux Coins each from Lucia, or a Hell Gollux drop — Gollux is a DAILY ' +
+						"boss, so weeks of coins), Kanna's Treasure (rare drop from Princess No, " +
+						'weekly), the Meister Ring (Accessory crafting to Meister) and the Dawn ' +
+						'Guardian Angel Ring (Guardian Angel Slime plus a Conversion Scroll, weekly). ' +
+						'Those take star force and feed the Gollux and Dawn set counts; an event ring ' +
+						'does neither. No guide prescribes cubing an event ring for damage.',
+					dropGearOnly: {
+						potential: 'legendary',
+						note:
+							'Legendary IS prescribed on a passed accessory — but for the DROP/MESO-GEAR ' +
+							'build, not for damage, and this tracker neither models nor ranks that ' +
+							'build. Meso and drop-rate lines only roll at Legendary, so an old ring ' +
+							'becomes farming gear rather than a damage upgrade. Never present this as a ' +
+							'ranked cube goal.',
+						sources: [
+							'research §7.3 — UG general tips ("eventually to re-utilize as drop gear"; "Items must be Legendary to get meso or drop rate"); DTQ ("You can get this Potential to Legendary if you wish, as Accessory Equipment can be turned into Drop Gear or Mesos Gear later on")'
+						]
+					},
 					sources: [
-						'research §3, §7.3 — UG general tips ("definitely get 2-3 on your character for damage at first, then eventually to re-utilize as drop gear"; "Items must be Legendary to get meso or drop rate"); items/rules.ts no-upgrade-slots and exclusive-scroll-only'
+						'research §3, §7.3 — UG Phase 1 ("Epic potential on everything that is a Basic Boss Accessory and get to 6% main stat"; its unique+ exceptions are Silver Blossom Ring, Black Bean Mark, Kanna\'s Treasure and the Mechanator/Dominator pendants — NOT event rings); items/rules.ts no-upgrade-slots and exclusive-scroll-only'
 					]
 				},
 				movesOnWhen:
-					"Never, mechanically — but a ladder ring (Gollux, Kanna's Treasure, Meister, " +
-					'Dawn Guardian Angel) outscales it once you have four of them, because those ' +
-					'take star force and these do not.'
+					'As soon as any ladder ring is available for the slot. Mechanically the event ring ' +
+					'never stops working, but it takes no star force and carries no set, so a Gollux / ' +
+					"Kanna's Treasure / Meister / Dawn Guardian Angel ring outscales it immediately."
 			}
 		]
 	},
@@ -1486,6 +1560,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				},
 				obtainedFrom: 'Gollux (Easy/Normal/Hard); Golden Clover Belt from Pink Bean',
 				bossIds: ['normal-gollux', 'hard-gollux', 'normal-pink-bean'],
+				placeholder: true,
 				stop: {
 					...STOP_STARTER_ACCESSORY,
 					why:
@@ -1559,6 +1634,7 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				tier: 'event',
 				maxStars: 5,
 				obtainedFrom: 'Event shops, or an expiring craft from Ardentmill',
+				placeholder: true,
 				stop: {
 					stars: 5,
 					starsOnEvent: 5,
@@ -1680,12 +1756,15 @@ export const SLOT_PATHS: readonly SlotPath[] = [
 				setName: 'Boss Accessory Set',
 				tier: 'boss-acc-low',
 				obtainedFrom: 'Hilla (requires Charm level 30 to unlock the slot)',
+				placeholder: true,
 				stop: {
 					potential: 'none',
-					flames: 'opportunistic',
+					flames: 'none',
 					why:
-						'Placeholder. Pocket items take no star force and no potential, but they DO take ' +
-						'flames — pocket is not in the flame-ineligible list.',
+						'A PLACEHOLDER. Pocket items take no star force and no potential; they DO take ' +
+						'flames (pocket is not in the flame-ineligible list), but do not spend one here ' +
+						'— the Pink Holy Cup replaces this from Pink Bean, a DAILY boss, so the wait is ' +
+						'days. Flame the Pink Holy Cup instead.',
 					sources: [
 						'research §3 — DTQ; items/rules.ts flame-ineligible-slot ("Pocket items are NOT excluded")'
 					]
