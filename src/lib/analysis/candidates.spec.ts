@@ -312,10 +312,23 @@ describe('generateCandidates', () => {
 
 	it('produces a full board by default', () => {
 		const { candidates } = generate();
+		// The fixture captures no links, board squares, V Matrix or HEXA, and every
+		// one of those generators refuses to treat absent data as zero — so none
+		// of them contributes. Each reports WHY in `notes` instead.
 		expect(new Set(candidates.map((c) => c.kind))).toEqual(
 			new Set(['starforce', 'flame', 'potential', 'symbol', 'hyper-stat'])
 		);
 		expect(new Set(candidates.map((c) => c.id)).size).toBe(candidates.length);
+	});
+
+	it('says why each progression system produced nothing', () => {
+		const { notes } = generate();
+		const joined = notes.join(' ');
+		expect(joined).toMatch(/No link skills captured/);
+		expect(joined).toMatch(/No Legion board squares captured/);
+		expect(joined).toMatch(/No Legion Artifact level captured/);
+		expect(joined).toMatch(/No V Matrix boost node levels captured/);
+		expect(joined).toMatch(/No HEXA skill nodes captured/);
 	});
 });
 

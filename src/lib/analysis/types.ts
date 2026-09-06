@@ -166,15 +166,53 @@ export type UpgradeKind =
 	| 'hyper-stat'
 	| 'stat-line'
 	/** Crossing an equipment-set piece-count threshold. */
-	| 'set';
+	| 'set'
+	/** Levelling a link skill by levelling the mule that grants it. */
+	| 'link'
+	/** Filling squares in a Legion board area. */
+	| 'legion-board'
+	/** Placing or ranking up a Legion attacker. */
+	| 'legion-member'
+	/** Raising the Legion Artifact level, or reassigning its crystals. */
+	| 'legion-artifact'
+	/** Levelling a V Matrix job, boost or common node. */
+	| 'v-matrix'
+	/** Levelling a HEXA skill node. */
+	| 'hexa-skill'
+	/** Enhancing a HEXA Stat core. */
+	| 'hexa-stat';
 
-/** What an upgrade costs. Any field may be absent when we cannot source it. */
+/**
+ * What an upgrade costs. Any field may be absent when we cannot source it.
+ *
+ * Most of these currencies are NOT interchangeable and none of them convert to
+ * mesos, so `gainPerBillionMesos` is meaningless for them. A ranker comparing a
+ * star force click against a HEXA node has to rank within a currency, or say
+ * plainly that it is comparing incomparables.
+ */
 export interface UpgradeCost {
 	mesos?: number;
-	/** Real-world days, for daily-gated progress like symbols. */
+	/** Real-world days, for daily- or weekly-gated progress like symbols. */
 	days?: number;
 	/** Hyper stat points, Legion coins, etc. */
 	points?: number;
+	/** V Points — V Matrix only. One Nodestone is one V Point. */
+	vPoints?: number;
+	/** Sol Erda — HEXA skill nodes. Caps at 20 held at once. */
+	solErda?: number;
+	/** Sol Erda Fragments — HEXA skill nodes and HEXA Stat enhancement. */
+	solErdaFragments?: number;
+	/** Artifact EXP — Legion Artifact levels. */
+	artifactExp?: number;
+	/** Artifact Points — reassigning an Artifact crystal's stats. */
+	artifactPoints?: number;
+	/** Board squares — Legion board areas. Bounded by the roster, not bought. */
+	legionSquares?: number;
+	/**
+	 * Character levels on ANOTHER character — a link mule, or a Legion attacker.
+	 * This is real, large, off-character work and no other cost field captures it.
+	 */
+	muleLevels?: number;
 	note?: string;
 }
 
@@ -189,6 +227,10 @@ export interface UpgradeCost {
  *                cannot compute (see `RankedUpgrade.cost.note`), so these show
  *                the headroom in a slot and must never be ranked as advice
  *                against a routine action.
+ *
+ * Levelling a mule to 210 for a link skill is `grind`, not a `ceiling`: it is a
+ * real action with a knowable cost, it is just a large one paid on another
+ * character. `cost.muleLevels` carries how large.
  */
 export type Feasibility = 'routine' | 'grind' | 'ceiling';
 
