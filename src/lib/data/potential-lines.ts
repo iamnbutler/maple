@@ -37,14 +37,23 @@
  * validated by checking that **every one of the 60 (slot × rank) pools sums to
  * 100.0000% in all three probability columns** (see `potential-lines.spec.ts`).
  *
- * Cross-checked against the KMS rate tables scraped by MathBro's Cubing
- * Calculator (`cubeRates.js`, auto-generated 2023-11-14 from
- * `https://maplestory.nexon.com/Guide/OtherProbability/cube/*`):
- *   <https://github.com/brendonmay/brendonmay.github.io/tree/master/cubingCalculator>
- * The weights agree line-for-line where GMS and KMS share a pool; the documented
- * divergences (GMS has a `DEF %` line in the Legendary armor pools that KMS does
- * not; GMS shows "Weapon ATT +1 per 10 character levels" where the KMS page shows
- * a flat "+32 ATT") are listed in the research doc.
+ * ## Reconciliation against the reference calculator
+ *
+ * The probability engine below is checked against MathBro's Cubing Calculator
+ * (<https://brendonmay.github.io/cubingCalculator/>), whose rate tables are
+ * scraped from Nexon KR's own disclosure pages. Run on the **same pool data**
+ * (`poolVariant: 'kms'`), the two agree to **five significant figures** on all 13
+ * reconciliation cases in `potential-lines.spec.ts` — across weapon, hat, gloves
+ * and accessory, two item levels, both cash cubes, and stat / %ATT / boss /
+ * crit-damage targets. That pins the mixing of prime and non-prime pools, the
+ * cap re-normalisation, the value tables and the target semantics.
+ *
+ * On the **default** (`'gms'`) pool data, weapon-group answers are identical and
+ * armour/accessory answers are ~1.34× more pessimistic. That entire gap is one
+ * disputed line — see `UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE` below. The other
+ * known GMS/KMS wording difference (GMS "Weapon ATT +1 per 10 character levels"
+ * vs the KMS page's flat "+32 ATT") occupies the same pool slot and does not
+ * change any probability.
  *
  * ## Version context — the GMS v239 cube rework
  *
@@ -59,6 +68,14 @@
  *     `UNVERIFIED_GMS_RANK_UP_RATES` in `potential.ts` and treat them as suspect.
  *
  * ## World scope
+ *
+ * ## Asking for the right thing
+ *
+ * Use `mainStatPercent(stat, total)` for "N %+ stat" and `attackPercent(total)`
+ * for "N %+ ATT" — they encode what those phrases mean everywhere else (All Stat
+ * lines count toward a stat total; they do not count toward an attack total).
+ * A hand-built stat requirement that does not name a `stat` is **rejected**: see
+ * `LineRequirement.anyStat` for the ~40× trap that guard exists to stop.
  *
  * Heroic (Reboot) only. Cube prices are the Heroic meso prices. **Bonus Potential
  * does not exist in Heroic worlds**, so no bonus-potential pool is modelled here —
@@ -109,6 +126,16 @@ export type PoolStat = 'str' | 'dex' | 'int' | 'luk';
 export type ChanceSource = 'initial' | 'inGameCube' | 'cashCube';
 
 export type CubeId = 'mystical' | 'hard' | 'solid' | 'glowing' | 'bright';
+
+/**
+ * Which transcription of the **Unique and Legendary armour / accessory** pools to use.
+ *
+ * `'gms'` (default) is StrategyWiki's GMS tables — the source of record for this
+ * tracker. `'kms'` reproduces Nexon KR's own disclosure as scraped by MathBro's
+ * calculator. See `UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE`: the two differ by
+ * exactly one line and nothing else.
+ */
+export type PoolVariant = 'gms' | 'kms';
 
 /**
  * Line kinds present in the regular-potential pools.
@@ -1193,6 +1220,63 @@ export const POTENTIAL_LINE_POOLS: PoolTable = {
 };
 
 /* -------------------------------------------------------------------------- */
+/* UNRESOLVED SOURCE CONFLICT: the high-rank %DEF line                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ⚠️ **UNVERIFIED — the one place GMS and KMS sources disagree, and it is worth 1.34×.**
+ *
+ * StrategyWiki's GMS tables carry a `DEF %` line in the **Unique** and
+ * **Legendary** armour and accessory pools. Nexon KR's own disclosure (as scraped
+ * into MathBro's `cubeRates.js`) does **not** — and that is not a scraping
+ * artifact: the same scrape *does* capture `Defense : +6%` at Epic and
+ * `Defense : +3%` at Rare, so the tool would have shown it at the top ranks had
+ * it been there. Both tables are internally consistent (each sums to 100 %), so
+ * they describe genuinely different pools — or the same pool at two different
+ * points in time.
+ *
+ * **Numeric consequence.** `DEF %` carries weight 4 in every affected pool, so
+ * including it enlarges the pool and makes every *other* line rarer:
+ *
+ * | group | GMS pool weight | KMS pool weight | cost factor on a 3-line target |
+ * |---|---|---|---|
+ * | `accessory` | 43 | 39 | (43/39)³ = **1.34×** |
+ * | `gloves` | 44 | 40 | **1.33×** |
+ * | `hat` | 45 | 41 | **1.32×** |
+ * | `weapon` / `secondary` / `emblem` | — | — | **1.00× (no `DEF %` in either)** |
+ *
+ * So every weapon-group number in this module reconciles with the reference
+ * calculator to six significant figures, and every armour/accessory number is
+ * ~1.34× more pessimistic. `potential-lines.spec.ts` pins both.
+ *
+ * **Which is right for GMS today is unresolved.** No third source was reachable
+ * (StrategyWiki 403s scripts, `whackybeanz` is 404, MapleStory Wiki's stat-table
+ * page is still empty). We keep GMS as the source of record per the project's
+ * region rule, and expose `PoolVariant` so the disagreement is measurable rather
+ * than hidden. **Do not present an armour or accessory cube cost as exact to
+ * better than ~1.4× until this is confirmed from an in-game tooltip.**
+ */
+export const UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE = {
+	/** Ranks where the sources disagree. Rare and Epic agree: both have `DEF %`. */
+	ranks: ['unique', 'legendary'] as const,
+	/** Groups affected. Weapon-likes have no `DEF %` line in either source. */
+	groups: [
+		'hat',
+		'topOverall',
+		'bottom',
+		'gloves',
+		'shoes',
+		'capeBeltShoulder',
+		'accessory',
+		'heartBadge'
+	] as const,
+	presentIn: 'gms',
+	absentIn: 'kms',
+	/** Approximate cost multiplier GMS applies over KMS on a 3-line stat target. */
+	approxThreeLineCostFactor: 1.34
+} as const;
+
+/* -------------------------------------------------------------------------- */
 /* Line-count caps and the pool re-normalisation rule                          */
 /* -------------------------------------------------------------------------- */
 
@@ -1366,9 +1450,22 @@ export function nonPrimePoolRank(grade: PoolGrade): PoolRank {
 	}
 }
 
-/** The raw pool. */
-export function linePool(group: PotentialPoolGroup, rank: PoolRank): readonly PoolLine[] {
-	return POTENTIAL_LINE_POOLS[group][rank];
+/**
+ * The raw pool.
+ *
+ * `variant: 'kms'` drops the disputed high-rank `DEF %` line — see
+ * `UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE`. It exists so the disagreement can be
+ * measured; `'gms'` is the default and the source of record.
+ */
+export function linePool(
+	group: PotentialPoolGroup,
+	rank: PoolRank,
+	variant: PoolVariant = 'gms'
+): readonly PoolLine[] {
+	const pool = POTENTIAL_LINE_POOLS[group][rank];
+	if (variant === 'gms') return pool;
+	if (rank !== 'unique' && rank !== 'legendary') return pool;
+	return pool.filter((line) => line.kind !== 'def_pct');
 }
 
 /**
@@ -1380,10 +1477,11 @@ export function linePool(group: PotentialPoolGroup, rank: PoolRank): readonly Po
 export function rollablePool(
 	group: PotentialPoolGroup,
 	rank: PoolRank,
-	source: ChanceSource
+	source: ChanceSource,
+	variant: PoolVariant = 'gms'
 ): readonly PoolLine[] {
 	const index = SOURCE_INDEX[source];
-	return linePool(group, rank).filter((l) => l.chance[index] > 0);
+	return linePool(group, rank, variant).filter((l) => l.chance[index] > 0);
 }
 
 const SOURCE_INDEX: Readonly<Record<ChanceSource, 0 | 1 | 2>> = {
@@ -1466,7 +1564,18 @@ function magnitude(value: number | null): number | null {
 export interface LineMatcher {
 	/** Kind, or any of several kinds (e.g. `['boss', 'ied']` for "boss or IED"). */
 	readonly kind: PoolLineKind | readonly PoolLineKind[];
-	/** Restrict `stat_pct` / `stat_flat` to one stat. Omit to match any. */
+	/**
+	 * Which stat a stat-bearing line must carry.
+	 *
+	 * The filter applies **only to lines that have a stat**: a matcher of
+	 * `{ kind: ['stat_pct', 'all_stat_pct'], stat: 'str' }` therefore matches
+	 * `STR %` lines *and* `All Stat %` lines, and ignores DEX/INT/LUK. That is
+	 * deliberate — All Stat raises your main stat too, so it counts toward the
+	 * same total, exactly as the reference cubing calculators score it.
+	 *
+	 * **Omitting `stat` on a multi-line stat requirement is almost always a bug**
+	 * and is rejected — see `LineRequirement.anyStat`.
+	 */
 	readonly stat?: PoolStat;
 	/**
 	 * Minimum value **magnitude** per matching line, e.g. `minValue: 40` to demand
@@ -1482,7 +1591,24 @@ export interface LineRequirement extends LineMatcher {
 	readonly lines?: number;
 	/** Minimum summed magnitude across matching lines, e.g. `totalValue: 4` for 4 seconds of cooldown. */
 	readonly totalValue?: number;
+	/**
+	 * Opt in to counting STR / DEX / INT / LUK lines **interchangeably**.
+	 *
+	 * Without this, a stat requirement asking for more than one line (or a
+	 * `totalValue`) must name a `stat`. The reason is a trap that is very easy to
+	 * fall into and that silently produces answers ~40x too cheap:
+	 * `{ kind: 'stat_pct', lines: 3, totalValue: 33 }` is satisfied by
+	 * `STR +12% / DEX +12% / LUK +9%`, which is worth nothing to a real character.
+	 * Naming the stat gives the number the ranker actually wants.
+	 *
+	 * Legitimate uses: Xenon (STR, DEX and LUK all count) and "which stat did I
+	 * roll?" queries. Everything else wants `stat`.
+	 */
+	readonly anyStat?: boolean;
 }
+
+/** Kinds whose value only helps when every matching line carries the *same* stat. */
+const STAT_BEARING_KINDS: readonly PoolLineKind[] = ['stat_pct', 'stat_flat', 'stat_per_10_levels'];
 
 /** A whole target configuration: every requirement must hold simultaneously. */
 export type PotentialTarget = readonly LineRequirement[];
@@ -1496,10 +1622,71 @@ export function requireLines(
 	return minValue === undefined ? { kind, lines } : { kind, lines, minValue };
 }
 
+function kindList(matcher: LineMatcher): readonly PoolLineKind[] {
+	const kind = matcher.kind;
+	return typeof kind === 'string' ? [kind] : kind;
+}
+
 function kindMatches(matcher: LineMatcher, kind: PoolLineKind): boolean {
-	return Array.isArray(matcher.kind)
-		? (matcher.kind as readonly PoolLineKind[]).includes(kind)
-		: matcher.kind === kind;
+	return kindList(matcher).includes(kind);
+}
+
+/** Does one rolled line satisfy a matcher? `stat` only constrains stat-bearing lines. */
+function lineMatches(
+	matcher: LineMatcher,
+	line: { kind: PoolLineKind; stat?: PoolStat; value: number | null }
+): boolean {
+	if (!kindMatches(matcher, line.kind)) return false;
+	if (matcher.stat !== undefined && line.stat !== undefined && line.stat !== matcher.stat) {
+		return false;
+	}
+	if (matcher.minValue !== undefined && (line.value === null || line.value < matcher.minValue)) {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Reject the "any stat counts" trap before it can produce a wrong number.
+ *
+ * See `LineRequirement.anyStat`. This throws rather than warns because the
+ * failure mode is silent and large: the ranker would print ~1.5 B mesos for a
+ * target that really costs ~66 B.
+ */
+export function validateTarget(target: PotentialTarget): void {
+	for (const req of target) {
+		const statBearing = kindList(req).some((k) => STAT_BEARING_KINDS.includes(k));
+		const multi = (req.lines ?? 1) > 1 || req.totalValue !== undefined;
+		if (statBearing && multi && req.stat === undefined && req.anyStat !== true) {
+			throw new Error(
+				`Ambiguous stat requirement ${JSON.stringify(req)}: it asks for multiple stat ` +
+					'lines but does not name a `stat`, so STR/DEX/INT/LUK lines would count ' +
+					'interchangeably — roughly 40x too cheap for a real character. Pass ' +
+					'`stat: "str"` (All Stat % lines still count when `all_stat_pct` is in ' +
+					'`kind`), or use `mainStatPercent(stat, total)`. `anyStat: true` opts in ' +
+					'deliberately, for Xenon.'
+			);
+		}
+	}
+}
+
+/**
+ * "N %+ Stat" as the reference cubing calculators mean it: **main-stat % lines
+ * plus All Stat % lines**, summed across all three lines.
+ *
+ * `mainStatPercent('luk', 33)` on a Lv150 Legendary accessory is the `12/12/9`
+ * roll — two prime LUK lines plus one All Stat (or one non-prime LUK).
+ */
+export function mainStatPercent(stat: PoolStat, totalPercent: number): LineRequirement {
+	return { kind: ['stat_pct', 'all_stat_pct'], stat, totalValue: totalPercent };
+}
+
+/**
+ * "N %+ ATT" — summed `%ATT` across all three lines. All Stat does **not** count
+ * (it raises stat, not attack), matching the reference calculators.
+ */
+export function attackPercent(totalPercent: number, magic = false): LineRequirement {
+	return { kind: magic ? 'matt_pct' : 'att_pct', totalValue: totalPercent };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1515,6 +1702,8 @@ export interface RollContext {
 	readonly cube: CubeId;
 	/** Only needed when a `+1 per 10 character levels` line is part of the target. */
 	readonly characterLevel?: number;
+	/** Defaults to `'gms'`. See `UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE`. */
+	readonly poolVariant?: PoolVariant;
 }
 
 /** One possible outcome for one line slot. */
@@ -1530,8 +1719,13 @@ export interface LineOutcome {
 	readonly labels: readonly string[];
 }
 
-function normalise(group: PotentialPoolGroup, rank: PoolRank, source: ChanceSource) {
-	const pool = rollablePool(group, rank, source);
+function normalise(
+	group: PotentialPoolGroup,
+	rank: PoolRank,
+	source: ChanceSource,
+	variant: PoolVariant = 'gms'
+) {
+	const pool = rollablePool(group, rank, source, variant);
 	const total = pool.reduce((sum, l) => sum + lineChance(l, source), 0);
 	if (total <= 0) throw new Error(`Empty pool: ${group}/${rank}/${source}`);
 	return pool.map((line) => ({ line, p: lineChance(line, source) / total }));
@@ -1572,11 +1766,12 @@ export function lineDistribution(ctx: RollContext, index: 0 | 1 | 2): LineOutcom
 			});
 		}
 	};
-	for (const { line, p } of normalise(ctx.group, primePoolRank(ctx.grade), source)) {
+	const variant = ctx.poolVariant ?? 'gms';
+	for (const { line, p } of normalise(ctx.group, primePoolRank(ctx.grade), source, variant)) {
 		add(line, p * primeRate);
 	}
 	if (primeRate < 1) {
-		for (const { line, p } of normalise(ctx.group, nonPrimePoolRank(ctx.grade), source)) {
+		for (const { line, p } of normalise(ctx.group, nonPrimePoolRank(ctx.grade), source, variant)) {
 			add(line, p * (1 - primeRate));
 		}
 	}
@@ -1609,18 +1804,24 @@ export function primeLineChance(
 	group: PotentialPoolGroup,
 	grade: PoolGrade,
 	matcher: LineMatcher,
-	options: { source?: ChanceSource; itemLevel?: number; characterLevel?: number } = {}
+	options: {
+		source?: ChanceSource;
+		itemLevel?: number;
+		characterLevel?: number;
+		variant?: PoolVariant;
+	} = {}
 ): number {
 	const source = options.source ?? 'cashCube';
 	const itemLevel = options.itemLevel ?? 200;
 	let hit = 0;
-	for (const { line, p } of normalise(group, primePoolRank(grade), source)) {
-		if (!kindMatches(matcher, line.kind)) continue;
-		if (matcher.stat !== undefined && line.stat !== matcher.stat) continue;
-		if (matcher.minValue !== undefined) {
-			const v = magnitude(lineValueAtLevel(line, itemLevel, options.characterLevel));
-			if (v === null || v < matcher.minValue) continue;
-		}
+	for (const { line, p } of normalise(
+		group,
+		primePoolRank(grade),
+		source,
+		options.variant ?? 'gms'
+	)) {
+		const value = magnitude(lineValueAtLevel(line, itemLevel, options.characterLevel));
+		if (!lineMatches(matcher, { kind: line.kind, stat: line.stat, value })) continue;
 		hit += p;
 	}
 	return hit;
@@ -1681,10 +1882,7 @@ function satisfies(outcome: readonly LineOutcome[], target: PotentialTarget): bo
 		let total = 0;
 		for (const line of outcome) {
 			if (line.junk) continue;
-			if (!kindMatches(req, line.kind)) continue;
-			if (req.stat !== undefined && line.stat !== req.stat) continue;
-			if (req.minValue !== undefined && (line.value === null || line.value < req.minValue))
-				continue;
+			if (!lineMatches(req, line)) continue;
 			count += 1;
 			total += line.value ?? 0;
 		}
@@ -1707,6 +1905,7 @@ function satisfies(outcome: readonly LineOutcome[], target: PotentialTarget): bo
  * `POTENTIAL_LINE_COUNT`). Rank-ups are not priced here.
  */
 export function targetProbability(ctx: RollContext, target: PotentialTarget): number {
+	validateTarget(target);
 	if (target.length === 0) return 1;
 	const slots = ([0, 1, 2] as const).map((i) => consolidate(lineDistribution(ctx, i), target));
 
@@ -1767,6 +1966,8 @@ export interface CubeCost {
 	readonly expectedCubes: number;
 	readonly medianCubes: number;
 	readonly p75Cubes: number;
+	/** Included because the reference calculators report 75 / 85 / 95. */
+	readonly p85Cubes: number;
 	readonly p95Cubes: number;
 	/** Expected mesos = `expectedCubes × price`. `null` when the cube is not purchasable. */
 	readonly expectedMesos: number | null;
@@ -1806,6 +2007,7 @@ export function cubeCost(
 		expectedCubes,
 		medianCubes,
 		p75Cubes: geometricQuantile(probability, 0.75),
+		p85Cubes: geometricQuantile(probability, 0.85),
 		p95Cubes: geometricQuantile(probability, 0.95),
 		expectedMesos: perCube === null ? null : expectedCubes * perCube,
 		medianMesos: perCube === null || !Number.isFinite(medianCubes) ? null : medianCubes * perCube,
@@ -1891,8 +2093,9 @@ export const POTENTIAL_LINE_POOL_SOURCES = [
 			'https://web.archive.org/web/20260708180530/https://strategywiki.org/wiki/MapleStory/Potential_System'
 	},
 	{
-		what: 'cross-check of pool weights (KMS, scraped from Nexon KR disclosure pages)',
-		url: 'https://github.com/brendonmay/brendonmay.github.io/blob/master/cubingCalculator/cubeRates.js'
+		what: 'cross-check of pool weights and of the whole probability engine (KMS data, scraped from Nexon KR disclosure pages)',
+		url: 'https://brendonmay.github.io/cubingCalculator/',
+		source: 'https://github.com/brendonmay/brendonmay.github.io/tree/master/cubingCalculator'
 	},
 	{
 		what: 'pool re-normalisation rule when a capped line is exhausted',

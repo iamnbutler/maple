@@ -78,6 +78,12 @@ export function weakest(...values: Confidence[]): Confidence {
 
 type FourStat = 'str' | 'dex' | 'int' | 'luk';
 
+/**
+ * Goal kinds whose lines only add up when they all carry the SAME stat, and so
+ * must name one. Non-stat goals (boss, IED, %ATT, crit damage) are unambiguous.
+ */
+const STAT_BEARING_GOAL_KINDS = new Set<potentialLines.PoolLineKind>(['stat_pct', 'stat_flat']);
+
 function mainStatOf(cls: ClassDef): FourStat | undefined {
 	const key = cls.primary[0];
 	return key && key !== 'hp' ? key : undefined;
@@ -970,11 +976,32 @@ function generatePotential(character: Character, type: 'main' | 'bonus'): Candid
 					: goalLineValue(goal, source.grade, item.itemLevel, category, slot);
 				if (!goal.anyValue && value === null) continue;
 
+				// A multi-line STAT requirement must name the stat it wants. Without
+				// it, STR/DEX/INT/LUK count interchangeably and a roll of
+				// STR+12 / DEX+12 / LUK+9 would satisfy "3 stat lines" — worth
+				// nothing to a real character, and ~40x too cheap. Xenon is the one
+				// class where every stat genuinely counts, so it opts in instead.
+				// (potential-lines.ts `LineRequirement.anyStat`.)
+				const statScope = cls.flags?.xenon
+					? { anyStat: true as const }
+					: mainStatOf(cls)
+						? { stat: mainStatOf(cls) as potentialLines.PoolStat }
+						: { anyStat: true as const };
+				const scope = STAT_BEARING_GOAL_KINDS.has(goal.poolKind as potentialLines.PoolLineKind)
+					? statScope
+					: {};
+
 				const target: potentialLines.PotentialTarget = [
 					value === undefined || value === null
-						? { kind: goal.poolKind, lines: goal.lines }
-						: { kind: goal.poolKind, lines: goal.lines, minValue: Math.abs(value) }
+						? { kind: goal.poolKind, lines: goal.lines, ...scope }
+						: { kind: goal.poolKind, lines: goal.lines, minValue: Math.abs(value), ...scope }
 				];
+
+				// Validate OUTSIDE the try below. An ambiguous target is a bug in
+				// this file, not a missing pool, and the catch would otherwise turn
+				// it into a silently absent candidate — which is exactly how every
+				// stat goal once vanished from the board without a word.
+				potentialLines.validateTarget(target);
 
 				const contribution = goalContribution(
 					goal,

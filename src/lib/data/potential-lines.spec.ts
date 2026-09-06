@@ -5,11 +5,13 @@ import {
 	cubeCost,
 	GMS_PERCENT_LINE_BREAKPOINT,
 	HEROIC_CUBE_MESO_PRICE,
+	attackPercent,
 	itemLevelBreakpoints,
 	lineChance,
 	lineDistribution,
 	lineValueAtLevel,
 	linePool,
+	mainStatPercent,
 	MAX_LINES_PER_ITEM,
 	POOL_KIND_TO_PARSED_KIND,
 	POTENTIAL_LINE_POOLS,
@@ -21,6 +23,8 @@ import {
 	requireLines,
 	revealPotentialCost,
 	rollablePool,
+	UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE,
+	validateTarget,
 	secondaryPoolGroup,
 	targetProbability,
 	type CubeId,
@@ -530,5 +534,306 @@ describe('slot mapping', () => {
 	it('Demon Aegis and Soul Rings use their own secondary pool', () => {
 		expect(secondaryPoolGroup(false)).toBe('secondary');
 		expect(secondaryPoolGroup(true)).toBe('shieldSoulRing');
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* Stat requirements — the trap that made cubeCost 44x too cheap               */
+/* -------------------------------------------------------------------------- */
+
+describe('stat requirements', () => {
+	const accessory: RollContext = {
+		group: 'accessory',
+		itemLevel: 150,
+		grade: 'legendary',
+		cube: 'bright'
+	};
+
+	// The bug this guard exists to prevent: `{kind:'stat_pct', lines:3, totalValue:33}`
+	// is satisfied by STR +12% / DEX +12% / LUK +9%, which is worth nothing to a real
+	// character, and prices a 66 B target at 1.5 B.
+	it('rejects a multi-line stat requirement that does not name a stat', () => {
+		expect(() =>
+			targetProbability(accessory, [{ kind: 'stat_pct', lines: 3, totalValue: 33 }])
+		).toThrow(/does not name a `stat`/);
+		expect(() => targetProbability(accessory, [requireLines('stat_pct', 3)])).toThrow(
+			/does not name a `stat`/
+		);
+		expect(() => validateTarget([{ kind: 'stat_flat', lines: 2 }])).toThrow(/Ambiguous stat/);
+	});
+
+	it('allows a single stat line, and any-stat when opted into explicitly', () => {
+		expect(() => targetProbability(accessory, [requireLines('stat_pct', 1)])).not.toThrow();
+		expect(() =>
+			targetProbability(accessory, [{ kind: 'stat_pct', lines: 3, totalValue: 33, anyStat: true }])
+		).not.toThrow();
+		// Xenon really does want any-stat, and it really is much cheaper.
+		const anyStat = targetProbability(accessory, [
+			{ kind: 'stat_pct', lines: 3, totalValue: 33, anyStat: true }
+		]);
+		const oneStat = targetProbability(accessory, [mainStatPercent('luk', 33)]);
+		expect(anyStat / oneStat).toBeGreaterThan(20);
+	});
+
+	it('never rejects a requirement over kinds that carry no stat', () => {
+		expect(() => targetProbability(accessory, [{ kind: 'drop', lines: 2 }])).not.toThrow();
+		expect(() =>
+			targetProbability({ ...accessory, group: 'weapon', itemLevel: 200 }, [attackPercent(39)])
+		).not.toThrow();
+	});
+
+	// `stat` filters stat-BEARING lines only, so All Stat still counts toward the total.
+	// That is what "33%+ Stat" means in every reference calculator.
+	it('All Stat % counts toward a main-stat total; other stats do not', () => {
+		const dist = lineDistribution({ ...accessory, itemLevel: 150 }, 0);
+		const luk = dist.find((o) => o.kind === 'stat_pct' && o.stat === 'luk')!;
+		const all = dist.find((o) => o.kind === 'all_stat_pct')!;
+		expect(luk.value).toBe(12);
+		expect(all.value).toBe(9); // one rank below
+
+		// 12 + 12 + 9 = 33 reaches the target; 12 + 12 alone (24) does not.
+		const withAllStat = targetProbability(accessory, [mainStatPercent('luk', 33)]);
+		const lukOnly = targetProbability(accessory, [
+			{ kind: 'stat_pct', stat: 'luk', totalValue: 33 }
+		]);
+		expect(withAllStat).toBeGreaterThan(lukOnly);
+
+		// DEX lines must not count toward a LUK total.
+		const dexToo = targetProbability(accessory, [
+			{ kind: ['stat_pct', 'all_stat_pct'], stat: 'dex', totalValue: 33 }
+		]);
+		expect(dexToo).toBeCloseTo(withAllStat, 12); // symmetric pools, same answer
+		const mixed = targetProbability(accessory, [
+			{ kind: 'stat_pct', lines: 3, totalValue: 33, anyStat: true }
+		]);
+		expect(mixed).toBeGreaterThan(withAllStat * 20);
+	});
+});
+
+/* -------------------------------------------------------------------------- */
+/* Full reconciliation against the reference calculator                        */
+/* -------------------------------------------------------------------------- */
+
+describe("reconciliation against MathBro's cubing calculator", () => {
+	// Reference values produced by running the calculator's own getProbability.js +
+	// statistics.js over its own cubeRates.js (KMS data, scraped from Nexon KR).
+	// https://brendonmay.github.io/cubingCalculator/
+	//
+	// These run with `poolVariant: 'kms'` so that BOTH sides use the same pool
+	// transcription. Every case then agrees to 5 significant figures, which is what
+	// pins the engine — the prime/non-prime mixing, the cap re-normalisation, the
+	// value tables and the target semantics — as correct. The remaining GMS-vs-KMS
+	// gap is one disputed data line and nothing else (next describe block).
+	// `p` is the reference's own probability output (7 s.f.); `cubes` is what its UI
+	// prints (its mean, rounded). We compare on `p` because the UI's integer rounding
+	// is coarser than the agreement we actually achieve.
+	const cases: ReadonlyArray<
+		[string, PotentialPoolGroup, number, CubeId, PotentialTarget, number, number]
+	> = [
+		[
+			'accessory Lv150, 33%+ stat',
+			'accessory',
+			150,
+			'bright',
+			[mainStatPercent('luk', 33)],
+			3.37496e-4,
+			2963
+		],
+		[
+			'accessory Lv150, 36%+ stat',
+			'accessory',
+			150,
+			'bright',
+			[mainStatPercent('luk', 36)],
+			1.078878e-5,
+			92689
+		],
+		[
+			'accessory Lv150, 30%+ stat',
+			'accessory',
+			150,
+			'bright',
+			[mainStatPercent('luk', 30)],
+			2.269247e-3,
+			441
+		],
+		[
+			'accessory Lv150, 33%+ stat, Glowing',
+			'accessory',
+			150,
+			'glowing',
+			[mainStatPercent('luk', 33)],
+			1.455176e-4,
+			6872
+		],
+		[
+			'accessory Lv200, 36%+ stat',
+			'accessory',
+			200,
+			'bright',
+			[mainStatPercent('luk', 36)],
+			3.37496e-4,
+			2963
+		],
+		[
+			'accessory Lv200, 39%+ stat',
+			'accessory',
+			200,
+			'bright',
+			[mainStatPercent('luk', 39)],
+			1.078878e-5,
+			92689
+		],
+		[
+			'weapon Lv150, 33%+ stat',
+			'weapon',
+			150,
+			'bright',
+			[mainStatPercent('luk', 33)],
+			2.84732e-4,
+			3512
+		],
+		[
+			'weapon Lv200, 39%+ stat',
+			'weapon',
+			200,
+			'bright',
+			[mainStatPercent('luk', 39)],
+			9.285811e-6,
+			107691
+		],
+		['weapon Lv200, 39%+ ATT', 'weapon', 200, 'bright', [attackPercent(39)], 1.160714e-6, 861538],
+		[
+			'weapon Lv200, 3 lines of boss',
+			'weapon',
+			200,
+			'bright',
+			[requireLines('boss', 3)],
+			9.163427e-4,
+			1091
+		],
+		[
+			'hat Lv200, 39%+ stat',
+			'hat',
+			200,
+			'bright',
+			[mainStatPercent('luk', 39)],
+			9.285811e-6,
+			107691
+		],
+		['hat Lv150, 33%+ stat', 'hat', 150, 'bright', [mainStatPercent('luk', 33)], 2.406749e-4, 4155],
+		[
+			'gloves Lv200, 3 lines of crit damage',
+			'gloves',
+			200,
+			'bright',
+			[requireLines('crit_dmg', 3)],
+			1.0e-5,
+			100000
+		]
+	];
+
+	for (const [name, group, itemLevel, cube, target, referenceP, referenceCubes] of cases) {
+		it(`matches the reference on the same pool data: ${name}`, () => {
+			const cost = cubeCost(
+				{ group, itemLevel, grade: 'legendary', cube, characterLevel: 285, poolVariant: 'kms' },
+				target
+			);
+			// Agreement to 5 significant figures on the probability itself.
+			expect(cost.probability / referenceP).toBeCloseTo(1, 4);
+			// And to within the reference UI's own integer rounding on the cube count.
+			expect(Math.abs(cost.expectedCubes - referenceCubes) / referenceCubes).toBeLessThan(0.003);
+		});
+	}
+
+	it('percentiles follow the same geometric shape as the reference', () => {
+		const cost = cubeCost(
+			{
+				group: 'accessory',
+				itemLevel: 150,
+				grade: 'legendary',
+				cube: 'bright',
+				poolVariant: 'kms'
+			},
+			[mainStatPercent('luk', 33)]
+		);
+		// Reference: median 2,053 · 75% 4,107 · 85% 5,620 · 95% 8,875.
+		// We ceil where the reference rounds ("how many cubes to be 50% sure" is a
+		// whole number of cubes), so ±1 is expected and is the only difference.
+		for (const [ours, reference] of [
+			[cost.medianCubes, 2053],
+			[cost.p75Cubes, 4107],
+			[cost.p85Cubes, 5620],
+			[cost.p95Cubes, 8875]
+		]) {
+			expect(Math.abs(ours - reference), `${ours} vs ${reference}`).toBeLessThanOrEqual(1);
+		}
+	});
+
+	it('the reference meso figure includes its per-cube reveal fee', () => {
+		// 2,963 × (22,000,000 + 20 × 150²) = 66,519,350,000 — the reference's number.
+		const cost = cubeCost(
+			{
+				group: 'accessory',
+				itemLevel: 150,
+				grade: 'legendary',
+				cube: 'bright',
+				poolVariant: 'kms'
+			},
+			[mainStatPercent('luk', 33)],
+			{ includeRevealCost: true }
+		);
+		expect(Math.round(cost.expectedCubes) * (22_000_000 + revealPotentialCost(150))).toBe(
+			66_519_350_000
+		);
+		expect(cost.expectedMesos! / 66_519_350_000).toBeCloseTo(1, 3);
+	});
+});
+
+describe('the GMS/KMS %DEF conflict, isolated', () => {
+	const target = [mainStatPercent('luk', 33)];
+	const at = (group: PotentialPoolGroup, poolVariant: 'gms' | 'kms'): RollContext => ({
+		group,
+		itemLevel: 150,
+		grade: 'legendary',
+		cube: 'bright',
+		poolVariant
+	});
+
+	it('costs GMS ~1.3x more than KMS on armour and accessories', () => {
+		for (const group of ['accessory', 'hat', 'gloves'] as const) {
+			const ratio =
+				cubeCost(at(group, 'gms'), target).expectedCubes /
+				cubeCost(at(group, 'kms'), target).expectedCubes;
+			expect(ratio, group).toBeGreaterThan(1.28);
+			expect(ratio, group).toBeLessThan(1.36);
+		}
+		expect(UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE.approxThreeLineCostFactor).toBeCloseTo(1.34, 2);
+	});
+
+	it('changes nothing at all on weapon-like slots', () => {
+		for (const group of ['weapon', 'secondary', 'emblem', 'shieldSoulRing'] as const) {
+			expect(cubeCost(at(group, 'gms'), target).probability, group).toBe(
+				cubeCost(at(group, 'kms'), target).probability
+			);
+		}
+	});
+
+	it('changes nothing at Rare or Epic, where the sources agree', () => {
+		for (const group of UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE.groups) {
+			for (const rank of ['belowRare', 'rare', 'epic'] as const) {
+				expect(linePool(group, rank, 'kms').length, `${group}/${rank}`).toBe(
+					linePool(group, rank, 'gms').length
+				);
+			}
+		}
+	});
+
+	it('the variant removes exactly one line, and only where documented', () => {
+		for (const group of UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE.groups) {
+			for (const rank of UNVERIFIED_HIGH_RANK_DEF_PERCENT_LINE.ranks) {
+				expect(linePool(group, rank, 'gms').length - linePool(group, rank, 'kms').length).toBe(1);
+			}
+		}
 	});
 });

@@ -241,5 +241,23 @@ floors) and labels DPM-based verdicts as `uncalibrated`.
 ## 12. Remaining open questions
 
 None blocking. Things I'll decide as they come up and flag if they turn out to matter:
-- Whether the Ren weapon constant in the research is current (marked UNVERIFIED if the source is thin).
-- Class DPM anchor values for the five priority classes — needs a pass over the 8.8-challenge charts.
+- ~~Whether the Ren weapon constant in the research is current.~~ **Settled 2026-09-06 by
+  measurement, not by sourcing.** The weapon constant does not cancel in the displayed-range
+  formula, so it can be solved against a real capture: Lutoren's in-game max range of 14,736,287
+  is reproduced by 1.30 to −0.002%, while 1.25 and 1.34 are off by 3.8% and 3.1%. This is the
+  general technique for any unsourced class constant — capture the stat window and solve.
+- Ren's mastery (90%) is still unproven: mastery only moves the range's LOWER bound and no
+  capture records `rangeMin`. Capture it to settle. It cancels in every upgrade comparison, so
+  nothing in the ranking depends on it.
+- Class DPM anchor values: done for the fitted classes via the KMS Practice Arena records
+  (`docs/research/dpm-anchors.md`), and the boss board labels them `speculative` on purpose.
+
+## 13. Known limitations worth remembering
+
+- **Combat Power reads high (31.4M computed vs 19.5M displayed on Lutoren).** Not a bug in the
+  formula: CP excludes skill-sourced stat, and a captured stat window is buffed, so the innate
+  contributions cannot be subtracted without per-class skill data. It is deliberately an upper
+  bound and is never used to rank. The *range* checksum (0.002%) is the one that validates inputs.
+- **Cube gains are upper estimates.** The lines a goal does not name are random in reality but are
+  modelled as keeping your current best. Every such row says so.
+- **Hat cooldown lines score zero** because the damage index models one hit with no rotation.

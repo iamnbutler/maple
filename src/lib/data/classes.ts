@@ -962,8 +962,15 @@ const CLASS_LIST: ClassDef[] = [
 		primary: ['str'], // §1.2 Warrior row (STR/DEX)
 		secondary: ['dex'],
 		usesMagicAttack: false,
+		// VERIFIED empirically, not from a table: the weapon constant does NOT cancel
+		// in the displayed-range formula, so solving it against Lutoren's real captured
+		// stat window (max 14,736,287 on 2026-09-06) pins it. 1.30 reproduces the
+		// capture to -0.002%; the nearest alternatives (1.25, 1.34) are off by 3.8%+.
 		weaponConstant: 1.3,
-		masteryPercent: 90 // UNVERIFIED — Ren postdates the §4.0 mastery table
+		// UNVERIFIED — Ren postdates the §4.0 mastery table. Mastery only moves the
+		// range's LOWER bound, and no capture records rangeMin yet, so it is unproven.
+		// Capture the min range to settle it. It cancels in every upgrade comparison.
+		masteryPercent: 90
 	},
 	{
 		id: 'hayato',

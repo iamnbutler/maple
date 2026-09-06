@@ -22,9 +22,10 @@ stopping points and a derived cost model to rank against.
   neither is silently picked.
 - §3.2b–§3.2d additionally carry figures produced by **executing brendonmay's published calculator
   engine** against its own rate data. They are reproducible but are not quotes from a page.
-- **Reddit is not a source here.** reddit.com, old.reddit.com, the JSON API and every mirror are
-  inaccessible from this environment (403/410). Community consensus below comes from long-form
-  guides, class-Discord documents, first-party patch notes and KMS class reviews instead. See §8.
+- **Reddit quotes are archive-sourced.** reddit.com and every mirror are 403/410 from this
+  environment; the r/Maplestory threads cited below were retrieved as full post+comment JSON from
+  the **Arctic Shift archive** (`arctic-shift.photon-reddit.com`). Permalinks and quotes are
+  verbatim from that archive, but the pages themselves were never rendered. See §8.
 - "Prime" = the top-tier line pool for a given potential rank. "Non-prime" = the pool one rank
   down, which fills the lines that did not roll prime.
   <https://maplestorywiki.net/w/Potential>
@@ -222,9 +223,88 @@ Translate to today's 151+ gear as **24% (3L Unique) → 33% (3L Legendary)**.
 
 ---
 
+### 1.5 The community's vocabulary — map these strings onto the arithmetic
+
+r/Maplestory names potential states with a fixed vocabulary, and it maps exactly onto the §1.4
+arithmetic. The tracker should use these words, because they are what a user will type.
+
+| Term | Means | lv 71–150 total | lv 151+ total |
+|---|---|---|---|
+| **2L** | two lines of the stat you want | 21% | 23% |
+| **"fake 3L"** | 3 lines, one of them **%All Stat** (always 3% less than a single-stat line) | **27%** | **30%** |
+| **"real 3L" / "true 3L"** | three genuine main-stat lines | **30%** | **33%** |
+| **"double prime" / "DP"** | two *prime* lines, e.g. 13/13/10 | 33% | 36% |
+| **"triple prime"** | 13/13/13 | 36% | 39% |
+
+Verbatim definitions:
+> *"Yeah fake lines typically include one or more All Stat % lines which are always 3% less than a
+> single stat % line. 12/9/9 and 13/10/10 are real 3L while 12/6% all/9 or 9% all/9/9 would be fake
+> 3L"* — <https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oabvt8g/>
+
+> *"'27%' is referred to as fake 3L. This is 2 mainstat 1 all stat line… the same bar is 30% on
+> equipment level 160+"* —
+> <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kctfjbx/> ·
+> *"true 3 line (30% and 33% for <200 or 200< gear respectively)"* —
+> <https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/kcs35r5/>
+
+> *"It means you rolled a 13 13 13 triple prime on a level 151 item"* —
+> <https://www.reddit.com/r/Maplestory/comments/1knrs2m/comparison_guide_for_how_much_starforcing_and/msm58db/>
+
+**Note the naming trap for cubes.** Players call the Glowing Cube both *"red"* and *"blue"*, and the
+Bright Cube both *"black"* and *"purple"*. The unambiguous discriminator in any thread is the price:
+**12M = Glowing, 22M = Bright**. Parse on the number, not the colour.
+<https://www.reddit.com/r/Maplestory/comments/18f6cmb/reboot_cubing_after_27/> ·
+<https://www.reddit.com/r/Maplestory/comments/1p929bk/most_optimal_cubing_guide/>
+
+---
+
 ## 2. The ladder — accepted order of operations
 
-### 2.1 The canonical community ladder
+### 2.1a The current community ladder (r/Maplestory, 2026)
+
+The clearest modern statement, from the top comment of a March 2026 cubing-strategy thread, is a
+**meso-efficiency order**, not a per-slot checklist:
+
+> *"in terms of meso efficiency, i believe it goes **2L wse > 2L stat > 3L usable (mix of boss/att,
+> best if 2L att 1 boss) weapon secondary > 2L crit damage > fake 3L**."*
+> — <https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oa6ffxr/>
+
+A second, fuller version in the same thread:
+
+> *"If there's an order to things, I would generally say **2L WSE → 2L equips → 3L usable WSE →
+> fake 3L/real 3L gear → 3L ideal on WSE → Real 3L on all gear**. After this is all up to the
+> individual."*
+> — <https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oa8b5os/>
+
+Three things to read out of this:
+
+1. **It is breadth-first, not depth-first.** WSE goes first but *only to 2L*; then every other slot
+   goes to 2L before anything is deepened. It is not "finish the weapon, then the armor".
+2. **2L crit-damage gloves outrank "fake 3L" armor.** Stated directly: *"make sure you go for 2L
+   crit glove before any fake 3L equipment attempts"*
+   (<https://www.reddit.com/r/Maplestory/comments/1rsf1rp/cubing_strategy/oa6slun/>).
+3. **"3L usable" on weapon/secondary means a mix**, ideally 2L ATT + 1 Boss — not 3L ATT.
+
+Corroborating that WSE leads: *"The biggest way to get a notable increase in CP is getting lines of
+attack on your secondary and emblem. This should be the first thing to focus on getting"*
+(<https://www.reddit.com/r/Maplestory/comments/1ljqc72/reboot_question_about_challenger_gear_and/>).
+An older Reboot guide's target table makes the same point structurally — Emblem at *Legendary 2L
+ATT*, Secondary at *Legendary 1 IED + Boss or ATT*, while bossing armor is deliberately left at
+*Epic 6% stat* (<https://www.reddit.com/r/Maplestory/comments/vncdyq/reboot_destiny_main_220235_ultimate_guide/>).
+
+**Cube-before-Star-Force is repeatedly reversed by the community.** The most common answer to
+"what should I cube next" is "don't — starforce instead":
+*"Honestly it would be best to save your mesos for 5/10/15… Once everything is 17★ and 18%+, you can
+definitely join a hard Lucid / Will party"*
+(<https://www.reddit.com/r/Maplestory/comments/13grpp1/cubing_order/jk1i0dm/>);
+*"the bonus attack will give you more damage per meso compared to cubing"*
+(<https://www.reddit.com/r/Maplestory/comments/13j9dsw/progression_of_starforce_and_cubing/jkdxxvi/>).
+The counterpoint applies only at the top of the ladder: *"I can assure you 3 lines is much much
+cheaper than going to 22★"*
+(<https://www.reddit.com/r/Maplestory/comments/1pbu9q4/gear_progression_after_sf_change/nrthy63/>).
+**The tracker should compare the two directly with `gainPct` per meso rather than assume either.**
+
+### 2.1b The historical ladder (2020 Reboot Guide)
 
 The most-cited GMS Reboot progression text (4phantom1 / Pocketstream, "Maplestory Reboot Guide")
 states the cost-efficiency order verbatim:
