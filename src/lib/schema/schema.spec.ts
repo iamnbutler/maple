@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	CharacterCreateSchema,
+	CharacterInputSchema,
 	CharacterSchema,
 	ItemSchema,
 	JSON_SCHEMAS,
@@ -144,6 +145,104 @@ describe('CharacterSchema', () => {
 		expect(CharacterSchema.safeParse({ ...validCharacter, serverType: 'heroic' }).success).toBe(
 			false
 		);
+	});
+});
+
+describe('CharacterSchema legion', () => {
+	const legion = (value: unknown) =>
+		CharacterSchema.safeParse({ ...validCharacter, legion: value });
+
+	it('accepts the whole structure', () => {
+		const parsed = CharacterSchema.parse({
+			...validCharacter,
+			legion: {
+				level: 9083,
+				members: [{ classId: 'hero', level: 270, name: 'Lutohammer' }],
+				board: { bossDamage: 40, criticalRate: 12 },
+				artifact: { level: 39, effects: { bossDamage: 10, mesosObtained: 9 } },
+				notes: 'Legendary III'
+			}
+		});
+		expect(parsed.legion?.members?.[0].classId).toBe('hero');
+		expect(parsed.legion?.board?.bossDamage).toBe(40);
+		expect(parsed.legion?.artifact?.effects?.mesosObtained).toBe(9);
+	});
+
+	it('keeps every field optional so a partial capture still validates', () => {
+		expect(legion({}).success).toBe(true);
+		expect(legion({ level: 9083 }).success).toBe(true);
+	});
+
+	it('rejects an unknown board area', () => {
+		// Guides list a "Stance" area that does not exist on the current board.
+		expect(legion({ board: { stance: 10 } }).success).toBe(false);
+		expect(legion({ board: { damage: 20 } }).success).toBe(false);
+	});
+
+	it('caps a board area at the 40 squares an area can hold', () => {
+		expect(legion({ board: { bossDamage: 40 } }).success).toBe(true);
+		expect(legion({ board: { bossDamage: 41 } }).success).toBe(false);
+		expect(legion({ board: { bossDamage: -1 } }).success).toBe(false);
+	});
+
+	it('caps artifact level at 60 and effect levels at 10', () => {
+		expect(legion({ artifact: { level: 60 } }).success).toBe(true);
+		expect(legion({ artifact: { level: 61 } }).success).toBe(false);
+		expect(legion({ artifact: { effects: { bossDamage: 10 } } }).success).toBe(true);
+		expect(legion({ artifact: { effects: { bossDamage: 11 } } }).success).toBe(false);
+	});
+
+	it('rejects a member level outside 1-300', () => {
+		expect(legion({ members: [{ classId: 'hero', level: 301 }] }).success).toBe(false);
+		expect(legion({ members: [{ classId: 'hero', level: 0 }] }).success).toBe(false);
+	});
+});
+
+describe('CharacterSchema links', () => {
+	it('stores links as id plus stacked level', () => {
+		const parsed = CharacterSchema.parse({
+			...validCharacter,
+			links: [
+				{ id: 'cygnus-blessing', level: 15 },
+				{ id: 'light-wash', level: 3 }
+			]
+		});
+		expect(parsed.links).toEqual([
+			{ id: 'cygnus-blessing', level: 15 },
+			{ id: 'light-wash', level: 3 }
+		]);
+	});
+
+	it('rejects a level above the highest faction cap', () => {
+		// Cygnus Blessing at 15 is the highest link level that exists.
+		expect(
+			CharacterSchema.safeParse({ ...validCharacter, links: [{ id: 'x', level: 16 }] }).success
+		).toBe(false);
+	});
+
+	it('does not accept the legacy string[] on the STORED schema', () => {
+		expect(
+			CharacterSchema.safeParse({ ...validCharacter, links: ['Cygnus Knights'] }).success
+		).toBe(false);
+	});
+
+	it('coerces the legacy string[] on the INPUT schema, at level 0', () => {
+		const parsed = CharacterInputSchema.parse({
+			...validCharacter,
+			links: ['Cygnus Knights', 'Kaiser']
+		});
+		expect(parsed.links).toEqual([
+			{ id: 'Cygnus Knights', level: 0 },
+			{ id: 'Kaiser', level: 0 }
+		]);
+	});
+
+	it('still accepts the structured form on the input schema', () => {
+		const parsed = CharacterInputSchema.parse({
+			...validCharacter,
+			links: [{ id: 'light-wash', level: 3 }]
+		});
+		expect(parsed.links).toEqual([{ id: 'light-wash', level: 3 }]);
 	});
 });
 

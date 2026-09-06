@@ -68,6 +68,110 @@ export const SymbolsSchema = z.strictObject({
 
 export type Symbols = z.infer<typeof SymbolsSchema>;
 
+/* -------------------------------------------------------------------------- */
+/* Legion                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The 16 Legion board areas — 8 inner, 8 outer. Mirrors
+ * `LegionAreaKey` in src/lib/data/legion.ts; kept spelled out here so the
+ * schema layer does not import the data layer.
+ */
+export const LEGION_AREA_KEYS = [
+	'str',
+	'dex',
+	'int',
+	'luk',
+	'maxHp',
+	'maxMp',
+	'att',
+	'matt',
+	'statusResistance',
+	'expObtained',
+	'criticalRate',
+	'bossDamage',
+	'normalDamage',
+	'buffDuration',
+	'ignoreDefense',
+	'criticalDamage'
+] as const;
+export const LegionAreaKeySchema = z.enum(LEGION_AREA_KEYS);
+export type LegionAreaKey = z.infer<typeof LegionAreaKeySchema>;
+
+/** One character placed on the Legion board. Its rank derives from its level. */
+export const LegionMemberSchema = z.strictObject({
+	/** Key into src/lib/data/classes.ts. */
+	classId: z.string().min(1),
+	level: z.number().int().min(1).max(300),
+	/** The mule's IGN, when it is worth recording which character this is. */
+	name: z.string().min(1).optional()
+});
+
+export type LegionMember = z.infer<typeof LegionMemberSchema>;
+
+/**
+ * Legion Artifact effect levels, 0–10 each. The effect KEYS are open because the
+ * per-level value table is still being sourced; validating the level range is
+ * the useful half.
+ */
+export const LegionArtifactSchema = z.strictObject({
+	/** Artifact Level, 1–60. */
+	level: z.number().int().min(0).max(60).optional(),
+	/** Effect id -> level 0–10. */
+	effects: z.record(z.string(), z.number().int().min(0).max(10)).optional()
+});
+
+export const LegionSchema = z.strictObject({
+	/** Total Legion Level — the sum of the top 42 eligible characters. */
+	level: z.number().int().min(0).optional(),
+	/** The placed attackers. Member effects dedupe by job, higher rank winning. */
+	members: z.array(LegionMemberSchema).optional(),
+	/** Squares filled per board area. Capped by board size at analysis time. */
+	board: z.partialRecord(LegionAreaKeySchema, z.number().int().min(0).max(40)).optional(),
+	artifact: LegionArtifactSchema.optional(),
+	notes: z.string().optional()
+});
+
+export type Legion = z.infer<typeof LegionSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Link skills                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One equipped link skill. `id` keys into `LINK_SKILLS` in
+ * src/lib/data/links.ts; `level` is the stacked faction level, not the level of
+ * any one contributing character.
+ */
+export const LinkSkillSchema = z.strictObject({
+	id: z.string().min(1),
+	level: z.number().int().min(0).max(15)
+});
+
+export type LinkSkill = z.infer<typeof LinkSkillSchema>;
+
+/**
+ * The stored shape of the `links` field. Deliberately free of transforms:
+ * `CharacterSchema` is published as JSON Schema from `GET /api/schema`, and
+ * `z.toJSONSchema` cannot represent one.
+ */
+export const LinksSchema = z.array(LinkSkillSchema);
+
+/**
+ * What a CLIENT may send for `links` — either the structured form or the legacy
+ * `string[]` of raw names, which is what the field used to be ("raw link-skill
+ * names; informational only").
+ *
+ * Coercing rather than versioning the file format is safe because no stored
+ * character ever set it — see docs/plans/2026-09-06-progression-systems.md §5.
+ * A legacy name is kept as an id at level 0, which reads as "known but
+ * unquantified" and so contributes to nothing until someone supplies a level.
+ */
+export const LinksInputSchema = z.union([
+	LinksSchema,
+	z.array(z.string()).transform((names) => names.map((id) => ({ id, level: 0 })))
+]);
+
 /**
  * The character document. `createdAt` / `updatedAt` are maintained by the
  * store, not by clients — use {@link CharacterInputSchema} to validate a
@@ -89,16 +193,11 @@ export const CharacterSchema = z
 		symbols: SymbolsSchema.optional(),
 		/** Hyper stat levels, 0–15. */
 		hyperStats: z.partialRecord(HyperStatKeySchema, z.number().int().min(0).max(15)).optional(),
-		legion: z
-			.strictObject({
-				level: z.number().int().min(0).optional(),
-				notes: z.string().optional()
-			})
-			.optional(),
+		legion: LegionSchema.optional(),
 		/** Raw inner-ability lines. */
 		innerAbility: z.array(z.string()).optional(),
-		/** Raw link-skill names; informational only. */
-		links: z.array(z.string()).optional(),
+		/** Equipped link skills, at their stacked level. Accepts a legacy `string[]`. */
+		links: LinksSchema.optional(),
 		notes: z.string().optional(),
 
 		createdAt: IsoTimestampSchema,
@@ -115,7 +214,9 @@ export type Character = z.infer<typeof CharacterSchema>;
  */
 export const CharacterInputSchema = CharacterSchema.extend({
 	createdAt: IsoTimestampSchema.optional(),
-	updatedAt: IsoTimestampSchema.optional()
+	updatedAt: IsoTimestampSchema.optional(),
+	/** Also accepts the legacy `string[]` of raw names — see {@link LinksInputSchema}. */
+	links: LinksInputSchema.optional()
 });
 
 export type CharacterInput = z.infer<typeof CharacterInputSchema>;

@@ -303,9 +303,39 @@ export const DEMO_CHARACTER: Character = {
 		attMatt: 6,
 		criticalRate: 5
 	},
-	legion: { level: 8420, notes: 'Rank S, 8420 legion level' },
+	legion: {
+		level: 8420,
+		members: [
+			{ classId: 'hero', level: 260 },
+			{ classId: 'paladin', level: 210 },
+			{ classId: 'dark-knight', level: 210 },
+			{ classId: 'dawn-warrior', level: 210 },
+			{ classId: 'blaze-wizard', level: 200 },
+			{ classId: 'wind-archer', level: 200 },
+			{ classId: 'night-walker', level: 200 },
+			{ classId: 'thunder-breaker', level: 200 },
+			{ classId: 'kaiser', level: 210 },
+			{ classId: 'phantom', level: 210 },
+			{ classId: 'demon-avenger', level: 210 },
+			{ classId: 'shade', level: 200 },
+			{ classId: 'hayato', level: 200 },
+			{ classId: 'blaster', level: 200 }
+		],
+		// Legendary I board: 40 outer squares per area available.
+		board: { bossDamage: 40, ignoreDefense: 40, criticalDamage: 40, criticalRate: 22 },
+		artifact: {
+			level: 42,
+			effects: { bossDamage: 10, ignoreDefense: 10, criticalDamage: 10, buffDuration: 9 }
+		},
+		notes: 'Legendary Legion I, 8420 legion level'
+	},
 	innerAbility: ['Boss Damage: +20%', 'ATT: +21', 'Critical Rate: +14%'],
-	links: ['Cygnus Knights', 'Kaiser', 'Phantom', 'Demon Avenger'],
+	links: [
+		{ id: 'cygnus-blessing', level: 15 },
+		{ id: 'iron-will', level: 3 },
+		{ id: 'phantom-instinct', level: 3 },
+		{ id: 'wild-rage', level: 3 }
+	],
 	notes: 'Fixture character — not real data.',
 	createdAt: '2026-06-01T00:00:00.000Z',
 	updatedAt: AT
