@@ -42,12 +42,12 @@
 				body: JSON.stringify({ name, classId, level, world })
 			});
 			const payload = (await res.json().catch(() => null)) as {
-				id?: string;
+				character?: { id?: string };
 				error?: string;
 				issues?: { path?: string; message?: string }[];
 			} | null;
 
-			if (!res.ok || !payload?.id) {
+			if (!res.ok || !payload?.character?.id) {
 				error = payload?.error ?? `HTTP ${res.status}`;
 				issues = payload?.issues ?? [];
 				return;
@@ -55,7 +55,7 @@
 
 			name = '';
 			await invalidateAll();
-			await goto(`/c/${payload.id}`);
+			await goto(`/c/${payload.character.id}`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
